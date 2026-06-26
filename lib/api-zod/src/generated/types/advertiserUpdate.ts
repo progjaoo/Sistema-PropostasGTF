@@ -11,6 +11,7 @@ export interface AdvertiserUpdate {
   legalName?: string;
   cnpj?: string;
   logoBase64?: string;
+  segment?: string;
   contactName?: string;
   contactPhone?: string;
   contactEmail?: string;

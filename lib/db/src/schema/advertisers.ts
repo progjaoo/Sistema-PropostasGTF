@@ -11,6 +11,7 @@ export const advertisersTable = pgTable("advertisers", {
   contactName: text("contact_name"),
   contactPhone: text("contact_phone"),
   contactEmail: text("contact_email"),
+  segment: text("segment"),
   notes: text("notes"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

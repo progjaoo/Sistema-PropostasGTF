@@ -26,7 +26,7 @@ export default function AdminStation() {
     query: { queryKey: getListStationsQueryKey() }
   });
 
-  const station = stations?.[0]; // Assuming single station setup
+  const station = stations?.[0];
 
   const createMutation = useCreateStation();
   const updateMutation = useUpdateStation();
@@ -58,7 +58,7 @@ export default function AdminStation() {
         await createMutation.mutateAsync({ data: values });
         toast.success('Emissora cadastrada com sucesso');
       }
-      queryClient.invalidateQueries({ queryKey: [getListStationsQueryKey()[0]] });
+      queryClient.invalidateQueries({ queryKey: getListStationsQueryKey() });
     } catch (e) {
       toast.error('Erro ao salvar emissora');
     }
@@ -90,39 +90,44 @@ export default function AdminStation() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Radio className="w-5 h-5 text-primary" /> Dados Principais</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Radio className="w-5 h-5 text-primary" /> Dados Principais
+          </CardTitle>
           <CardDescription>Informações que aparecerão no cabeçalho das propostas PDF</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              
+
               <div className="flex flex-col sm:flex-row gap-6 items-start">
+                {/* Logo upload — not inside FormField intentionally, manages its own state */}
                 <div className="w-full sm:w-1/3">
-                  <FormLabel className="mb-2 block">Logo da Emissora</FormLabel>
+                  <p className="text-sm font-medium mb-2 leading-none">Logo da Emissora</p>
                   <div className="border-2 border-dashed border-border/60 rounded-xl p-4 flex flex-col items-center justify-center relative bg-muted/30 aspect-square">
                     {logoPreview ? (
                       <div className="relative w-full h-full flex items-center justify-center">
                         <img src={logoPreview} alt="Preview" className="max-w-full max-h-full object-contain" />
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-lg">
-                          <Button type="button" variant="secondary" size="sm" className="relative cursor-pointer">
-                            Alterar Logo
-                            <input 
-                              type="file" 
-                              className="absolute inset-0 opacity-0 cursor-pointer" 
+                          <div className="relative">
+                            <Button type="button" variant="secondary" size="sm">
+                              Alterar Logo
+                            </Button>
+                            <input
+                              type="file"
+                              className="absolute inset-0 opacity-0 cursor-pointer"
                               accept="image/*"
                               onChange={handleImageUpload}
                             />
-                          </Button>
+                          </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center relative">
+                      <div className="text-center relative cursor-pointer">
                         <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
                         <span className="text-sm font-medium text-muted-foreground">Fazer upload</span>
-                        <input 
-                          type="file" 
-                          className="absolute inset-0 opacity-0 cursor-pointer" 
+                        <input
+                          type="file"
+                          className="absolute inset-0 opacity-0 cursor-pointer"
                           accept="image/*"
                           onChange={handleImageUpload}
                         />
@@ -131,28 +136,28 @@ export default function AdminStation() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-2 text-center">Recomendado: PNG com fundo transparente</p>
                 </div>
-                
+
                 <div className="flex-1 space-y-4 w-full">
-                  <FormField control={form.control} name="name" render={({field}) => (
+                  <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Nome da Emissora *</FormLabel>
-                      <FormControl><Input placeholder="Ex: Radio 88 FM" {...field}/></FormControl>
-                      <FormMessage/>
+                      <FormControl><Input placeholder="Ex: Radio 88 FM" {...field} /></FormControl>
+                      <FormMessage />
                     </FormItem>
-                  )}/>
-                  <FormField control={form.control} name="slogan" render={({field}) => (
+                  )} />
+                  <FormField control={form.control} name="slogan" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Slogan</FormLabel>
-                      <FormControl><Input placeholder="Ex: A rádio que toca você" {...field}/></FormControl>
-                      <FormMessage/>
+                      <FormControl><Input placeholder="Ex: A rádio que toca você" {...field} /></FormControl>
+                      <FormMessage />
                     </FormItem>
-                  )}/>
+                  )} />
                 </div>
               </div>
 
               <div className="flex justify-end pt-4">
                 <Button type="submit" disabled={updateMutation.isPending || createMutation.isPending}>
-                  <Save className="w-4 h-4 mr-2" /> 
+                  <Save className="w-4 h-4 mr-2" />
                   {(updateMutation.isPending || createMutation.isPending) ? 'Salvando...' : 'Salvar Configurações'}
                 </Button>
               </div>

@@ -106,6 +106,8 @@ export interface Advertiser {
   /** @nullable */
   logoBase64?: string | null;
   /** @nullable */
+  segment?: string | null;
+  /** @nullable */
   contactName?: string | null;
   /** @nullable */
   contactPhone?: string | null;
@@ -122,6 +124,7 @@ export interface AdvertiserInput {
   legalName?: string;
   cnpj?: string;
   logoBase64?: string;
+  segment?: string;
   contactName?: string;
   contactPhone?: string;
   contactEmail?: string;
@@ -133,6 +136,7 @@ export interface AdvertiserUpdate {
   legalName?: string;
   cnpj?: string;
   logoBase64?: string;
+  segment?: string;
   contactName?: string;
   contactPhone?: string;
   contactEmail?: string;

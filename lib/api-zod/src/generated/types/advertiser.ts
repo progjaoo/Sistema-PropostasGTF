@@ -16,6 +16,8 @@ export interface Advertiser {
   /** @nullable */
   logoBase64?: string | null;
   /** @nullable */
+  segment?: string | null;
+  /** @nullable */
   contactName?: string | null;
   /** @nullable */
   contactPhone?: string | null;

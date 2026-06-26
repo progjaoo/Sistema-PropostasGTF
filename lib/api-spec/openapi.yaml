@@ -1108,6 +1108,8 @@ components:
           type: ["string", "null"]
         logoBase64:
           type: ["string", "null"]
+        segment:
+          type: ["string", "null"]
         contactName:
           type: ["string", "null"]
         contactPhone:
@@ -1133,6 +1135,8 @@ components:
           type: string
         logoBase64:
           type: string
+        segment:
+          type: string
         contactName:
           type: string
         contactPhone:
@@ -1152,6 +1156,8 @@ components:
         cnpj:
           type: string
         logoBase64:
+          type: string
+        segment:
           type: string
         contactName:
           type: string
