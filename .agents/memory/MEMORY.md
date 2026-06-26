@@ -1,0 +1,3 @@
+- [API client deep imports](deep-imports.md) — never use deep paths like `@workspace/api-client-react/src/...`; always import from the package root.
+- [Seed script pattern](seed-script.md) — seed lives in `scripts/src/seed.ts`; uses `onConflictDoNothing()` for safe re-runs; bcryptjs salt=12.
+- [Auth architecture](auth-arch.md) — JWT 15min access token in Zustand sessionStorage; 7d refresh token in httpOnly cookie; cookie-parser required on Express.

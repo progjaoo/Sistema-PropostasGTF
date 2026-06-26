@@ -1,36 +1,61 @@
-# [Project name]
+# Sistema de Propostas Comerciais — Rádio 88 FM
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A commercial proposals management system for radio station sales teams. Create, edit, and track proposals with A4 PDF preview, category-based templates, and role-based access.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/proposta run dev` — run the frontend (port 21709)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/scripts run seed` — seed the database with initial data
 - Required env: `DATABASE_URL` — Postgres connection string
+
+## Default Credentials
+
+- Admin: `admin@radio88fm.com.br` / `Admin@123`
+- Comercial: `carlos@radio88fm.com.br` / `Comercial@123`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite + Wouter + Zustand + TanStack Query
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
+- Validation: Zod (zod/v4), drizzle-zod
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — source of truth for all API contracts
+- `lib/db/src/schema/` — Drizzle ORM schema (users, stations, advertisers, products, categories, templates, proposals)
+- `lib/api-client-react/src/` — generated React Query hooks (do not edit directly; run codegen)
+- `lib/api-zod/src/` — generated Zod schemas (do not edit directly; run codegen)
+- `artifacts/api-server/src/routes/` — all Express route handlers
+- `artifacts/proposta/src/pages/` — all frontend pages
+- `artifacts/proposta/src/components/` — shared UI components including ProposalPreview (A4 renderer)
+- `artifacts/proposta/src/store/auth.ts` — Zustand auth store (persisted to sessionStorage)
+- `scripts/src/seed.ts` — database seed script
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Contract-first API: OpenAPI spec → Orval codegen → typed hooks and Zod validators
+- JWT auth: 15min access token (in-memory via Zustand) + 7d refresh token (httpOnly cookie)
+- All API routes under `/api` prefix, frontend served at `/`
+- Proposal products and stats stored as JSON/arrays in the proposals table for flexible editing
+- Version snapshots saved on every proposal update (max 50 per proposal, oldest pruned)
+- DB enums: userRoleEnum (ADMIN/COMERCIAL), productColorEnum (BLUE/YELLOW/RED/GREEN/DARK), proposalStatusEnum (DRAFT/SENT/APPROVED/REJECTED/ARCHIVED)
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Dashboard**: Stats overview + recent proposals + Nova Proposta CTA
+- **Proposal editor**: Split-panel with live A4 preview, auto-save (2s debounce + 30s interval), PDF export via window.print()
+- **Category system**: Proposals organized by category (Veicular, Varejo, Saúde, Alimentação, Construção, Serviços) with templates
+- **Advertiser management**: CRUD with logo upload (base64)
+- **Admin panel**: Users, station settings, product templates, proposal categories, proposal templates
 
 ## User preferences
 
@@ -38,8 +63,12 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run `pnpm --filter @workspace/api-spec run codegen` after any OpenAPI spec change before editing routes or frontend
+- Deep imports from `@workspace/api-client-react/src/...` are NOT supported — always import from `@workspace/api-client-react` (the main export)
+- Run `pnpm --filter @workspace/db run push` after any schema change in `lib/db/src/schema/`
+- The `build` script in artifact packages requires `PORT` and `BASE_PATH` env vars — use `typecheck` instead for CI-style checks
 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- OpenAPI spec: `lib/api-spec/openapi.yaml`

@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Sistema de Gerenciamento e Criação de Propostas Comerciais
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: stations
+    description: Radio stations
+  - name: advertisers
+    description: Advertisers
+  - name: productTemplates
+    description: Product templates
+  - name: proposalCategories
+    description: Proposal categories
+  - name: proposalTemplates
+    description: Proposal templates
+  - name: proposals
+    description: Proposals
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,7 +40,929 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── AUTH ───────────────────────────────────────────────────────────────────
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [auth]
+      summary: Renew access token via refresh token
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Invalidate refresh token
+      responses:
+        "204":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get authenticated user data
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # ─── USERS ──────────────────────────────────────────────────────────────────
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users (Admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Edit user (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Deactivate user (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}/reset-password:
+    post:
+      operationId: resetUserPassword
+      tags: [users]
+      summary: Admin resets a user password
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── STATIONS ───────────────────────────────────────────────────────────────
+
+  /stations:
+    get:
+      operationId: listStations
+      tags: [stations]
+      summary: List stations (Admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of stations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Station"
+    post:
+      operationId: createStation
+      tags: [stations]
+      summary: Create station (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StationInput"
+      responses:
+        "201":
+          description: Station created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Station"
+
+  /stations/{id}:
+    patch:
+      operationId: updateStation
+      tags: [stations]
+      summary: Update station (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StationUpdate"
+      responses:
+        "200":
+          description: Station updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Station"
+
+  # ─── ADVERTISERS ────────────────────────────────────────────────────────────
+
+  /advertisers:
+    get:
+      operationId: listAdvertisers
+      tags: [advertisers]
+      summary: List advertisers with search/filter
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of advertisers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Advertiser"
+    post:
+      operationId: createAdvertiser
+      tags: [advertisers]
+      summary: Create advertiser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdvertiserInput"
+      responses:
+        "201":
+          description: Advertiser created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Advertiser"
+
+  /advertisers/{id}:
+    get:
+      operationId: getAdvertiser
+      tags: [advertisers]
+      summary: Get advertiser detail
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Advertiser detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Advertiser"
+    patch:
+      operationId: updateAdvertiser
+      tags: [advertisers]
+      summary: Update advertiser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdvertiserUpdate"
+      responses:
+        "200":
+          description: Advertiser updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Advertiser"
+    delete:
+      operationId: deleteAdvertiser
+      tags: [advertisers]
+      summary: Deactivate advertiser (soft delete)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Advertiser deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Advertiser"
+
+  # ─── PRODUCT TEMPLATES ───────────────────────────────────────────────────────
+
+  /product-templates:
+    get:
+      operationId: listProductTemplates
+      tags: [productTemplates]
+      summary: List product templates
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of product templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductTemplate"
+    post:
+      operationId: createProductTemplate
+      tags: [productTemplates]
+      summary: Create product template (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductTemplateInput"
+      responses:
+        "201":
+          description: Product template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductTemplate"
+
+  /product-templates/{id}:
+    patch:
+      operationId: updateProductTemplate
+      tags: [productTemplates]
+      summary: Update product template (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductTemplateUpdate"
+      responses:
+        "200":
+          description: Product template updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductTemplate"
+    delete:
+      operationId: deleteProductTemplate
+      tags: [productTemplates]
+      summary: Remove product template (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product template deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── PROPOSAL CATEGORIES ────────────────────────────────────────────────────
+
+  /proposal-categories:
+    get:
+      operationId: listProposalCategories
+      tags: [proposalCategories]
+      summary: List proposal categories
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProposalCategory"
+    post:
+      operationId: createProposalCategory
+      tags: [proposalCategories]
+      summary: Create proposal category (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalCategoryInput"
+      responses:
+        "201":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalCategory"
+
+  /proposal-categories/{id}:
+    patch:
+      operationId: updateProposalCategory
+      tags: [proposalCategories]
+      summary: Update proposal category (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalCategoryUpdate"
+      responses:
+        "200":
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalCategory"
+    delete:
+      operationId: deleteProposalCategory
+      tags: [proposalCategories]
+      summary: Remove proposal category (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Category deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── PROPOSAL TEMPLATES ─────────────────────────────────────────────────────
+
+  /proposal-templates:
+    get:
+      operationId: listProposalTemplates
+      tags: [proposalTemplates]
+      summary: List proposal templates (with optional categoryId filter)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of proposal templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProposalTemplate"
+    post:
+      operationId: createProposalTemplate
+      tags: [proposalTemplates]
+      summary: Create proposal template (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalTemplateInput"
+      responses:
+        "201":
+          description: Proposal template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalTemplate"
+
+  /proposal-templates/{id}:
+    get:
+      operationId: getProposalTemplate
+      tags: [proposalTemplates]
+      summary: Get proposal template detail (with products)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proposal template detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalTemplate"
+    patch:
+      operationId: updateProposalTemplate
+      tags: [proposalTemplates]
+      summary: Update proposal template (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalTemplateUpdate"
+      responses:
+        "200":
+          description: Proposal template updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalTemplate"
+    delete:
+      operationId: deleteProposalTemplate
+      tags: [proposalTemplates]
+      summary: Remove proposal template (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proposal template deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /proposal-templates/{id}/use:
+    post:
+      operationId: useProposalTemplate
+      tags: [proposalTemplates]
+      summary: Create a proposal from this template
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Proposal created from template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  # ─── PROPOSALS ──────────────────────────────────────────────────────────────
+
+  /proposals:
+    get:
+      operationId: listProposals
+      tags: [proposals]
+      summary: List proposals (own for COMERCIAL, all for ADMIN) with pagination and filters
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: advertiserId
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated proposals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalListResponse"
+    post:
+      operationId: createProposal
+      tags: [proposals]
+      summary: Create a new proposal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalInput"
+      responses:
+        "201":
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  /proposals/{id}:
+    get:
+      operationId: getProposal
+      tags: [proposals]
+      summary: Get proposal full detail
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proposal detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+    patch:
+      operationId: updateProposal
+      tags: [proposals]
+      summary: Save proposal changes (auto-creates version)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalUpdate"
+      responses:
+        "200":
+          description: Proposal updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+    delete:
+      operationId: deleteProposal
+      tags: [proposals]
+      summary: Archive/delete proposal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proposal archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /proposals/{id}/status:
+    patch:
+      operationId: updateProposalStatus
+      tags: [proposals]
+      summary: Change proposal status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalStatusUpdate"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  /proposals/{id}/duplicate:
+    post:
+      operationId: duplicateProposal
+      tags: [proposals]
+      summary: Duplicate a proposal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Proposal duplicated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  /proposals/{id}/versions:
+    get:
+      operationId: listProposalVersions
+      tags: [proposals]
+      summary: List proposal version history
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProposalVersion"
+
+  /proposals/{id}/versions/{versionId}:
+    get:
+      operationId: getProposalVersion
+      tags: [proposals]
+      summary: Get a specific version snapshot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Version snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalVersion"
+
+  # ─── DASHBOARD ──────────────────────────────────────────────────────────────
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [proposals]
+      summary: Dashboard summary stats
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/recent-proposals:
+    get:
+      operationId: getRecentProposals
+      tags: [proposals]
+      summary: Get the 5 most recent proposals for the current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Recent proposals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProposalSummary"
+
+  /dashboard/template-usage:
+    get:
+      operationId: getTemplateUsage
+      tags: [proposalTemplates]
+      summary: Top templates by usage (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Template usage stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemplateUsageStat"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +972,813 @@ components:
       required:
         - status
 
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    # ─── AUTH ─────────────────────────────────────────────────────────────────
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [accessToken, user]
+      properties:
+        accessToken:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    # ─── USERS ────────────────────────────────────────────────────────────────
+
+    User:
+      type: object
+      required: [id, name, email, role, active, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, COMERCIAL]
+        active:
+          type: boolean
+        createdAt:
+          type: string
+
+    UserInput:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, COMERCIAL]
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, COMERCIAL]
+        active:
+          type: boolean
+
+    ResetPasswordInput:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword:
+          type: string
+
+    # ─── STATIONS ─────────────────────────────────────────────────────────────
+
+    Station:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slogan:
+          type: ["string", "null"]
+        logoBase64:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    StationInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        slogan:
+          type: string
+        logoBase64:
+          type: string
+
+    StationUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        slogan:
+          type: string
+        logoBase64:
+          type: string
+
+    # ─── ADVERTISERS ──────────────────────────────────────────────────────────
+
+    Advertiser:
+      type: object
+      required: [id, tradeName, active, createdAt]
+      properties:
+        id:
+          type: string
+        tradeName:
+          type: string
+        legalName:
+          type: ["string", "null"]
+        cnpj:
+          type: ["string", "null"]
+        logoBase64:
+          type: ["string", "null"]
+        contactName:
+          type: ["string", "null"]
+        contactPhone:
+          type: ["string", "null"]
+        contactEmail:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        createdAt:
+          type: string
+
+    AdvertiserInput:
+      type: object
+      required: [tradeName]
+      properties:
+        tradeName:
+          type: string
+        legalName:
+          type: string
+        cnpj:
+          type: string
+        logoBase64:
+          type: string
+        contactName:
+          type: string
+        contactPhone:
+          type: string
+        contactEmail:
+          type: string
+        notes:
+          type: string
+
+    AdvertiserUpdate:
+      type: object
+      properties:
+        tradeName:
+          type: string
+        legalName:
+          type: string
+        cnpj:
+          type: string
+        logoBase64:
+          type: string
+        contactName:
+          type: string
+        contactPhone:
+          type: string
+        contactEmail:
+          type: string
+        notes:
+          type: string
+        active:
+          type: boolean
+
+    # ─── PRODUCT TEMPLATES ────────────────────────────────────────────────────
+
+    ProductTemplate:
+      type: object
+      required: [id, stationId, name, qty, title, color, createdAt]
+      properties:
+        id:
+          type: string
+        stationId:
+          type: string
+        name:
+          type: string
+        qty:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        detail:
+          type: ["string", "null"]
+        program:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+          enum: [BLUE, YELLOW, RED, GREEN, DARK]
+        createdAt:
+          type: string
+
+    ProductTemplateInput:
+      type: object
+      required: [name, title]
+      properties:
+        name:
+          type: string
+        qty:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        detail:
+          type: string
+        program:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+          enum: [BLUE, YELLOW, RED, GREEN, DARK]
+
+    ProductTemplateUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        qty:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        detail:
+          type: string
+        program:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+          enum: [BLUE, YELLOW, RED, GREEN, DARK]
+
+    # ─── PROPOSAL CATEGORIES ──────────────────────────────────────────────────
+
+    ProposalCategory:
+      type: object
+      required: [id, name, slug, active, order, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: ["string", "null"]
+        icon:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        order:
+          type: integer
+        createdAt:
+          type: string
+        templateCount:
+          type: integer
+
+    ProposalCategoryInput:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        active:
+          type: boolean
+        order:
+          type: integer
+
+    ProposalCategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        active:
+          type: boolean
+        order:
+          type: integer
+
+    # ─── PROPOSAL TEMPLATES ───────────────────────────────────────────────────
+
+    ProposalTemplateProduct:
+      type: object
+      required: [id, order, qty, title, color]
+      properties:
+        id:
+          type: string
+        order:
+          type: integer
+        qty:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        detail:
+          type: ["string", "null"]
+        program:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+          enum: [BLUE, YELLOW, RED, GREEN, DARK]
+
+    ProposalTemplate:
+      type: object
+      required: [id, stationId, categoryId, name, active, propType, overlayOpacity, stats, createdAt]
+      properties:
+        id:
+          type: string
+        stationId:
+          type: string
+        categoryId:
+          type: string
+        category:
+          $ref: "#/components/schemas/ProposalCategory"
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        propType:
+          type: string
+        campTag:
+          type: ["string", "null"]
+        periodDesc:
+          type: ["string", "null"]
+        investDesc:
+          type: ["string", "null"]
+        stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBlock"
+        overlayOpacity:
+          type: integer
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProposalTemplateProduct"
+        createdAt:
+          type: string
+        usageCount:
+          type: integer
+
+    ProposalTemplateInput:
+      type: object
+      required: [categoryId, name, propType]
+      properties:
+        categoryId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        active:
+          type: boolean
+        propType:
+          type: string
+        campTag:
+          type: string
+        periodDesc:
+          type: string
+        investDesc:
+          type: string
+        stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBlock"
+        overlayOpacity:
+          type: integer
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProposalTemplateProductInput"
+
+    ProposalTemplateUpdate:
+      type: object
+      properties:
+        categoryId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        active:
+          type: boolean
+        propType:
+          type: string
+        campTag:
+          type: string
+        periodDesc:
+          type: string
+        investDesc:
+          type: string
+        stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBlock"
+        overlayOpacity:
+          type: integer
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProposalTemplateProductInput"
+
+    ProposalTemplateProductInput:
+      type: object
+      required: [title]
+      properties:
+        order:
+          type: integer
+        qty:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        detail:
+          type: string
+        program:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+          enum: [BLUE, YELLOW, RED, GREEN, DARK]
+
+    # ─── PROPOSALS ────────────────────────────────────────────────────────────
+
+    StatBlock:
+      type: object
+      required: [num, suf, desc]
+      properties:
+        num:
+          type: string
+        suf:
+          type: string
+        desc:
+          type: string
+
+    ProposalProduct:
+      type: object
+      required: [id, order, qty, title, color]
+      properties:
+        id:
+          type: string
+        order:
+          type: integer
+        qty:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        detail:
+          type: ["string", "null"]
+        program:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+          enum: [BLUE, YELLOW, RED, GREEN, DARK]
+
+    Proposal:
+      type: object
+      required: [id, stationId, createdById, status, propType, propMonth, propYear, stats, overlayOpacity, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        stationId:
+          type: string
+        station:
+          $ref: "#/components/schemas/Station"
+        advertiserId:
+          type: ["string", "null"]
+        advertiser:
+          $ref: "#/components/schemas/Advertiser"
+        createdById:
+          type: string
+        createdBy:
+          $ref: "#/components/schemas/User"
+        status:
+          type: string
+          enum: [DRAFT, SENT, APPROVED, REJECTED, ARCHIVED]
+        fromTemplateId:
+          type: ["string", "null"]
+        fromTemplateName:
+          type: ["string", "null"]
+        propType:
+          type: string
+        propMonth:
+          type: string
+        propYear:
+          type: string
+        campTag:
+          type: ["string", "null"]
+        clientLine1:
+          type: ["string", "null"]
+        clientLine2:
+          type: ["string", "null"]
+        dateStart:
+          type: ["string", "null"]
+        dateEnd:
+          type: ["string", "null"]
+        periodDesc:
+          type: ["string", "null"]
+        bannerBase64:
+          type: ["string", "null"]
+        overlayOpacity:
+          type: integer
+        stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBlock"
+        investDesc:
+          type: ["string", "null"]
+        investValue:
+          type: ["string", "null"]
+        contactName:
+          type: ["string", "null"]
+        contactRole:
+          type: ["string", "null"]
+        contactPhone:
+          type: ["string", "null"]
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProposalProduct"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    ProposalSummary:
+      type: object
+      required: [id, status, propType, propMonth, propYear, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, SENT, APPROVED, REJECTED, ARCHIVED]
+        propType:
+          type: string
+        propMonth:
+          type: string
+        propYear:
+          type: string
+        campTag:
+          type: ["string", "null"]
+        clientLine1:
+          type: ["string", "null"]
+        advertiserName:
+          type: ["string", "null"]
+        fromTemplateName:
+          type: ["string", "null"]
+        createdByName:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    ProposalListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProposalSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ProposalInput:
+      type: object
+      required: [propType, propMonth, propYear]
+      properties:
+        stationId:
+          type: string
+        advertiserId:
+          type: string
+        propType:
+          type: string
+        propMonth:
+          type: string
+        propYear:
+          type: string
+        campTag:
+          type: string
+        clientLine1:
+          type: string
+        clientLine2:
+          type: string
+        dateStart:
+          type: string
+        dateEnd:
+          type: string
+        periodDesc:
+          type: string
+        bannerBase64:
+          type: string
+        overlayOpacity:
+          type: integer
+        stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBlock"
+        investDesc:
+          type: string
+        investValue:
+          type: string
+        contactName:
+          type: string
+        contactRole:
+          type: string
+        contactPhone:
+          type: string
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProposalProductInput"
+
+    ProposalUpdate:
+      type: object
+      properties:
+        advertiserId:
+          type: string
+        propType:
+          type: string
+        propMonth:
+          type: string
+        propYear:
+          type: string
+        campTag:
+          type: string
+        clientLine1:
+          type: string
+        clientLine2:
+          type: string
+        dateStart:
+          type: string
+        dateEnd:
+          type: string
+        periodDesc:
+          type: string
+        bannerBase64:
+          type: string
+        overlayOpacity:
+          type: integer
+        stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBlock"
+        investDesc:
+          type: string
+        investValue:
+          type: string
+        contactName:
+          type: string
+        contactRole:
+          type: string
+        contactPhone:
+          type: string
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProposalProductInput"
+
+    ProposalProductInput:
+      type: object
+      required: [title]
+      properties:
+        order:
+          type: integer
+        qty:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        detail:
+          type: string
+        program:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+          enum: [BLUE, YELLOW, RED, GREEN, DARK]
+
+    ProposalStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [DRAFT, SENT, APPROVED, REJECTED, ARCHIVED]
+
+    ProposalVersion:
+      type: object
+      required: [id, proposalId, createdAt]
+      properties:
+        id:
+          type: string
+        proposalId:
+          type: string
+        snapshot:
+          type: object
+        createdAt:
+          type: string
+        createdById:
+          type: ["string", "null"]
+
+    # ─── DASHBOARD ────────────────────────────────────────────────────────────
+
+    DashboardStats:
+      type: object
+      required: [total, draft, sent, approved, rejected, archived]
+      properties:
+        total:
+          type: integer
+        draft:
+          type: integer
+        sent:
+          type: integer
+        approved:
+          type: integer
+        rejected:
+          type: integer
+        archived:
+          type: integer
+
+    TemplateUsageStat:
+      type: object
+      required: [templateId, templateName, categoryName, usageCount]
+      properties:
+        templateId:
+          type: string
+        templateName:
+          type: string
+        categoryName:
+          type: string
+        usageCount:
+          type: integer
