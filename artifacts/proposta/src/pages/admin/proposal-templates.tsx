@@ -36,9 +36,7 @@ export default function AdminProposalTemplates() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const { data: templates, isLoading } = useListProposalTemplates({
-    query: { queryKey: getListProposalTemplatesQueryKey() }
-  });
+  const { data: templates, isLoading } = useListProposalTemplates();
 
   const { data: categories } = useListProposalCategories();
 

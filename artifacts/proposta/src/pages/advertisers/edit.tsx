@@ -20,6 +20,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { formatCpfCnpj, formatPhoneBR, normalizeEmailInput } from '@/lib/masks';
 
 const schema = z.object({
   tradeName: z.string().min(1, 'Nome Fantasia é obrigatório'),
@@ -34,9 +35,7 @@ const schema = z.object({
 
 export default function AdvertiserEdit({ params }: { params: { id: string } }) {
   const [, setLocation] = useLocation();
-  const { data: advertiser, isLoading } = useGetAdvertiser(params.id, {
-    query: { enabled: !!params.id }
-  });
+  const { data: advertiser, isLoading } = useGetAdvertiser(params.id);
   const updateMutation = useUpdateAdvertiser();
 
   const form = useForm<z.infer<typeof schema>>({
@@ -58,10 +57,10 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
       form.reset({
         tradeName: advertiser.tradeName || '',
         legalName: advertiser.legalName || '',
-        cnpj: advertiser.cnpj || '',
+        cnpj: formatCpfCnpj(advertiser.cnpj || ''),
         contactName: advertiser.contactName || '',
-        contactPhone: advertiser.contactPhone || '',
-        contactEmail: advertiser.contactEmail || '',
+        contactPhone: formatPhoneBR(advertiser.contactPhone || ''),
+        contactEmail: normalizeEmailInput(advertiser.contactEmail || ''),
         notes: advertiser.notes || '',
         active: advertiser.active,
       });
@@ -125,7 +124,7 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                     <FormItem>
                       <FormLabel>Nome Fantasia *</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Ex: Supermercado Central" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -138,7 +137,7 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                     <FormItem>
                       <FormLabel>Razão Social</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Ex: Supermercado Central Ltda." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -149,9 +148,9 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                   name="cnpj"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>CNPJ</FormLabel>
+                      <FormLabel>CPF/CNPJ</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input inputMode="numeric" placeholder="00.000.000/0000-00" {...field} onChange={(event) => field.onChange(formatCpfCnpj(event.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -169,7 +168,7 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                       <FormItem>
                         <FormLabel>Nome do Contato</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input placeholder="Nome do contato" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -182,7 +181,7 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                       <FormItem>
                         <FormLabel>Telefone</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input inputMode="tel" placeholder="(31) 99999-9999" {...field} onChange={(event) => field.onChange(formatPhoneBR(event.target.value))} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -195,7 +194,7 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                       <FormItem>
                         <FormLabel>E-mail</FormLabel>
                         <FormControl>
-                          <Input type="email" {...field} />
+                          <Input type="email" placeholder="contato@anunciante.com.br" {...field} onChange={(event) => field.onChange(normalizeEmailInput(event.target.value))} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -212,7 +211,7 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                     <FormItem>
                       <FormLabel>Observações</FormLabel>
                       <FormControl>
-                        <Textarea rows={4} {...field} />
+                        <Textarea rows={4} placeholder="Observações sobre o anunciante, histórico de atendimento ou preferências comerciais" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

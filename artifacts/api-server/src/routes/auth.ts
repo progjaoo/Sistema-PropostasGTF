@@ -1,12 +1,44 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, refreshTokensTable } from "@workspace/db";
-import { eq, and, gt } from "drizzle-orm";
+import { prisma } from "@workspace/db";
+import { z } from "zod/v4";
 import { signAccessToken, signRefreshToken, verifyRefreshToken, getRefreshExpiresAt } from "../lib/jwt";
 import { requireAuth } from "../middlewares/auth";
 import { LoginBody } from "@workspace/api-zod";
 
 const router = Router();
+
+const registerCommercialBody = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+function formatAuthUser(user: {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  active: boolean;
+  jobTitle?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  avatarBase64?: string | null;
+  createdAt: Date;
+}) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    active: user.active,
+    jobTitle: user.jobTitle ?? null,
+    contactPhone: user.contactPhone ?? null,
+    contactEmail: user.contactEmail ?? null,
+    avatarBase64: user.avatarBase64 ?? null,
+    createdAt: user.createdAt.toISOString(),
+  };
+}
 
 router.post("/login", async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);
@@ -15,7 +47,7 @@ router.post("/login", async (req, res): Promise<void> => {
     return;
   }
   const { email, password } = parsed.data;
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !user.active) {
     res.status(401).json({ error: "Credenciais invalidas ou conta inativa" });
     return;
@@ -27,10 +59,12 @@ router.post("/login", async (req, res): Promise<void> => {
   }
   const accessToken = signAccessToken({ userId: user.id, role: user.role });
   const refreshToken = signRefreshToken({ userId: user.id, role: user.role });
-  await db.insert(refreshTokensTable).values({
-    userId: user.id,
-    token: refreshToken,
-    expiresAt: getRefreshExpiresAt(),
+  await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      token: refreshToken,
+      expiresAt: getRefreshExpiresAt(),
+    },
   });
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
@@ -40,15 +74,35 @@ router.post("/login", async (req, res): Promise<void> => {
   });
   res.json({
     accessToken,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      active: user.active,
-      createdAt: user.createdAt.toISOString(),
+    user: formatAuthUser(user),
+  });
+});
+
+router.post("/register-commercial", async (req, res): Promise<void> => {
+  const parsed = registerCommercialBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  if (existing) {
+    res.status(409).json({ error: "E-mail ja cadastrado" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  const user = await prisma.user.create({
+    data: {
+      name: parsed.data.name,
+      email: parsed.data.email,
+      passwordHash,
+      role: "COMERCIAL",
+      active: true,
     },
   });
+
+  res.status(201).json(formatAuthUser(user));
 });
 
 router.post("/refresh", async (req, res): Promise<void> => {
@@ -59,31 +113,30 @@ router.post("/refresh", async (req, res): Promise<void> => {
   }
   try {
     const payload = verifyRefreshToken(token);
-    const [stored] = await db
-      .select()
-      .from(refreshTokensTable)
-      .where(
-        and(
-          eq(refreshTokensTable.token, token),
-          gt(refreshTokensTable.expiresAt, new Date())
-        )
-      );
+    const stored = await prisma.refreshToken.findFirst({
+      where: {
+        token,
+        expiresAt: { gt: new Date() },
+      },
+    });
     if (!stored) {
       res.status(401).json({ error: "Invalid refresh token" });
       return;
     }
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, payload.userId));
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user || !user.active) {
       res.status(401).json({ error: "User not found or inactive" });
       return;
     }
-    await db.delete(refreshTokensTable).where(eq(refreshTokensTable.token, token));
+    await prisma.refreshToken.delete({ where: { token } });
     const newAccessToken = signAccessToken({ userId: user.id, role: user.role });
     const newRefreshToken = signRefreshToken({ userId: user.id, role: user.role });
-    await db.insert(refreshTokensTable).values({
-      userId: user.id,
-      token: newRefreshToken,
-      expiresAt: getRefreshExpiresAt(),
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: newRefreshToken,
+        expiresAt: getRefreshExpiresAt(),
+      },
     });
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
@@ -93,14 +146,7 @@ router.post("/refresh", async (req, res): Promise<void> => {
     });
     res.json({
       accessToken: newAccessToken,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        active: user.active,
-        createdAt: user.createdAt.toISOString(),
-      },
+      user: formatAuthUser(user),
     });
   } catch {
     res.status(401).json({ error: "Invalid refresh token" });
@@ -110,26 +156,19 @@ router.post("/refresh", async (req, res): Promise<void> => {
 router.post("/logout", async (req, res): Promise<void> => {
   const token = req.cookies?.["refreshToken"];
   if (token) {
-    await db.delete(refreshTokensTable).where(eq(refreshTokensTable.token, token));
+    await prisma.refreshToken.deleteMany({ where: { token } });
   }
   res.clearCookie("refreshToken");
   res.status(204).send();
 });
 
 router.get("/me", requireAuth, async (req, res): Promise<void> => {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+  const user = await prisma.user.findUnique({ where: { id: req.userId! } });
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
   }
-  res.json({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    active: user.active,
-    createdAt: user.createdAt.toISOString(),
-  });
+  res.json(formatAuthUser(user));
 });
 
 export default router;

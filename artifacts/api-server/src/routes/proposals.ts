@@ -1,29 +1,62 @@
 import { Router } from "express";
-import {
-  db,
-  proposalsTable,
-  proposalProductsTable,
-  proposalVersionsTable,
-  stationsTable,
-  advertisersTable,
-  usersTable,
-  proposalTemplatesTable,
-} from "@workspace/db";
-import { eq, and, or, ilike, sql, desc } from "drizzle-orm";
+import { prisma, type Prisma } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
-import {
-  CreateProposalBody,
-  UpdateProposalBody,
-  UpdateProposalStatusBody,
-} from "@workspace/api-zod";
+import { z } from "zod/v4";
 import { buildFullProposal } from "./proposal-templates";
 
 const router = Router();
 
-async function buildSummary(p: typeof proposalsTable.$inferSelect) {
-  const [adv] = p.advertiserId ? await db.select().from(advertisersTable).where(eq(advertisersTable.id, p.advertiserId)) : [null];
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, p.createdById));
-  const [template] = p.fromTemplateId ? await db.select().from(proposalTemplatesTable).where(eq(proposalTemplatesTable.id, p.fromTemplateId)) : [null];
+const productInput = z.object({
+  productTemplateId: z.string().optional().nullable(),
+  order: z.number().int().optional(),
+  qty: z.string().optional().nullable(),
+  title: z.string().min(1),
+  description: z.string().optional().nullable(),
+  detail: z.string().optional().nullable(),
+  program: z.string().optional().nullable(),
+  tags: z.array(z.string()).optional(),
+  color: z.enum(["BLUE", "YELLOW", "RED", "GREEN", "DARK"]).optional(),
+});
+
+const proposalInput = z.object({
+  stationId: z.string().optional().nullable(),
+  advertiserId: z.string().optional().nullable(),
+  proposalTypeId: z.string().optional().nullable(),
+  periodicity: z.enum(["MONTHLY", "QUARTERLY", "YEARLY"]).optional(),
+  propType: z.string().optional(),
+  propMonth: z.string().optional(),
+  propYear: z.string().optional(),
+  campTag: z.string().optional().nullable(),
+  clientLine1: z.string().optional().nullable(),
+  clientLine2: z.string().optional().nullable(),
+  dateStart: z.string().optional().nullable(),
+  dateEnd: z.string().optional().nullable(),
+  periodDesc: z.string().optional().nullable(),
+  bannerBase64: z.string().optional().nullable(),
+  overlayOpacity: z.number().int().optional(),
+  stats: z.unknown().optional(),
+  investDesc: z.string().optional().nullable(),
+  investValue: z.string().optional().nullable(),
+  contactName: z.string().optional().nullable(),
+  contactRole: z.string().optional().nullable(),
+  contactPhone: z.string().optional().nullable(),
+  products: z.array(productInput).optional(),
+});
+
+const statusInput = z.object({
+  status: z.enum(["DRAFT", "SENT", "APPROVED", "REJECTED"]),
+});
+
+type ProposalSummaryRow = Prisma.ProposalGetPayload<{
+  include: {
+    advertiser: true;
+    createdBy: true;
+    fromTemplate: true;
+    proposalType: true;
+  };
+}>;
+
+async function buildSummary(p: ProposalSummaryRow) {
   return {
     id: p.id,
     status: p.status,
@@ -32,9 +65,9 @@ async function buildSummary(p: typeof proposalsTable.$inferSelect) {
     propYear: p.propYear,
     campTag: p.campTag ?? null,
     clientLine1: p.clientLine1 ?? null,
-    advertiserName: adv ? adv.tradeName : null,
-    fromTemplateName: template ? template.name : null,
-    createdByName: user ? user.name : "",
+    advertiserName: p.advertiser ? p.advertiser.tradeName : null,
+    fromTemplateName: p.fromTemplate ? p.fromTemplate.name : null,
+    createdByName: p.createdBy ? p.createdBy.name : "",
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   };
@@ -46,82 +79,94 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
 
-  const conditions = [];
+  const where: Prisma.ProposalWhereInput = {};
   if (req.userRole !== "ADMIN") {
-    conditions.push(eq(proposalsTable.createdById, req.userId!));
+    where.createdById = req.userId!;
   }
-  if (status) conditions.push(eq(proposalsTable.status, status as "DRAFT"));
-  if (advertiserId) conditions.push(eq(proposalsTable.advertiserId, advertiserId));
+  if (status) where.status = status as Prisma.EnumProposalStatusFilter["equals"];
+  if (advertiserId) where.advertiserId = advertiserId;
   if (search) {
-    conditions.push(
-      or(
-        ilike(proposalsTable.propType, `%${search}%`),
-        ilike(proposalsTable.clientLine1, `%${search}%`),
-        ilike(proposalsTable.campTag, `%${search}%`)
-      )!
-    );
+    where.OR = [
+      { propType: { contains: search, mode: "insensitive" } },
+      { clientLine1: { contains: search, mode: "insensitive" } },
+      { campTag: { contains: search, mode: "insensitive" } },
+    ];
   }
 
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const rows = where
-    ? await db.select().from(proposalsTable).where(where).orderBy(desc(proposalsTable.updatedAt)).limit(limitNum).offset(offset)
-    : await db.select().from(proposalsTable).orderBy(desc(proposalsTable.updatedAt)).limit(limitNum).offset(offset);
+  const [rows, total] = await Promise.all([
+    prisma.proposal.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      take: limitNum,
+      skip: offset,
+      include: { advertiser: true, createdBy: true, fromTemplate: true, proposalType: true },
+    }),
+    prisma.proposal.count({ where }),
+  ]);
 
-  const totalRows = where
-    ? await db.select({ count: sql<number>`count(*)::int` }).from(proposalsTable).where(where)
-    : await db.select({ count: sql<number>`count(*)::int` }).from(proposalsTable);
-
-  const total = totalRows[0]?.count ?? 0;
   const data = await Promise.all(rows.map(buildSummary));
   res.json({ data, total, page: pageNum, limit: limitNum });
 });
 
 router.post("/", requireAuth, async (req, res): Promise<void> => {
-  const parsed = CreateProposalBody.safeParse(req.body);
+  const parsed = proposalInput.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [station] = parsed.data.stationId
-    ? await db.select().from(stationsTable).where(eq(stationsTable.id, parsed.data.stationId))
-    : await db.select().from(stationsTable).limit(1);
+  const proposalType = parsed.data.proposalTypeId
+    ? await prisma.proposalType.findUnique({ where: { id: parsed.data.proposalTypeId } })
+    : null;
+  const station = parsed.data.stationId
+    ? await prisma.station.findUnique({ where: { id: parsed.data.stationId } })
+    : await prisma.station.findFirst({ orderBy: { createdAt: "asc" } });
   if (!station) {
     res.status(400).json({ error: "No station found" });
     return;
   }
   const { products, ...rest } = parsed.data;
-  const [proposal] = await db
-    .insert(proposalsTable)
-    .values({ ...rest, stationId: station.id, createdById: req.userId!, stats: rest.stats ?? [] })
-    .returning();
+  const proposal = await prisma.proposal.create({
+    data: {
+      ...rest,
+      stationId: station.id,
+      createdById: req.userId!,
+      proposalTypeId: rest.proposalTypeId ?? null,
+      propType: proposalType?.name ?? rest.propType ?? "Proposta Comercial",
+      propMonth: rest.propMonth ?? "",
+      propYear: rest.propYear ?? "",
+      periodicity: rest.periodicity ?? "MONTHLY",
+      stats: rest.stats ?? [],
+      products: products?.length
+        ? {
+            create: products.map((p, i) => ({
+              productTemplateId: p.productTemplateId ?? null,
+              order: p.order ?? i,
+              qty: p.qty ?? "01",
+              title: p.title,
+              description: p.description ?? null,
+              detail: p.detail ?? null,
+              program: p.program ?? null,
+              tags: p.tags ?? [],
+              color: p.color ?? "BLUE",
+            })),
+          }
+        : undefined,
+    },
+  });
 
-  if (products && products.length > 0) {
-    await db.insert(proposalProductsTable).values(
-      products.map((p, i) => ({
-        proposalId: proposal.id,
-        order: p.order ?? i,
-        qty: p.qty ?? "01",
-        title: p.title,
-        description: p.description ?? null,
-        detail: p.detail ?? null,
-        program: p.program ?? null,
-        tags: p.tags ?? [],
-        color: (p.color ?? "BLUE") as "BLUE" | "YELLOW" | "RED" | "GREEN" | "DARK",
-      }))
-    );
-  }
-
-  await db.insert(proposalVersionsTable).values({
-    proposalId: proposal.id,
-    snapshot: proposal,
-    createdById: req.userId!,
+  await prisma.proposalVersion.create({
+    data: {
+      proposalId: proposal.id,
+      snapshot: proposal,
+      createdById: req.userId!,
+    },
   });
 
   res.status(201).json(await buildFullProposal(proposal.id));
 });
 
 router.get("/:id", requireAuth, async (req, res): Promise<void> => {
-  const full = await buildFullProposal(req.params["id"]!);
+  const full = await buildFullProposal(String(req.params["id"]));
   if (!full) {
     res.status(404).json({ error: "Proposal not found" });
     return;
@@ -134,12 +179,12 @@ router.get("/:id", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.patch("/:id", requireAuth, async (req, res): Promise<void> => {
-  const parsed = UpdateProposalBody.safeParse(req.body);
+  const parsed = proposalInput.partial().safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [existing] = await db.select().from(proposalsTable).where(eq(proposalsTable.id, req.params["id"]!));
+  const existing = await prisma.proposal.findUnique({ where: { id: String(req.params["id"]) } });
   if (!existing) {
     res.status(404).json({ error: "Proposal not found" });
     return;
@@ -149,57 +194,65 @@ router.patch("/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
   const { products, ...rest } = parsed.data;
-  const [proposal] = await db
-    .update(proposalsTable)
-    .set(rest)
-    .where(eq(proposalsTable.id, req.params["id"]!))
-    .returning();
+  const proposalType = rest.proposalTypeId
+    ? await prisma.proposalType.findUnique({ where: { id: rest.proposalTypeId } })
+    : null;
+  const data: Prisma.ProposalUncheckedUpdateInput = {
+    ...rest,
+    ...(proposalType ? { propType: proposalType.name } : {}),
+  } as Prisma.ProposalUncheckedUpdateInput;
 
-  if (products !== undefined) {
-    await db.delete(proposalProductsTable).where(eq(proposalProductsTable.proposalId, proposal.id));
-    if (products.length > 0) {
-      await db.insert(proposalProductsTable).values(
-        products.map((p, i) => ({
-          proposalId: proposal.id,
-          order: p.order ?? i,
-          qty: p.qty ?? "01",
-          title: p.title,
-          description: p.description ?? null,
-          detail: p.detail ?? null,
-          program: p.program ?? null,
-          tags: p.tags ?? [],
-          color: (p.color ?? "BLUE") as "BLUE" | "YELLOW" | "RED" | "GREEN" | "DARK",
-        }))
-      );
-    }
-  }
+  const proposal = await prisma.$transaction(async (tx) => {
+    const updated = await tx.proposal.update({
+      where: { id: String(req.params["id"]) },
+      data,
+    });
 
-  const versionCount = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(proposalVersionsTable)
-    .where(eq(proposalVersionsTable.proposalId, proposal.id));
-  if ((versionCount[0]?.count ?? 0) >= 50) {
-    const oldest = await db
-      .select()
-      .from(proposalVersionsTable)
-      .where(eq(proposalVersionsTable.proposalId, proposal.id))
-      .orderBy(proposalVersionsTable.createdAt)
-      .limit(1);
-    if (oldest[0]) {
-      await db.delete(proposalVersionsTable).where(eq(proposalVersionsTable.id, oldest[0].id));
+    if (products !== undefined) {
+      await tx.proposalProduct.deleteMany({ where: { proposalId: updated.id } });
+      if (products.length > 0) {
+        await tx.proposalProduct.createMany({
+          data: products.map((p, i) => ({
+            proposalId: updated.id,
+            productTemplateId: p.productTemplateId ?? null,
+            order: p.order ?? i,
+            qty: p.qty ?? "01",
+            title: p.title,
+            description: p.description ?? null,
+            detail: p.detail ?? null,
+            program: p.program ?? null,
+            tags: p.tags ?? [],
+            color: p.color ?? "BLUE",
+          })),
+        });
+      }
     }
-  }
-  await db.insert(proposalVersionsTable).values({
-    proposalId: proposal.id,
-    snapshot: proposal,
-    createdById: req.userId!,
+
+    const versionCount = await tx.proposalVersion.count({ where: { proposalId: updated.id } });
+    if (versionCount >= 50) {
+      const oldest = await tx.proposalVersion.findFirst({
+        where: { proposalId: updated.id },
+        orderBy: { createdAt: "asc" },
+      });
+      if (oldest) {
+        await tx.proposalVersion.delete({ where: { id: oldest.id } });
+      }
+    }
+    await tx.proposalVersion.create({
+      data: {
+        proposalId: updated.id,
+        snapshot: updated,
+        createdById: req.userId!,
+      },
+    });
+    return updated;
   });
 
   res.json(await buildFullProposal(proposal.id));
 });
 
 router.delete("/:id", requireAuth, async (req, res): Promise<void> => {
-  const [existing] = await db.select().from(proposalsTable).where(eq(proposalsTable.id, req.params["id"]!));
+  const existing = await prisma.proposal.findUnique({ where: { id: String(req.params["id"]) } });
   if (!existing) {
     res.status(404).json({ error: "Proposal not found" });
     return;
@@ -208,51 +261,104 @@ router.delete("/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
-  await db.update(proposalsTable).set({ status: "ARCHIVED" }).where(eq(proposalsTable.id, req.params["id"]!));
-  res.json({ message: "Proposal archived" });
+  await prisma.proposal.update({
+    where: { id: String(req.params["id"]) },
+    data: { status: "REJECTED" },
+  });
+  res.json({ message: "Proposal rejected" });
 });
 
 router.patch("/:id/status", requireAuth, async (req, res): Promise<void> => {
-  const parsed = UpdateProposalStatusBody.safeParse(req.body);
+  const parsed = statusInput.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [proposal] = await db
-    .update(proposalsTable)
-    .set({ status: parsed.data.status as "DRAFT" | "SENT" | "APPROVED" | "REJECTED" | "ARCHIVED" })
-    .where(eq(proposalsTable.id, req.params["id"]!))
-    .returning();
-  if (!proposal) {
+  try {
+    const existing = await prisma.proposal.findUnique({ where: { id: String(req.params["id"]) } });
+    if (!existing) {
+      res.status(404).json({ error: "Proposal not found" });
+      return;
+    }
+    if (req.userRole !== "ADMIN" && existing.createdById !== req.userId) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const proposal = await prisma.proposal.update({
+      where: { id: String(req.params["id"]) },
+      data: { status: parsed.data.status },
+    });
+    res.json(await buildFullProposal(proposal.id));
+  } catch {
     res.status(404).json({ error: "Proposal not found" });
-    return;
   }
-  res.json(await buildFullProposal(proposal.id));
 });
 
 router.post("/:id/duplicate", requireAuth, async (req, res): Promise<void> => {
-  const [existing] = await db.select().from(proposalsTable).where(eq(proposalsTable.id, req.params["id"]!));
+  const existing = await prisma.proposal.findUnique({
+    where: { id: String(req.params["id"]) },
+  });
   if (!existing) {
     res.status(404).json({ error: "Proposal not found" });
     return;
   }
-  const products = await db.select().from(proposalProductsTable).where(eq(proposalProductsTable.proposalId, existing.id));
-  const { id, createdAt, updatedAt, ...rest } = existing;
-  const [newProposal] = await db.insert(proposalsTable).values({ ...rest, createdById: req.userId!, status: "DRAFT" }).returning();
-  if (products.length > 0) {
-    await db.insert(proposalProductsTable).values(
-      products.map((p) => ({ ...p, id: undefined as unknown as string, proposalId: newProposal.id }))
-    );
+  if (req.userRole !== "ADMIN" && existing.createdById !== req.userId) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
   }
+  const products = await prisma.proposalProduct.findMany({
+    where: { proposalId: existing.id },
+    orderBy: { order: "asc" },
+  });
+
+  const newProposal = await prisma.proposal.create({
+    data: {
+      stationId: existing.stationId,
+      advertiserId: existing.advertiserId,
+      createdById: req.userId!,
+      status: "DRAFT",
+      fromTemplateId: existing.fromTemplateId,
+      propType: existing.propType,
+      propMonth: existing.propMonth,
+      propYear: existing.propYear,
+      campTag: existing.campTag,
+      clientLine1: existing.clientLine1,
+      clientLine2: existing.clientLine2,
+      dateStart: existing.dateStart,
+      dateEnd: existing.dateEnd,
+      periodDesc: existing.periodDesc,
+      bannerBase64: existing.bannerBase64,
+      overlayOpacity: existing.overlayOpacity,
+      stats: existing.stats ?? [],
+      investDesc: existing.investDesc,
+      investValue: existing.investValue,
+      contactName: existing.contactName,
+      contactRole: existing.contactRole,
+      contactPhone: existing.contactPhone,
+      products: products.length
+        ? {
+            create: products.map((p) => ({
+              order: p.order,
+              qty: p.qty,
+              title: p.title,
+              description: p.description,
+              detail: p.detail,
+              program: p.program,
+              tags: p.tags,
+              color: p.color,
+            })),
+          }
+        : undefined,
+    },
+  });
   res.status(201).json(await buildFullProposal(newProposal.id));
 });
 
 router.get("/:id/versions", requireAuth, async (req, res): Promise<void> => {
-  const versions = await db
-    .select()
-    .from(proposalVersionsTable)
-    .where(eq(proposalVersionsTable.proposalId, req.params["id"]!))
-    .orderBy(desc(proposalVersionsTable.createdAt));
+  const versions = await prisma.proposalVersion.findMany({
+    where: { proposalId: String(req.params["id"]) },
+    orderBy: { createdAt: "desc" },
+  });
   res.json(versions.map((v) => ({
     id: v.id,
     proposalId: v.proposalId,
@@ -263,8 +369,8 @@ router.get("/:id/versions", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/:id/versions/:versionId", requireAuth, async (req, res): Promise<void> => {
-  const [v] = await db.select().from(proposalVersionsTable).where(eq(proposalVersionsTable.id, req.params["versionId"]!));
-  if (!v) {
+  const v = await prisma.proposalVersion.findUnique({ where: { id: String(req.params["versionId"]) } });
+  if (!v || v.proposalId !== String(req.params["id"])) {
     res.status(404).json({ error: "Version not found" });
     return;
   }

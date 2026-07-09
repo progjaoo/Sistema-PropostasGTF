@@ -2,8 +2,20 @@ import React from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuthStore } from '@/store/auth';
 import { useLogout } from '@workspace/api-client-react';
-import { LayoutDashboard, FileText, Users, Settings, LogOut, Radio, Tag, Layers, UserCircle } from 'lucide-react';
+import { Building2, FileCog, FileText, Users, LogOut, Radio, Package, Layers, UserCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -24,12 +36,14 @@ export function AppLayout({ children }: AppLayoutProps) {
   }, [user, setLocation]);
 
   if (!user) return null;
+  const userAvatar = (user as any).avatarBase64 as string | null | undefined;
 
   const handleLogout = async () => {
     try {
       await logout.mutateAsync();
+      toast.success('Sessão encerrada com sucesso');
     } catch (e) {
-      // Ignore errors on logout
+      toast.error('Sessão local encerrada. Não foi possível confirmar o logout no servidor.');
     } finally {
       clearAuth();
       setLocation('/login');
@@ -37,17 +51,18 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', roles: ['COMERCIAL', 'ADMIN'] },
+    { icon: Radio, label: 'Dashboard', href: '/dashboard', roles: ['ADMIN'] },
     { icon: FileText, label: 'Propostas', href: '/proposals', roles: ['COMERCIAL', 'ADMIN'] },
     { icon: Users, label: 'Anunciantes', href: '/advertisers', roles: ['COMERCIAL', 'ADMIN'] },
+    { icon: Layers, label: 'Programas', href: '/programs', roles: ['COMERCIAL'] },
   ];
 
   const adminItems = [
     { icon: UserCircle, label: 'Usuários', href: '/admin/users' },
-    { icon: Radio, label: 'Emissora', href: '/admin/station' },
-    { icon: Tag, label: 'Templates de Produto', href: '/admin/product-templates' },
-    { icon: Layers, label: 'Categorias de Proposta', href: '/admin/proposal-categories' },
-    { icon: FileText, label: 'Templates de Proposta', href: '/admin/proposal-templates' },
+    { icon: Building2, label: 'Empresas', href: '/admin/station' },
+    { icon: Package, label: 'Produtos', href: '/admin/product-templates' },
+    { icon: Layers, label: 'Programas', href: '/admin/proposal-categories' },
+    { icon: FileCog, label: 'Tipos de Proposta', href: '/admin/proposal-types' },
   ];
 
   const renderLink = (item: any) => {
@@ -97,18 +112,49 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         <div className="p-4 border-t border-border mt-auto">
           <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-              {user.name.charAt(0).toUpperCase()}
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden">
+              {userAvatar ? (
+                <img src={userAvatar} alt="Avatar" className="h-full w-full object-cover" />
+              ) : (
+                user.name.charAt(0).toUpperCase()
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{user.name}</p>
               <p className="text-xs text-muted-foreground truncate">{user.role}</p>
             </div>
           </div>
-          <Button variant="ghost" className="w-full justify-start text-muted-foreground" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Sair
-          </Button>
+          <Link href="/profile">
+            <span className={cn(
+              "flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+              location === '/profile'
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}>
+              <UserCircle className="w-4 h-4 mr-2" />
+              Meu Perfil
+            </span>
+          </Link>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" className="w-full justify-start text-muted-foreground">
+                <LogOut className="w-4 h-4 mr-2" />
+                Sair
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Encerrar sessão?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Você será desconectado do sistema e precisará entrar novamente para continuar.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Não</AlertDialogCancel>
+                <AlertDialogAction onClick={handleLogout}>Sim</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 

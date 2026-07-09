@@ -19,6 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { formatCpfCnpj, formatPhoneBR, normalizeEmailInput } from '@/lib/masks';
 
 const schema = z.object({
   tradeName: z.string().min(1, 'Nome Fantasia é obrigatório'),
@@ -80,7 +81,7 @@ export default function AdvertiserNew() {
                     <FormItem>
                       <FormLabel>Nome Fantasia *</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Ex: Supermercado Central" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -93,7 +94,7 @@ export default function AdvertiserNew() {
                     <FormItem>
                       <FormLabel>Razão Social</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Ex: Supermercado Central Ltda." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -104,9 +105,9 @@ export default function AdvertiserNew() {
                   name="cnpj"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>CNPJ</FormLabel>
+                      <FormLabel>CPF/CNPJ</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input inputMode="numeric" placeholder="00.000.000/0000-00" {...field} onChange={(event) => field.onChange(formatCpfCnpj(event.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -124,7 +125,7 @@ export default function AdvertiserNew() {
                       <FormItem>
                         <FormLabel>Nome do Contato</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input placeholder="Nome do contato" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -137,7 +138,7 @@ export default function AdvertiserNew() {
                       <FormItem>
                         <FormLabel>Telefone</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input inputMode="tel" placeholder="(31) 99999-9999" {...field} onChange={(event) => field.onChange(formatPhoneBR(event.target.value))} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -150,7 +151,7 @@ export default function AdvertiserNew() {
                       <FormItem>
                         <FormLabel>E-mail</FormLabel>
                         <FormControl>
-                          <Input type="email" {...field} />
+                          <Input type="email" placeholder="contato@anunciante.com.br" {...field} onChange={(event) => field.onChange(normalizeEmailInput(event.target.value))} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -167,7 +168,7 @@ export default function AdvertiserNew() {
                     <FormItem>
                       <FormLabel>Observações</FormLabel>
                       <FormControl>
-                        <Textarea rows={4} {...field} />
+                        <Textarea rows={4} placeholder="Observações sobre o anunciante, histórico de atendimento ou preferências comerciais" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

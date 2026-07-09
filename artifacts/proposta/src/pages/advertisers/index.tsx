@@ -3,11 +3,12 @@ import { useLocation } from 'wouter';
 import { useListAdvertisers, useDeleteAdvertiser, getListAdvertisersQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Search, MoreHorizontal, Edit, Trash2, Users } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Search, MoreHorizontal, Edit, Trash2, Users, Lock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { ConfirmActionDialog } from '@/components/ui/confirm-action-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,12 +22,11 @@ export default function AdvertisersList() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [search, setSearch] = React.useState('');
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const [deleteTarget, setDeleteTarget] = React.useState<any | null>(null);
 
-  const { data: advertisers, isLoading } = useListAdvertisers({ 
-    query: {
-      queryKey: getListAdvertisersQueryKey({ search: search || undefined })
-    }
-  });
+  const advertiserParams = { search: search || undefined };
+  const { data: advertisers, isLoading } = useListAdvertisers(advertiserParams);
 
   const deleteMutation = useDeleteAdvertiser({
     mutation: {
@@ -37,6 +37,16 @@ export default function AdvertisersList() {
       onError: () => toast.error('Erro ao excluir anunciante')
     }
   });
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'DRAFT': return <span className="bg-neutral-100 text-neutral-600 px-2 py-1 rounded-md text-xs font-medium">Rascunho</span>;
+      case 'SENT': return <span className="bg-warning/10 text-warning px-2 py-1 rounded-md text-xs font-medium">Enviada</span>;
+      case 'APPROVED': return <span className="bg-success/10 text-success px-2 py-1 rounded-md text-xs font-medium">Aprovada</span>;
+      case 'REJECTED': return <span className="bg-error/10 text-error px-2 py-1 rounded-md text-xs font-medium">Rejeitada</span>;
+      default: return null;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -79,45 +89,121 @@ export default function AdvertisersList() {
                 </tr>
               </thead>
               <tbody>
-                {advertisers.map((adv) => (
-                  <tr key={adv.id} className="bg-card border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4 font-medium">
-                      {adv.tradeName}
-                      {adv.legalName && <div className="text-xs text-muted-foreground font-normal">{adv.legalName}</div>}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {adv.cnpj || '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      {adv.contactName || '-'}
-                      {adv.contactPhone && <div className="text-xs text-muted-foreground">{adv.contactPhone}</div>}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-md text-xs font-medium ${adv.active ? 'bg-success/10 text-success' : 'bg-neutral-100 text-neutral-600'}`}>
-                        {adv.active ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Abrir menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => setLocation(`/advertisers/${adv.id}/edit`)}>
-                            <Edit className="w-4 h-4 mr-2" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-error focus:bg-error/10 focus:text-error" onClick={() => deleteMutation.mutate({ id: adv.id })}>
-                            <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
+                {advertisers.map((adv: any) => (
+                  <React.Fragment key={adv.id}>
+                    <tr className="bg-card border-b border-border/50 hover:bg-muted/30 transition-colors">
+                      <td className="px-6 py-4 font-medium">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2 text-left"
+                          onClick={() => setExpanded((prev) => ({ ...prev, [adv.id]: !prev[adv.id] }))}
+                        >
+                          {expanded[adv.id] ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                          <span>
+                            {adv.tradeName}
+                            {adv.legalName && <div className="text-xs text-muted-foreground font-normal">{adv.legalName}</div>}
+                          </span>
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {adv.cnpj || '-'}
+                      </td>
+                      <td className="px-6 py-4">
+                        {adv.contactName || '-'}
+                        {adv.contactPhone && <div className="text-xs text-muted-foreground">{adv.contactPhone}</div>}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-md text-xs font-medium ${adv.active ? 'bg-success/10 text-success' : 'bg-neutral-100 text-neutral-600'}`}>
+                          {adv.active ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => setLocation(`/advertisers/${adv.id}/edit`)}>
+                              <Edit className="w-4 h-4 mr-2" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-error focus:bg-error/10 focus:text-error" onClick={() => setDeleteTarget(adv)}>
+                              <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                    {expanded[adv.id] && (
+                      <tr className="bg-muted/20 border-b border-border/50">
+                        <td colSpan={5} className="px-12 py-4">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase mb-3">Propostas vinculadas</div>
+                          {adv.proposals?.length ? (
+                            <div className="space-y-2">
+                              {adv.proposals.map((proposal: any) => {
+                                const canEdit = proposal.viewerCanEdit === true;
+                                const title = proposal.clientLine1 || proposal.campTag || proposal.propType || 'Proposta';
+                                const programName = proposal.programName || 'Programa não informado';
+
+                                if (!canEdit) {
+                                  return (
+                                    <div
+                                      key={proposal.id}
+                                      className="w-full rounded-md border bg-card px-4 py-3 text-left"
+                                    >
+                                      <div className="flex items-center justify-between gap-4">
+                                        <div className="min-w-0">
+                                          <div className="truncate font-medium">Programa: {programName}</div>
+                                          <div className="mt-1 text-xs text-muted-foreground">
+                                            Responsável: {proposal.createdByName || 'Comercial'}
+                                          </div>
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                          {getStatusBadge(proposal.status)}
+                                          <span title="Proposta de outro responsável - visualização restrita">
+                                            <Lock
+                                              className="h-4 w-4 text-muted-foreground"
+                                              aria-label="Proposta de outro responsável"
+                                            />
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <button
+                                    key={proposal.id}
+                                    type="button"
+                                    className="w-full flex items-center justify-between gap-4 rounded-md border bg-card px-4 py-3 text-left hover:bg-muted/40"
+                                    onClick={() => setLocation(`/proposals/${proposal.id}/edit`)}
+                                  >
+                                    <div className="min-w-0">
+                                      <div className="truncate font-medium">{title}</div>
+                                      <div className="mt-1 text-xs text-muted-foreground">
+                                        {programName} · {proposal.createdByName || 'Comercial'}
+                                      </div>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-3">
+                                      {proposal.investValue && <span className="text-sm font-medium">{proposal.investValue}</span>}
+                                      {getStatusBadge(proposal.status)}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">Nenhuma proposta vinculada para este anunciante.</div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -132,6 +218,17 @@ export default function AdvertisersList() {
           </div>
         )}
       </Card>
+      <ConfirmActionDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Excluir anunciante?"
+        description={`Tem certeza que deseja excluir ${deleteTarget?.tradeName || 'este anunciante'}? Essa ação não poderá ser desfeita.`}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate({ id: deleteTarget.id });
+          setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

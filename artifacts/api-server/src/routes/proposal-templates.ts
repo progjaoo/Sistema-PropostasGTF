@@ -1,16 +1,5 @@
 import { Router } from "express";
-import {
-  db,
-  proposalTemplatesTable,
-  proposalTemplateProductsTable,
-  proposalCategoriesTable,
-  stationsTable,
-  proposalsTable,
-  proposalProductsTable,
-  proposalVersionsTable,
-  usersTable,
-} from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { prisma, type ProposalTemplate } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import {
   CreateProposalTemplateBody,
@@ -19,29 +8,35 @@ import {
 
 const router = Router();
 
-async function formatTemplate(t: typeof proposalTemplatesTable.$inferSelect, includeProducts = false) {
-  const [cat] = await db.select().from(proposalCategoriesTable).where(eq(proposalCategoriesTable.id, t.categoryId));
-  const usageRows = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(proposalsTable)
-    .where(eq(proposalsTable.fromTemplateId, t.id));
-  const usageCount = usageRows[0]?.count ?? 0;
+async function formatTemplate(t: ProposalTemplate, includeProducts = false) {
+  const [cat, usageCount, products] = await Promise.all([
+    prisma.proposalCategory.findUnique({ where: { id: t.categoryId } }),
+    prisma.proposal.count({ where: { fromTemplateId: t.id } }),
+    includeProducts
+      ? prisma.proposalTemplateProduct.findMany({
+          where: { templateId: t.id },
+          orderBy: { order: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const base: Record<string, unknown> = {
     id: t.id,
     stationId: t.stationId,
     categoryId: t.categoryId,
-    category: cat ? {
-      id: cat.id,
-      name: cat.name,
-      slug: cat.slug,
-      description: cat.description ?? null,
-      icon: cat.icon ?? null,
-      active: cat.active,
-      order: cat.order,
-      createdAt: cat.createdAt.toISOString(),
-      templateCount: 0,
-    } : null,
+    category: cat
+      ? {
+          id: cat.id,
+          name: cat.name,
+          slug: cat.slug,
+          description: cat.description ?? null,
+          icon: cat.icon ?? null,
+          active: cat.active,
+          order: cat.order,
+          createdAt: cat.createdAt.toISOString(),
+          templateCount: 0,
+        }
+      : null,
     name: t.name,
     description: t.description ?? null,
     active: t.active,
@@ -56,11 +51,6 @@ async function formatTemplate(t: typeof proposalTemplatesTable.$inferSelect, inc
   };
 
   if (includeProducts) {
-    const products = await db
-      .select()
-      .from(proposalTemplateProductsTable)
-      .where(eq(proposalTemplateProductsTable.templateId, t.id))
-      .orderBy(proposalTemplateProductsTable.order);
     base["products"] = products.map((p) => ({
       id: p.id,
       order: p.order,
@@ -79,18 +69,16 @@ async function formatTemplate(t: typeof proposalTemplatesTable.$inferSelect, inc
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
   const { categoryId } = req.query as { categoryId?: string };
-  let rows;
-  if (categoryId) {
-    rows = await db.select().from(proposalTemplatesTable).where(eq(proposalTemplatesTable.categoryId, categoryId));
-  } else {
-    rows = await db.select().from(proposalTemplatesTable);
-  }
+  const rows = await prisma.proposalTemplate.findMany({
+    where: categoryId ? { categoryId } : undefined,
+    orderBy: { createdAt: "asc" },
+  });
   const result = await Promise.all(rows.map((t) => formatTemplate(t, true)));
   res.json(result);
 });
 
 router.get("/:id", requireAuth, async (req, res): Promise<void> => {
-  const [t] = await db.select().from(proposalTemplatesTable).where(eq(proposalTemplatesTable.id, req.params["id"]!));
+  const t = await prisma.proposalTemplate.findUnique({ where: { id: String(req.params["id"]) } });
   if (!t) {
     res.status(404).json({ error: "Template not found" });
     return;
@@ -104,31 +92,33 @@ router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [station] = await db.select().from(stationsTable).limit(1);
+  const station = await prisma.station.findFirst({ orderBy: { createdAt: "asc" } });
   if (!station) {
     res.status(400).json({ error: "No station configured" });
     return;
   }
   const { products, ...rest } = parsed.data;
-  const [t] = await db
-    .insert(proposalTemplatesTable)
-    .values({ ...rest, stationId: station.id, stats: rest.stats ?? [] })
-    .returning();
-  if (products && products.length > 0) {
-    await db.insert(proposalTemplateProductsTable).values(
-      products.map((p, i) => ({
-        templateId: t.id,
-        order: p.order ?? i,
-        qty: p.qty ?? "01",
-        title: p.title,
-        description: p.description ?? null,
-        detail: p.detail ?? null,
-        program: p.program ?? null,
-        tags: p.tags ?? [],
-        color: (p.color ?? "BLUE") as "BLUE" | "YELLOW" | "RED" | "GREEN" | "DARK",
-      }))
-    );
-  }
+  const t = await prisma.proposalTemplate.create({
+    data: {
+      ...rest,
+      stationId: station.id,
+      stats: rest.stats ?? [],
+      products: products?.length
+        ? {
+            create: products.map((p, i) => ({
+              order: p.order ?? i,
+              qty: p.qty ?? "01",
+              title: p.title,
+              description: p.description ?? null,
+              detail: p.detail ?? null,
+              program: p.program ?? null,
+              tags: p.tags ?? [],
+              color: p.color ?? "BLUE",
+            })),
+          }
+        : undefined,
+    },
+  });
   res.status(201).json(await formatTemplate(t, true));
 });
 
@@ -139,60 +129,62 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
     return;
   }
   const { products, ...rest } = parsed.data;
-  const [t] = await db
-    .update(proposalTemplatesTable)
-    .set(rest)
-    .where(eq(proposalTemplatesTable.id, req.params["id"]!))
-    .returning();
-  if (!t) {
+  try {
+    const t = await prisma.$transaction(async (tx) => {
+      const updated = await tx.proposalTemplate.update({
+        where: { id: String(req.params["id"]) },
+        data: rest,
+      });
+      if (products !== undefined) {
+        await tx.proposalTemplateProduct.deleteMany({ where: { templateId: updated.id } });
+        if (products.length > 0) {
+          await tx.proposalTemplateProduct.createMany({
+            data: products.map((p, i) => ({
+              templateId: updated.id,
+              order: p.order ?? i,
+              qty: p.qty ?? "01",
+              title: p.title,
+              description: p.description ?? null,
+              detail: p.detail ?? null,
+              program: p.program ?? null,
+              tags: p.tags ?? [],
+              color: p.color ?? "BLUE",
+            })),
+          });
+        }
+      }
+      return updated;
+    });
+    res.json(await formatTemplate(t, true));
+  } catch {
     res.status(404).json({ error: "Template not found" });
-    return;
   }
-  if (products !== undefined) {
-    await db.delete(proposalTemplateProductsTable).where(eq(proposalTemplateProductsTable.templateId, t.id));
-    if (products.length > 0) {
-      await db.insert(proposalTemplateProductsTable).values(
-        products.map((p, i) => ({
-          templateId: t.id,
-          order: p.order ?? i,
-          qty: p.qty ?? "01",
-          title: p.title,
-          description: p.description ?? null,
-          detail: p.detail ?? null,
-          program: p.program ?? null,
-          tags: p.tags ?? [],
-          color: (p.color ?? "BLUE") as "BLUE" | "YELLOW" | "RED" | "GREEN" | "DARK",
-        }))
-      );
-    }
-  }
-  res.json(await formatTemplate(t, true));
 });
 
 router.delete("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
-  await db.delete(proposalTemplatesTable).where(eq(proposalTemplatesTable.id, req.params["id"]!));
+  await prisma.proposalTemplate.deleteMany({ where: { id: String(req.params["id"]) } });
   res.json({ message: "Template deleted" });
 });
 
 router.post("/:id/use", requireAuth, async (req, res): Promise<void> => {
-  const [t] = await db.select().from(proposalTemplatesTable).where(eq(proposalTemplatesTable.id, req.params["id"]!));
+  const t = await prisma.proposalTemplate.findUnique({
+    where: { id: String(req.params["id"]) },
+  });
   if (!t) {
     res.status(404).json({ error: "Template not found" });
     return;
   }
-  const products = await db
-    .select()
-    .from(proposalTemplateProductsTable)
-    .where(eq(proposalTemplateProductsTable.templateId, t.id))
-    .orderBy(proposalTemplateProductsTable.order);
+  const products = await prisma.proposalTemplateProduct.findMany({
+    where: { templateId: t.id },
+    orderBy: { order: "asc" },
+  });
 
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const year = String(now.getFullYear());
 
-  const [proposal] = await db
-    .insert(proposalsTable)
-    .values({
+  const proposal = await prisma.proposal.create({
+    data: {
       stationId: t.stationId,
       createdById: req.userId!,
       fromTemplateId: t.id,
@@ -204,29 +196,29 @@ router.post("/:id/use", requireAuth, async (req, res): Promise<void> => {
       investDesc: t.investDesc ?? null,
       stats: t.stats ?? [],
       overlayOpacity: t.overlayOpacity,
-    })
-    .returning();
+      products: products.length
+        ? {
+            create: products.map((p) => ({
+              order: p.order,
+              qty: p.qty,
+              title: p.title,
+              description: p.description,
+              detail: p.detail,
+              program: p.program,
+              tags: p.tags,
+              color: p.color,
+            })),
+          }
+        : undefined,
+    },
+  });
 
-  if (products.length > 0) {
-    await db.insert(proposalProductsTable).values(
-      products.map((p) => ({
-        proposalId: proposal.id,
-        order: p.order,
-        qty: p.qty,
-        title: p.title,
-        description: p.description,
-        detail: p.detail,
-        program: p.program,
-        tags: p.tags,
-        color: p.color,
-      }))
-    );
-  }
-
-  await db.insert(proposalVersionsTable).values({
-    proposalId: proposal.id,
-    snapshot: proposal,
-    createdById: req.userId!,
+  await prisma.proposalVersion.create({
+    data: {
+      proposalId: proposal.id,
+      snapshot: proposal,
+      createdById: req.userId!,
+    },
   });
 
   const fullProposal = await buildFullProposal(proposal.id);
@@ -234,23 +226,85 @@ router.post("/:id/use", requireAuth, async (req, res): Promise<void> => {
 });
 
 async function buildFullProposal(id: string) {
-  const [p] = await db.select().from(proposalsTable).where(eq(proposalsTable.id, id));
+  const p = await prisma.proposal.findUnique({
+    where: { id },
+    include: {
+      station: true,
+      advertiser: true,
+      createdBy: true,
+      fromTemplate: true,
+      proposalType: true,
+      products: {
+        orderBy: { order: "asc" },
+        include: {
+          productTemplate: {
+            select: {
+              suggestedValueMin: true,
+              suggestedValueMax: true,
+            },
+          },
+        },
+      },
+    },
+  });
   if (!p) return null;
-  const [station] = p.stationId ? await db.select().from(stationsTable).where(eq(stationsTable.id, p.stationId)) : [null];
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, p.createdById));
-  const [template] = p.fromTemplateId ? await db.select().from(proposalTemplatesTable).where(eq(proposalTemplatesTable.id, p.fromTemplateId)) : [null];
-  const products = await db.select().from(proposalProductsTable).where(eq(proposalProductsTable.proposalId, id)).orderBy(proposalProductsTable.order);
   return {
     id: p.id,
     stationId: p.stationId,
-    station: station ? { id: station.id, name: station.name, slogan: station.slogan ?? null, logoBase64: station.logoBase64 ?? null, createdAt: station.createdAt.toISOString() } : null,
+    station: p.station
+      ? {
+          id: p.station.id,
+          name: p.station.name,
+          slogan: p.station.slogan ?? null,
+          logoBase64: p.station.logoBase64 ?? null,
+          tradeName: p.station.tradeName ?? null,
+          legalName: p.station.legalName ?? null,
+          cnpj: p.station.cnpj ?? null,
+          contactName: p.station.contactName ?? null,
+          contactPhone: p.station.contactPhone ?? null,
+          contactEmail: p.station.contactEmail ?? null,
+          address: p.station.address ?? null,
+          city: p.station.city ?? null,
+          state: p.station.state ?? null,
+          website: p.station.website ?? null,
+          createdAt: p.station.createdAt.toISOString(),
+        }
+      : null,
     advertiserId: p.advertiserId ?? null,
-    advertiser: null,
+    advertiser: p.advertiser
+      ? {
+          id: p.advertiser.id,
+          tradeName: p.advertiser.tradeName,
+          legalName: p.advertiser.legalName ?? null,
+          cnpj: p.advertiser.cnpj ?? null,
+          contactName: p.advertiser.contactName ?? null,
+          contactPhone: p.advertiser.contactPhone ?? null,
+          contactEmail: p.advertiser.contactEmail ?? null,
+          active: p.advertiser.active,
+          createdAt: p.advertiser.createdAt.toISOString(),
+        }
+      : null,
     createdById: p.createdById,
-    createdBy: user ? { id: user.id, name: user.name, email: user.email, role: user.role, active: user.active, createdAt: user.createdAt.toISOString() } : null,
+    createdBy: p.createdBy
+      ? {
+          id: p.createdBy.id,
+          name: p.createdBy.name,
+          email: p.createdBy.email,
+          role: p.createdBy.role,
+          active: p.createdBy.active,
+          jobTitle: p.createdBy.jobTitle ?? null,
+          contactPhone: p.createdBy.contactPhone ?? null,
+          contactEmail: p.createdBy.contactEmail ?? null,
+          avatarBase64: p.createdBy.avatarBase64 ?? null,
+          createdAt: p.createdBy.createdAt.toISOString(),
+        }
+      : null,
     status: p.status,
     fromTemplateId: p.fromTemplateId ?? null,
-    fromTemplateName: template ? template.name : null,
+    fromTemplateName: p.fromTemplate ? p.fromTemplate.name : null,
+    proposalTypeId: p.proposalTypeId ?? null,
+    proposalTypeName: p.proposalType?.name ?? null,
+    periodicity: p.periodicity,
     propType: p.propType,
     propMonth: p.propMonth,
     propYear: p.propYear,
@@ -268,14 +322,17 @@ async function buildFullProposal(id: string) {
     contactName: p.contactName ?? null,
     contactRole: p.contactRole ?? null,
     contactPhone: p.contactPhone ?? null,
-    products: products.map((pr) => ({
+    products: p.products.map((pr) => ({
       id: pr.id,
+      productTemplateId: pr.productTemplateId ?? null,
       order: pr.order,
       qty: pr.qty,
       title: pr.title,
       description: pr.description ?? null,
       detail: pr.detail ?? null,
       program: pr.program ?? null,
+      suggestedValueMin: pr.productTemplate?.suggestedValueMin ?? null,
+      suggestedValueMax: pr.productTemplate?.suggestedValueMax ?? null,
       tags: pr.tags ?? [],
       color: pr.color,
     })),

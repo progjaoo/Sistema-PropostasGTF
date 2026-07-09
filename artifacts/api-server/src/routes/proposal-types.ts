@@ -1,0 +1,115 @@
+import { Router } from "express";
+import { prisma } from "@workspace/db";
+import { z } from "zod/v4";
+import { requireAuth } from "../middlewares/auth";
+
+const router = Router();
+
+const proposalTypeBody = z.object({
+  name: z.string().min(1),
+  active: z.boolean().optional(),
+});
+
+function formatProposalType(type: {
+  id: string;
+  name: string;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: type.id,
+    name: type.name,
+    active: type.active,
+    createdAt: type.createdAt.toISOString(),
+    updatedAt: type.updatedAt.toISOString(),
+  };
+}
+
+router.get("/", requireAuth, async (req, res): Promise<void> => {
+  const { active, search } = req.query as { active?: string; search?: string };
+  const types = await prisma.proposalType.findMany({
+    where: {
+      ...(active !== undefined && active !== "all" ? { active: active === "true" } : {}),
+      ...(search
+        ? { name: { contains: search, mode: "insensitive" as const } }
+        : {}),
+    },
+    orderBy: { name: "asc" },
+  });
+  res.json(types.map(formatProposalType));
+});
+
+router.post("/", requireAuth, async (req, res): Promise<void> => {
+  const parsed = proposalTypeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const name = parsed.data.name.trim();
+  const existingType = await prisma.proposalType.findFirst({
+    where: { name: { equals: name, mode: "insensitive" } },
+  });
+
+  if (existingType) {
+    if (existingType.active) {
+      res.status(409).json({ error: "Tipo de proposta ja cadastrado" });
+      return;
+    }
+
+    const reactivatedType = await prisma.proposalType.update({
+      where: { id: existingType.id },
+      data: {
+        name,
+        active: parsed.data.active ?? true,
+      },
+    });
+    res.status(200).json(formatProposalType(reactivatedType));
+    return;
+  }
+
+  try {
+    const type = await prisma.proposalType.create({
+      data: {
+        name,
+        active: parsed.data.active ?? true,
+      },
+    });
+    res.status(201).json(formatProposalType(type));
+  } catch {
+    res.status(409).json({ error: "Tipo de proposta ja cadastrado" });
+  }
+});
+
+router.patch("/:id", requireAuth, async (req, res): Promise<void> => {
+  const parsed = proposalTypeBody.partial().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const type = await prisma.proposalType.update({
+      where: { id: String(req.params["id"]) },
+      data: parsed.data,
+    });
+    res.json(formatProposalType(type));
+  } catch {
+    res.status(404).json({ error: "Tipo de proposta nao encontrado" });
+  }
+});
+
+router.delete("/:id", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const type = await prisma.proposalType.update({
+      where: { id: String(req.params["id"]) },
+      data: { active: false },
+    });
+    res.json(formatProposalType(type));
+  } catch {
+    res.status(404).json({ error: "Tipo de proposta nao encontrado" });
+  }
+});
+
+export default router;

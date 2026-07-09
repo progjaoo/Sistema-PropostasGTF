@@ -9,8 +9,10 @@ A commercial proposals management system for radio station sales teams. Create, 
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/scripts run seed` — seed the database with initial data
+- `pnpm db:generate` — generate Prisma Client
+- `pnpm db:push` — push Prisma schema changes to Postgres (dev only)
+- `pnpm seed` — seed the database with initial data
+- `docker compose up --build` — run Postgres + API + frontend locally
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Default Credentials
@@ -23,15 +25,16 @@ A commercial proposals management system for radio station sales teams. Create, 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - Frontend: React + Vite + Wouter + Zustand + TanStack Query
 - API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (zod/v4), drizzle-zod
+- DB: PostgreSQL + Prisma ORM
+- Validation: Zod (zod/v4)
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
 - `lib/api-spec/openapi.yaml` — source of truth for all API contracts
-- `lib/db/src/schema/` — Drizzle ORM schema (users, stations, advertisers, products, categories, templates, proposals)
+- `lib/db/prisma/schema.prisma` — Prisma ORM schema (users, stations, advertisers, products, categories, templates, proposals)
+- `lib/db/src/index.ts` — Prisma Client singleton exported as `prisma`
 - `lib/api-client-react/src/` — generated React Query hooks (do not edit directly; run codegen)
 - `lib/api-zod/src/` — generated Zod schemas (do not edit directly; run codegen)
 - `artifacts/api-server/src/routes/` — all Express route handlers
@@ -65,8 +68,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 - Run `pnpm --filter @workspace/api-spec run codegen` after any OpenAPI spec change before editing routes or frontend
 - Deep imports from `@workspace/api-client-react/src/...` are NOT supported — always import from `@workspace/api-client-react` (the main export)
-- Run `pnpm --filter @workspace/db run push` after any schema change in `lib/db/src/schema/`
+- Run `pnpm db:generate && pnpm db:push` after any schema change in `lib/db/prisma/schema.prisma`
 - The `build` script in artifact packages requires `PORT` and `BASE_PATH` env vars — use `typecheck` instead for CI-style checks
+- Docker local services: Postgres `localhost:5433`, API `http://localhost:8080`, frontend `http://localhost:21709`
 
 ## Pointers
 

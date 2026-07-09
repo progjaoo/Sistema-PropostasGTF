@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { ConfirmActionDialog } from '@/components/ui/confirm-action-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,20 +36,18 @@ export default function ProposalsList() {
   const [search, setSearch] = React.useState('');
   const [status, setStatus] = React.useState<string>('all');
   const [page, setPage] = React.useState(1);
+  const [rejectTarget, setRejectTarget] = React.useState<any | null>(null);
 
-  const { data, isLoading } = useListProposals({ 
-    query: {
-      queryKey: getListProposalsQueryKey({ page, limit: 10, search: search || undefined, status: status !== 'all' ? status : undefined }),
-    }
-  });
+  const proposalParams = { page, limit: 10, search: search || undefined, status: status !== 'all' ? status : undefined };
+  const { data, isLoading } = useListProposals(proposalParams);
 
   const deleteMutation = useDeleteProposal({
     mutation: {
       onSuccess: () => {
-        toast.success('Proposta movida para lixeira');
+        toast.success('Proposta marcada como rejeitada');
         queryClient.invalidateQueries({ queryKey: [getListProposalsQueryKey()[0]] });
       },
-      onError: () => toast.error('Erro ao excluir proposta')
+      onError: () => toast.error('Erro ao rejeitar proposta')
     }
   });
 
@@ -58,7 +57,6 @@ export default function ProposalsList() {
       case 'SENT': return <span className="bg-warning/10 text-warning px-2 py-1 rounded-md text-xs font-medium">Enviada</span>;
       case 'APPROVED': return <span className="bg-success/10 text-success px-2 py-1 rounded-md text-xs font-medium">Aprovada</span>;
       case 'REJECTED': return <span className="bg-error/10 text-error px-2 py-1 rounded-md text-xs font-medium">Rejeitada</span>;
-      case 'ARCHIVED': return <span className="bg-neutral-800 text-neutral-100 px-2 py-1 rounded-md text-xs font-medium">Arquivada</span>;
       default: return null;
     }
   };
@@ -96,7 +94,6 @@ export default function ProposalsList() {
             <SelectItem value="SENT">Enviadas</SelectItem>
             <SelectItem value="APPROVED">Aprovadas</SelectItem>
             <SelectItem value="REJECTED">Rejeitadas</SelectItem>
-            <SelectItem value="ARCHIVED">Arquivadas</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -110,7 +107,6 @@ export default function ProposalsList() {
               <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border/50">
                 <tr>
                   <th className="px-6 py-4 font-medium">Cliente / Campanha</th>
-                  <th className="px-6 py-4 font-medium">Mês/Ano</th>
                   <th className="px-6 py-4 font-medium">Criado em</th>
                   <th className="px-6 py-4 font-medium">Status</th>
                   <th className="px-6 py-4 font-medium text-right">Ações</th>
@@ -126,9 +122,6 @@ export default function ProposalsList() {
                       <div className="text-muted-foreground truncate max-w-[200px] mt-0.5">
                         {prop.campTag || prop.propType}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {prop.propMonth}/{prop.propYear}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
                       {format(new Date(prop.createdAt), "dd MMM, yyyy", { locale: ptBR })}
@@ -150,8 +143,8 @@ export default function ProposalsList() {
                             <Edit className="w-4 h-4 mr-2" /> Editar
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-error focus:bg-error/10 focus:text-error" onClick={() => deleteMutation.mutate({ id: prop.id })}>
-                            <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                          <DropdownMenuItem className="text-error focus:bg-error/10 focus:text-error" onClick={() => setRejectTarget(prop)}>
+                            <Trash2 className="w-4 h-4 mr-2" /> Rejeitar
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -172,6 +165,17 @@ export default function ProposalsList() {
           </div>
         )}
       </Card>
+      <ConfirmActionDialog
+        open={Boolean(rejectTarget)}
+        onOpenChange={(open) => !open && setRejectTarget(null)}
+        title="Rejeitar proposta?"
+        description="Esta ação mudará o status da proposta para Rejeitada e manterá o histórico operacional."
+        onConfirm={() => {
+          if (!rejectTarget) return;
+          deleteMutation.mutate({ id: rejectTarget.id });
+          setRejectTarget(null);
+        }}
+      />
       
       {/* Pagination controls can go here */}
     </div>

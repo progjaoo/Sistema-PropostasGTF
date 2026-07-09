@@ -16,6 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { normalizeEmailInput } from '@/lib/masks';
 
 const schema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
@@ -67,13 +68,13 @@ export default function AdminUsers() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField control={form.control} name="name" render={({field}) => (
-                  <FormItem><FormLabel>Nome</FormLabel><FormControl><Input {...field}/></FormControl><FormMessage/></FormItem>
+                  <FormItem><FormLabel>Nome</FormLabel><FormControl><Input placeholder="Nome completo do usuário" {...field}/></FormControl><FormMessage/></FormItem>
                 )}/>
                 <FormField control={form.control} name="email" render={({field}) => (
-                  <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field}/></FormControl><FormMessage/></FormItem>
+                  <FormItem><FormLabel>E-mail</FormLabel><FormControl><Input type="email" placeholder="usuario@empresa.com.br" {...field} onChange={(event) => field.onChange(normalizeEmailInput(event.target.value))}/></FormControl><FormMessage/></FormItem>
                 )}/>
                 <FormField control={form.control} name="password" render={({field}) => (
-                  <FormItem><FormLabel>Senha Temporária</FormLabel><FormControl><Input type="password" {...field}/></FormControl><FormMessage/></FormItem>
+                  <FormItem><FormLabel>Senha Temporária</FormLabel><FormControl><Input type="password" placeholder="Mínimo de 6 caracteres" {...field}/></FormControl><FormMessage/></FormItem>
                 )}/>
                 <FormField control={form.control} name="role" render={({field}) => (
                   <FormItem>

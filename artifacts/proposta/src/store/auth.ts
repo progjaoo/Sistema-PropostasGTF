@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { GetMeResponse as User } from '@workspace/api-client-react';
+import type { User } from '@workspace/api-client-react';
 
 interface AuthState {
   user: User | null;

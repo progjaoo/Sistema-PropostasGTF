@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useAuthStore } from "@/store/auth";
@@ -10,6 +10,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
+import ProfileSettings from "@/pages/profile";
 
 import ProposalsList from "@/pages/proposals/index";
 import ProposalNew from "@/pages/proposals/new";
@@ -23,7 +24,7 @@ import AdminUsers from "@/pages/admin/users";
 import AdminStation from "@/pages/admin/station";
 import AdminProductTemplates from "@/pages/admin/product-templates";
 import AdminProposalCategories from "@/pages/admin/proposal-categories";
-import AdminProposalTemplates from "@/pages/admin/proposal-templates";
+import AdminProposalTypes from "@/pages/admin/proposal-types";
 
 const queryClient = new QueryClient();
 
@@ -33,7 +34,7 @@ function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: an
       {params => {
         const user = useAuthStore.getState().user;
         if (adminOnly && user?.role !== 'ADMIN') {
-          window.location.href = '/dashboard';
+          window.location.href = '/proposals';
           return null;
         }
         return (
@@ -60,12 +61,15 @@ function App() {
             <Route path="/login" component={Login} />
             <Route path="/">
               {() => {
-                window.location.href = '/dashboard';
+                const user = useAuthStore.getState().user;
+                window.location.href = user?.role === 'ADMIN' ? '/dashboard' : '/proposals';
                 return null;
               }}
             </Route>
             
-            <ProtectedRoute path="/dashboard" component={Dashboard} />
+            <ProtectedRoute path="/dashboard" component={Dashboard} adminOnly />
+            <ProtectedRoute path="/profile" component={ProfileSettings} />
+            <ProtectedRoute path="/programs" component={AdminProposalCategories} />
             
             {/* Proposals */}
             <ProtectedRoute path="/proposals" component={ProposalsList} />
@@ -82,7 +86,7 @@ function App() {
             <ProtectedRoute path="/admin/station" component={AdminStation} adminOnly />
             <ProtectedRoute path="/admin/product-templates" component={AdminProductTemplates} adminOnly />
             <ProtectedRoute path="/admin/proposal-categories" component={AdminProposalCategories} adminOnly />
-            <ProtectedRoute path="/admin/proposal-templates" component={AdminProposalTemplates} adminOnly />
+            <ProtectedRoute path="/admin/proposal-types" component={AdminProposalTypes} adminOnly />
 
             <Route component={NotFound} />
           </Switch>

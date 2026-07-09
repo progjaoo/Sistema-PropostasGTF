@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sistema-propostas-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: propostas
+      POSTGRES_USER: propostas
+      POSTGRES_PASSWORD: propostas
+    ports:
+      - "5433:5432"
+    volumes:
+      - propostas_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U propostas -d propostas"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    image: sistema-propostas-app:latest
+    build:
+      context: .
+    container_name: sistema-propostas-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: "8080"
+      DATABASE_URL: postgresql://propostas:propostas@postgres:5432/propostas?schema=public
+      JWT_SECRET: dev-access-secret
+      JWT_REFRESH_SECRET: dev-refresh-secret
+    ports:
+      - "${API_HOST_PORT:-8081}:8080"
+    command: >
+      sh -c "pnpm --filter @workspace/db run generate &&
+             pnpm --filter @workspace/db run push &&
+             pnpm --filter @workspace/scripts run seed &&
+             pnpm --filter @workspace/api-server run dev"
+
+  frontend:
+    image: sistema-propostas-app:latest
+    pull_policy: never
+    container_name: sistema-propostas-frontend
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: development
+      PORT: "21709"
+      BASE_PATH: /
+      API_PROXY_TARGET: http://api:8080
+    ports:
+      - "21709:21709"
+    command: pnpm --filter @workspace/proposta run dev
+
+volumes:
+  propostas_postgres_data:
