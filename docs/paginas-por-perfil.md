@@ -102,13 +102,13 @@ Acesso:
 
 Funcionalidades:
 
-- Listar propostas.
-- Filtrar por status.
-- Buscar por cliente, campanha ou tipo.
-- Criar novo rascunho.
+- Visualizar programas com seus produtos vinculados.
+- Consultar propostas vinculadas a cada programa em hierarquia.
+- Filtrar por texto, empresa, programa e status.
+- Criar novo rascunho por dialog, escolhendo a empresa e o tipo inicial.
 - Editar proposta.
 - Alterar status da proposta.
-- Rejeitar proposta com confirmacao por toast.
+- Rejeitar proposta com confirmacao por dialog.
 
 Status atuais:
 
@@ -137,23 +137,27 @@ Rota:
 
 Funcionamento:
 
-- Lista propostas em ordem de atualizacao.
+- Exibe programas e produtos como a porta principal de trabalho.
+- Ao clicar em um programa, mostra as propostas vinculadas aos produtos daquele programa.
 - ADMIN visualiza todas as propostas.
 - COMERCIAL visualiza apenas as propostas criadas por ele.
-- Permite buscar por tipo, cliente e tag de campanha.
+- Permite buscar por cliente, produto, programa ou tipo de proposta.
+- Permite filtrar por empresa/emissora.
+- Permite filtrar por programa.
 - Permite filtrar por status.
-- A acao `Editar` abre `/proposals/:id/edit`.
+- Clicar em uma proposta abre `/proposals/:id/edit`.
 - A acao `Rejeitar` chama a API de delete, mas o comportamento atual e mudar o status para `REJECTED`.
+- A acao `Duplicar` cria um novo rascunho baseado na proposta selecionada.
 
 Endpoint usado:
 
-- `GET /api/proposals`
+- `GET /api/proposals/program-board`
 
 Filtros enviados:
 
-- `page`
-- `limit`
 - `search`
+- `stationId`
+- `programId`
 - `status`
 
 ### 2. Criacao de Nova Proposta
@@ -164,13 +168,11 @@ Rota:
 
 Funcionamento atual:
 
-- A tela nao usa mais templates de proposta.
-- Ela mostra uma mensagem informando que templates foram removidos.
-- A tela permite selecionar a Empresa da proposta antes de criar o rascunho.
+- `/proposals/new` foi mantida apenas como compatibilidade.
+- Ao acessar diretamente, a rota redireciona para `/proposals`.
+- A criacao de proposta acontece pelo botao `Nova Proposta` na tela `/proposals`.
+- O dialog de criacao permite selecionar a Empresa da proposta e o tipo inicial.
 - A lista de Empresas prioriza `Radio 88 FM` como primeira opcao, quando ela estiver cadastrada e ativa.
-- A tela lista programas e produtos apenas como catalogo de consulta.
-- O botao `Criar Rascunho` cria uma proposta em branco.
-- A criacao ja tenta usar o primeiro tipo de proposta ativo cadastrado em `/api/proposal-types`.
 - A periodicidade inicial e `MONTHLY`.
 
 Dados enviados na criacao:
@@ -286,18 +288,20 @@ Impacto no preview:
 
 Campos editaveis:
 
-- Anunciante cadastrado (`advertiserId`)
+- Cliente ou lead cadastrado (`advertiserId`)
 
 Funcionamento:
 
 - O bloco antigo `Campanha & Cliente` foi renomeado para `Cliente`.
 - A tag da campanha foi removida do formulario e do preview.
 - Os campos `clientLine1` e `clientLine2` foram removidos da UI.
-- O seletor de anunciante virou busca textual com lista de resultados.
-- Ao selecionar um anunciante, a proposta passa a ficar vinculada ao cliente.
-- O editor permite criar um anunciante inline por modal.
-- Ao criar ou selecionar um anunciante, o nome de contato e telefone sao preenchidos a partir do cadastro do cliente quando existirem.
-- Essa vinculacao aparece depois na tela de Anunciantes, na expansao do cliente.
+- O cliente/lead selecionado aparece em um card.
+- O botao `Selecionar` abre um dialog de busca e fecha apos a escolha.
+- As sugestoes nao ficam mais abertas no painel depois que um cliente/lead e selecionado.
+- Ao selecionar um cliente ou lead, a proposta passa a ficar vinculada a esse cadastro.
+- O botao `Novo Lead` cria um lead inline por modal.
+- Ao criar um lead, ele ja fica selecionado na proposta.
+- Essa vinculacao aparece depois na tela de Clientes, na expansao do cliente.
 
 #### Periodo
 
@@ -320,21 +324,28 @@ Campos por item:
 
 - Quantidade (`qty`)
 - Titulo (`title`)
-- Programa/Horario (`program`)
+- Programa (`program`)
+- Duracao (`durationLabel`)
+- Horario (`airTime`)
+- Sazonalidade (`seasonality`)
 - Descricao (`description`)
-- Tags (`tags`)
 - Cor (`color`)
 
 Funcionamento atual:
 
-- O usuario pode adicionar produto do catalogo.
-- O usuario pode adicionar item avulso manualmente.
-- O usuario pode remover item manualmente.
+- O usuario pesquisa produtos do catalogo no campo de busca.
+- Ao clicar em um produto pesquisado, ele entra automaticamente na proposta.
+- Nao existe mais botao intermediario `Adicionar produto do catalogo`.
+- O botao `Criar Produto Novo` adiciona um item manual na proposta.
+- O botao de remover item fica sempre visivel e usa cor vermelha.
 - O usuario pode alterar cor do item.
 - Os produtos do catalogo sao carregados de `/api/product-templates?active=true`.
 - A listagem de catalogo e agrupada visualmente por programa.
-- Ao inserir produto do catalogo, a proposta recebe quantidade, titulo, descricao, detalhe, programa, tags, cor e `productTemplateId`.
+- Ao inserir produto do catalogo, a proposta recebe titulo, descricao, detalhe, programa, duracao, valor sugerido, cor e `productTemplateId`.
+- O campo `Tags` foi removido da UI, mas dados legados continuam sendo preservados no payload quando existirem.
+- Quantidade, horario e sazonalidade sao definidos dentro da proposta.
 - O produto inserido pode ser editado dentro da proposta sem alterar o produto original do catalogo.
+- Horario e sazonalidade aparecem no preview/PDF somente quando preenchidos.
 
 Persistencia:
 
@@ -361,14 +372,14 @@ Funcionamento:
 - O contato comercial nao e mais digitado por proposta.
 - O contato exibido vem do perfil do usuario dono da proposta, nao da Empresa vinculada.
 - Quando cargo ou telefone do vendedor nao estao preenchidos, o editor mostra um aviso amarelo com atalho para `/profile`.
-- A sugestao de investimento e calculada no frontend em tempo real, somando a media dos valores sugeridos dos produtos vindos do catalogo multiplicada pela quantidade de cada item.
+- A sugestao de investimento e calculada no frontend em tempo real, somando o valor sugerido unico dos produtos vindos do catalogo multiplicado pela quantidade de cada item.
 - Itens avulsos sem `productTemplateId` nao entram no calculo da sugestao.
 - O valor sugerido e apenas apoio comercial: o campo `investValue` continua manual e editavel.
 
 Formula da sugestao:
 
-- Produto com minimo e maximo: `(valorSugeridoMin + valorSugeridoMax) / 2 * quantidade`
-- Produto com apenas minimo ou apenas maximo: `valor disponivel * quantidade`
+- Produto com valor sugerido: `valorSugerido * quantidade`
+- Produto legado sem valor sugerido unico pode usar o valor maximo antigo como fallback.
 - Produto sem valores sugeridos: nao soma no total
 
 Impacto no preview:
@@ -461,6 +472,7 @@ Entrada:
 Renderizacao:
 
 - Formato visual A4.
+- Tipografia Montserrat no preview impresso/PDF.
 - Topo com identidade visual solida, sem banner carregado pelo usuario.
 - Logo/nome da empresa.
 - Tipo e periodicidade.
@@ -473,7 +485,7 @@ Renderizacao:
 Ponto importante:
 
 - O preview e visual, nao um PDF real gerado no servidor.
-- O botao `PDF` chama `window.print()`.
+- O botao `PDF` chama `window.print()` e usa CSS de impressao para imprimir somente a area da proposta.
 
 ### 9. Impressao / PDF
 
@@ -485,7 +497,9 @@ Funcionamento atual:
 
 - Chama `window.print()`.
 - A geracao depende do dialogo de impressao do navegador.
-- O layout impresso depende das regras CSS de print existentes no frontend.
+- O CSS de impressao define `@page size: A4`, remove a escala do preview e oculta sidebar/editor.
+- A area `.print-area` e renderizada em 210mm de largura e minimo de 297mm de altura.
+- A fonte do PDF e Montserrat, com fallback para Arial.
 
 Ponto de atencao:
 
@@ -533,7 +547,7 @@ Pontos que merecem revisao antes de evoluir o fluxo:
 - Implementar duplicacao no frontend ou remover indicio visual de copiar.
 - Avaliar geracao real de PDF, se o fluxo comercial precisar armazenar ou enviar arquivo.
 
-### Anunciantes
+### Clientes
 
 Rotas:
 
@@ -547,15 +561,21 @@ Acesso:
 
 Funcionalidades:
 
-- Listar anunciantes.
-- Buscar anunciante.
-- Criar anunciante.
-- Editar anunciante.
-- Excluir anunciante com confirmacao por dialog.
-- Expandir anunciante para visualizar propostas vinculadas.
+- Listar clientes (`Advertiser.status = CLIENT`).
+- Buscar cliente.
+- Criar cliente.
+- Editar cliente.
+- Excluir cliente com confirmacao por dialog.
+- Expandir cliente para visualizar propostas vinculadas.
 - Abrir proposta vinculada diretamente pela lista expandida quando o usuario tem permissao.
 
-Na expansao do anunciante aparecem propostas rascunho, enviadas, aprovadas e rejeitadas vinculadas ao cliente.
+Formulario:
+
+- Campo `Nome` grava `tradeName`.
+- `Razao Social` nao aparece mais na UI, mas `legalName` permanece no banco para historico.
+- Campo `Informacao Interna` grava `notes`.
+
+Na expansao do cliente aparecem propostas rascunho, enviadas, aprovadas e rejeitadas vinculadas ao cliente.
 
 Regras de visibilidade das propostas vinculadas:
 
@@ -563,6 +583,31 @@ Regras de visibilidade das propostas vinculadas:
 - COMERCIAL visualiza titulo, investimento, programa, status e responsavel apenas das propostas criadas por ele, com acesso ao editor.
 - COMERCIAL visualiza propostas de outros responsaveis em modo restrito: programa, status e responsavel. O titulo da proposta, investimento e acesso ao editor ficam ocultos.
 - A permissao da linha vem do backend pelo campo `viewerCanEdit`; o frontend nao decide acesso comparando usuarios localmente.
+
+### Leads
+
+Rotas:
+
+- `/leads`
+- `/leads/new`
+- `/leads/:id/edit`
+
+Acesso:
+
+- ADMIN e COMERCIAL.
+
+Funcionalidades:
+
+- Listar leads (`Advertiser.status = LEAD`).
+- Buscar lead.
+- Criar lead.
+- Editar lead.
+- Excluir lead com confirmacao por dialog.
+
+Regra de conversao:
+
+- Quando uma proposta vinculada ao lead e marcada como `Aprovada`, o backend promove automaticamente o registro para Cliente (`Advertiser.status = CLIENT`).
+- A promocao nao depende apenas do frontend; ela acontece no endpoint de atualizacao de status da proposta.
 
 ### Usuarios
 
@@ -600,6 +645,7 @@ Funcionalidades:
 - Desativar empresa com confirmacao por toast.
 - Upload de foto/logo em base64.
 - Listar empresas cadastradas.
+- Definir cor padrao da proposta (`primaryColor`), com default `#427EFF`.
 
 Campos principais:
 
@@ -608,6 +654,7 @@ Campos principais:
 - Razao social.
 - CNPJ.
 - Slogan.
+- Cor padrao da proposta.
 - Contato.
 - Telefone.
 - E-mail.
@@ -636,22 +683,22 @@ Funcionalidades:
 - Editar produto.
 - Excluir produto com confirmacao por toast.
 - Vincular produto a um programa.
-- Informar faixa de valor sugerida.
+- Informar valor sugerido unico.
+- Selecionar duracao do produto.
+- Criar nova duracao dentro do formulario de produto.
 - Definir cor de destaque.
-- Buscar por nome interno, titulo ou descricao.
-- Filtrar por programa, incluindo `Sem programa`.
+- Buscar por nome, titulo ou descricao.
+- Filtrar por programa.
 - Filtrar por status: ativo, inativo ou todos.
 - Filtrar por valor sugerido minimo e maximo.
 - Ordenar por ordem cadastrada, nome, data ou valor sugerido.
 
 Campos principais:
 
-- Nome interno.
-- Titulo na proposta.
-- Quantidade.
 - Programa.
-- Valor sugerido minimo.
-- Valor sugerido maximo.
+- Nome do Produto.
+- Duracao.
+- Valor sugerido.
 - Descricao.
 - Detalhe.
 - Tags.
@@ -660,6 +707,8 @@ Campos principais:
 Observacao:
 
 - Esta tela substitui o conceito antigo de `Template de Produto`.
+- O campo tecnico `ProductTemplate.name` ainda existe no banco, mas e gerado pela API.
+- Quantidade nao faz parte do cadastro de Produto; ela e definida no item da proposta.
 
 ### Programas
 
@@ -699,6 +748,7 @@ Regras de vinculo:
 - Se um produto for removido da selecao do programa atual, ele fica sem programa definido.
 - Se o programa ja existe, o produto criado dentro do modal e persistido imediatamente e ja fica selecionado.
 - Se o programa ainda esta sendo criado, os produtos novos ficam pendentes em memoria e sao criados depois que o programa for salvo.
+- O produto criado dentro do modal de programa usa os mesmos campos simplificados: nome do produto, duracao e valor sugerido unico.
 
 Observacao:
 
@@ -736,7 +786,8 @@ O COMERCIAL possui acesso operacional reduzido.
 Menu visivel:
 
 - Propostas
-- Anunciantes
+- Clientes
+- Leads
 - Programas
 
 Nao aparece o bloco `Administracao`.
@@ -755,10 +806,12 @@ Acesso:
 
 Funcionalidades:
 
-- Criar rascunho de proposta.
+- Visualizar propostas por programas e produtos.
+- Filtrar por texto, empresa, programa e status.
+- Criar rascunho de proposta pelo dialog `Nova Proposta`.
 - Editar proposta.
 - Alterar status.
-- Vincular anunciante.
+- Vincular cliente ou lead.
 - Consultar dados comerciais da proposta.
 - Rejeitar proposta com confirmacao.
 
@@ -767,7 +820,7 @@ Regras:
 - O COMERCIAL nao acessa dashboard.
 - O COMERCIAL nao acessa cadastros administrativos.
 
-### Anunciantes
+### Clientes
 
 Rotas:
 
@@ -781,17 +834,41 @@ Acesso:
 
 Funcionalidades:
 
-- Listar anunciantes.
-- Buscar anunciante.
-- Criar anunciante.
-- Editar anunciante.
-- Visualizar propostas vinculadas ao anunciante.
+- Listar clientes.
+- Buscar cliente.
+- Criar cliente.
+- Editar cliente.
+- Visualizar propostas vinculadas ao cliente.
 - Abrir proposta vinculada a partir do dropdown/expansao do cliente apenas quando for dono da proposta.
 
 Uso esperado:
 
-- O COMERCIAL acompanha a carteira de clientes e confere quais propostas ja existem para cada anunciante.
+- O COMERCIAL acompanha a carteira de clientes e confere quais propostas ja existem para cada cliente.
 - Quando a proposta for de outro responsavel, o COMERCIAL ve somente programa, status e responsavel; nao ve valor, titulo da proposta nem botao/link de edicao.
+
+### Leads
+
+Rotas:
+
+- `/leads`
+- `/leads/new`
+- `/leads/:id/edit`
+
+Acesso:
+
+- COMERCIAL e ADMIN.
+
+Funcionalidades:
+
+- Listar leads.
+- Buscar lead.
+- Criar lead.
+- Editar lead.
+- Visualizar oportunidades antes de virarem clientes.
+
+Regra:
+
+- Ao marcar uma proposta vinculada ao lead como `Aprovada`, o backend promove automaticamente esse lead para Cliente.
 
 ### Programas
 

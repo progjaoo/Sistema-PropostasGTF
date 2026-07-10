@@ -8,7 +8,7 @@
 - Stack: TypeScript, React, Vite, Express, Prisma, PostgreSQL, Docker e PNPM Workspaces
 - Agente principal recomendado: Software Architect
 - Agentes de apoio: Product Manager, UX/UI Designer, Frontend Engineer, Backend API Engineer, Database Engineer, QA Engineer e Technical Writer
-- Status: Planejado
+- Status: Implementado em 2026-07-09
 
 ## Referencias Usadas
 
@@ -587,3 +587,54 @@ curl http://localhost:21709/api/healthz
 Este plano deve ser implementado de forma incremental. A parte mais sensivel e a regra de promocao Lead -> Cliente ao aprovar proposta, porque ela altera dado de negocio e deve ficar protegida no backend.
 
 Nao remover `legalName`, nao renomear fisicamente `Advertiser` e nao alterar regras de permissao fora do PRD.
+
+## Execucao Realizada
+
+### Banco e Prisma
+
+- Adicionado enum `AdvertiserStatus` com `LEAD` e `CLIENT`.
+- Adicionado `Advertiser.status` com default `CLIENT`.
+- Adicionado `Station.primaryColor` com default `#427EFF`.
+- Atualizado seed para manter a Radio 88 FM com `primaryColor = #427EFF`.
+- Atualizado seed para manter o anunciante existente como `CLIENT`.
+
+### Backend
+
+- `GET /api/advertisers` passou a aceitar `status=LEAD|CLIENT`.
+- Payload de cliente/lead passou a retornar `status`.
+- Payload de empresa passou a retornar `primaryColor`.
+- Atualizacao de status de proposta promove o lead para cliente quando status vira `APPROVED`.
+- Payload de proposta passou a incluir `station.primaryColor` no detalhe.
+
+### Frontend
+
+- Sidebar mostra `Clientes` e `Leads`.
+- Criadas rotas `/leads`, `/leads/new` e `/leads/:id/edit`.
+- Tela de Clientes filtra `status=CLIENT`.
+- Tela de Leads filtra `status=LEAD`.
+- Formulario de Cliente/Lead usa `Nome`, remove `Razao Social` da UI e troca `Observacoes` por `Informacao Interna`.
+- Editor de proposta ganhou bloco `Apresentacao` com ate 4 itens editaveis.
+- `cleanProposalPayload` deixou de zerar `stats` e `investDesc`.
+- `ProposalPreview` foi redesenhado em 6 secoes conforme PRD v2.
+- Cards do plano de acoes usam a cor da empresa selecionada.
+- Empresa ganhou campo de cor padrao com fallback `#427EFF`.
+
+### Documentacao
+
+- Atualizados `docs/08-regras-de-negocio.md`.
+- Atualizados `docs/06-banco-de-dados.md`.
+- Atualizados `docs/04-frontend-guidelines.md`.
+- Atualizados `docs/paginas-por-perfil.md`.
+- Atualizado `docs/MUDANCAS.MD`.
+
+### Validacao Parcial
+
+- `pnpm db:generate` executado com sucesso.
+- `pnpm run typecheck` executado com sucesso.
+- `PORT=21709 BASE_PATH=/ pnpm --filter @workspace/proposta run build` executado com sucesso.
+- `PORT=8080 pnpm --filter @workspace/api-server run build` executado com sucesso.
+- `pnpm db:push` local exigiu `DATABASE_URL`; ao informar a URL, o Prisma retornou erro generico de schema engine sem detalhe. A validacao final deve usar `docker compose up -d --build`, pois o boot da API executa `db push` e `seed` dentro do ambiente Docker configurado.
+- `docker compose up -d --build` executado com sucesso.
+- No boot Docker, a API executou `prisma db push`, `seed` e iniciou em `port: 8080`.
+- Healthcheck `http://localhost:21709/api/healthz` respondeu `200 OK`.
+- Validacao autenticada confirmou `station.primaryColor = "#427EFF"` e filtros `status=CLIENT` / `status=LEAD` funcionando.

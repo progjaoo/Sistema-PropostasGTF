@@ -28,6 +28,18 @@ import AdminProposalTypes from "@/pages/admin/proposal-types";
 
 const queryClient = new QueryClient();
 
+function LeadsList() {
+  return <AdvertisersList mode="lead" />;
+}
+
+function LeadNew() {
+  return <AdvertiserNew mode="lead" />;
+}
+
+function LeadEdit({ params }: { params: { id: string } }) {
+  return <AdvertiserEdit params={params} mode="lead" />;
+}
+
 function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: any) {
   return (
     <Route {...rest}>
@@ -80,6 +92,11 @@ function App() {
             <ProtectedRoute path="/advertisers" component={AdvertisersList} />
             <ProtectedRoute path="/advertisers/new" component={AdvertiserNew} />
             <ProtectedRoute path="/advertisers/:id/edit" component={AdvertiserEdit} />
+
+            {/* Leads */}
+            <ProtectedRoute path="/leads" component={LeadsList} />
+            <ProtectedRoute path="/leads/new" component={LeadNew} />
+            <ProtectedRoute path="/leads/:id/edit" component={LeadEdit} />
 
             {/* Admin */}
             <ProtectedRoute path="/admin/users" component={AdminUsers} adminOnly />

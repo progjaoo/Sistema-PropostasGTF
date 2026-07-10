@@ -14,6 +14,9 @@ const productInput = z.object({
   description: z.string().optional().nullable(),
   detail: z.string().optional().nullable(),
   program: z.string().optional().nullable(),
+  durationLabel: z.string().optional().nullable(),
+  airTime: z.string().optional().nullable(),
+  seasonality: z.enum(["MONTHLY", "SEMIANNUAL", "ANNUAL"]).optional().nullable(),
   tags: z.array(z.string()).optional(),
   color: z.enum(["BLUE", "YELLOW", "RED", "GREEN", "DARK"]).optional(),
 });
@@ -66,12 +69,218 @@ async function buildSummary(p: ProposalSummaryRow) {
     campTag: p.campTag ?? null,
     clientLine1: p.clientLine1 ?? null,
     advertiserName: p.advertiser ? p.advertiser.tradeName : null,
+    advertiserTradeName: p.advertiser ? p.advertiser.tradeName : null,
     fromTemplateName: p.fromTemplate ? p.fromTemplate.name : null,
+    proposalTypeName: p.proposalType?.name ?? null,
     createdByName: p.createdBy ? p.createdBy.name : "",
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   };
 }
+
+function formatMoney(value?: string | null) {
+  return value ?? null;
+}
+
+function resolveProgramFromProduct(product: {
+  program?: string | null;
+  productTemplate?: {
+    programId?: string | null;
+    program?: string | null;
+    programRef?: { id: string; name: string } | null;
+  } | null;
+}) {
+  return {
+    id: product.productTemplate?.programRef?.id ?? product.productTemplate?.programId ?? null,
+    name: product.productTemplate?.programRef?.name ?? product.productTemplate?.program ?? product.program ?? "Sem programa",
+  };
+}
+
+router.get("/program-board", requireAuth, async (req, res): Promise<void> => {
+  const { search, stationId, programId, status } = req.query as Record<string, string | undefined>;
+  const cleanSearch = search?.trim();
+  const cleanStationId = stationId && stationId !== "all" ? stationId : undefined;
+  const cleanProgramId = programId && programId !== "all" ? programId : undefined;
+  const cleanStatus = status && status !== "all" ? status : undefined;
+
+  const proposalWhere: Prisma.ProposalWhereInput = {};
+  if (req.userRole !== "ADMIN") {
+    proposalWhere.createdById = req.userId!;
+  }
+  if (cleanStationId) {
+    proposalWhere.stationId = cleanStationId;
+  }
+  if (cleanStatus) {
+    proposalWhere.status = cleanStatus as Prisma.EnumProposalStatusFilter["equals"];
+  }
+  if (cleanSearch) {
+    proposalWhere.OR = [
+      { propType: { contains: cleanSearch, mode: "insensitive" } },
+      { clientLine1: { contains: cleanSearch, mode: "insensitive" } },
+      { campTag: { contains: cleanSearch, mode: "insensitive" } },
+      { advertiser: { tradeName: { contains: cleanSearch, mode: "insensitive" } } },
+      { products: { some: { title: { contains: cleanSearch, mode: "insensitive" } } } },
+      { products: { some: { program: { contains: cleanSearch, mode: "insensitive" } } } },
+      { products: { some: { productTemplate: { title: { contains: cleanSearch, mode: "insensitive" } } } } },
+      { products: { some: { productTemplate: { programRef: { name: { contains: cleanSearch, mode: "insensitive" } } } } } },
+    ];
+  }
+  if (cleanProgramId) {
+    proposalWhere.products = {
+      some: {
+        OR: [
+          { productTemplate: { programId: cleanProgramId } },
+        ],
+      },
+    };
+  }
+
+  const [programs, proposals] = await Promise.all([
+    prisma.proposalCategory.findMany({
+      where: {
+        active: true,
+        ...(cleanProgramId ? { id: cleanProgramId } : {}),
+      },
+      orderBy: [{ order: "asc" }, { name: "asc" }],
+      include: {
+        products: {
+          where: {
+            active: true,
+            ...(cleanStationId ? { stationId: cleanStationId } : {}),
+          },
+          orderBy: [{ order: "asc" }, { title: "asc" }],
+          include: {
+            station: { select: { id: true, name: true } },
+            duration: { select: { label: true } },
+          },
+        },
+      },
+    }),
+    prisma.proposal.findMany({
+      where: proposalWhere,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        advertiser: { select: { id: true, tradeName: true, status: true } },
+        station: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+        proposalType: { select: { id: true, name: true } },
+        products: {
+          orderBy: { order: "asc" },
+          include: {
+            productTemplate: {
+              select: {
+                id: true,
+                title: true,
+                program: true,
+                programId: true,
+                suggestedValueMin: true,
+                duration: { select: { label: true } },
+                programRef: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const board = new Map<string, {
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    icon: string | null;
+    products: Array<Record<string, unknown>>;
+    proposals: Array<Record<string, unknown>>;
+  }>();
+
+  programs.forEach((program) => {
+    board.set(program.id, {
+      id: program.id,
+      name: program.name,
+      slug: program.slug,
+      description: program.description ?? null,
+      icon: program.icon ?? null,
+      products: program.products.map((product) => ({
+        id: product.id,
+        title: product.title,
+        description: product.description ?? null,
+        stationId: product.stationId,
+        stationName: product.station?.name ?? null,
+        durationLabel: product.duration?.label ?? null,
+        suggestedValueMin: formatMoney(product.suggestedValueMin),
+      })),
+      proposals: [],
+    });
+  });
+
+  const ensureProgram = (id: string, name: string) => {
+    if (!board.has(id)) {
+      board.set(id, {
+        id,
+        name,
+        slug: id,
+        description: null,
+        icon: null,
+        products: [],
+        proposals: [],
+      });
+    }
+    return board.get(id)!;
+  };
+
+  proposals.forEach((proposal) => {
+    const programKeys = new Map<string, string>();
+
+    proposal.products.forEach((product) => {
+      const resolved = resolveProgramFromProduct(product);
+      if (resolved.id) {
+        programKeys.set(resolved.id, resolved.name);
+      }
+    });
+
+    if (programKeys.size === 0 && !cleanProgramId) {
+      programKeys.set("sem-programa", "Sem programa");
+    }
+
+    const proposalSummary = {
+      id: proposal.id,
+      status: proposal.status,
+      advertiserId: proposal.advertiserId ?? null,
+      advertiserName: proposal.advertiser?.tradeName ?? proposal.clientLine1 ?? "Sem cliente",
+      stationName: proposal.station?.name ?? null,
+      proposalTypeName: proposal.proposalType?.name ?? proposal.propType,
+      createdByName: proposal.createdBy?.name ?? "",
+      investValue: proposal.investValue ?? null,
+      updatedAt: proposal.updatedAt.toISOString(),
+      products: proposal.products.map((product) => ({
+        id: product.id,
+        title: product.title,
+        qty: product.qty,
+        airTime: product.airTime ?? null,
+        durationLabel: product.durationLabel ?? product.productTemplate?.duration?.label ?? null,
+        seasonality: product.seasonality ?? null,
+        programName: resolveProgramFromProduct(product).name,
+      })),
+    };
+
+    programKeys.forEach((name, id) => {
+      ensureProgram(id, name).proposals.push(proposalSummary);
+    });
+  });
+
+  let data = Array.from(board.values());
+  if (cleanSearch) {
+    const needle = cleanSearch.toLowerCase();
+    data = data.filter((program) => {
+      const programMatches = `${program.name} ${program.description ?? ""}`.toLowerCase().includes(needle);
+      const productMatches = program.products.some((product) => `${product.title ?? ""} ${product.description ?? ""}`.toLowerCase().includes(needle));
+      return programMatches || productMatches || program.proposals.length > 0;
+    });
+  }
+
+  res.json({ programs: data });
+});
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
   const { page = "1", limit = "20", status, advertiserId, search } = req.query as Record<string, string>;
@@ -146,6 +355,9 @@ router.post("/", requireAuth, async (req, res): Promise<void> => {
               description: p.description ?? null,
               detail: p.detail ?? null,
               program: p.program ?? null,
+              durationLabel: p.durationLabel ?? null,
+              airTime: p.airTime ?? null,
+              seasonality: p.seasonality ?? null,
               tags: p.tags ?? [],
               color: p.color ?? "BLUE",
             })),
@@ -221,6 +433,9 @@ router.patch("/:id", requireAuth, async (req, res): Promise<void> => {
             description: p.description ?? null,
             detail: p.detail ?? null,
             program: p.program ?? null,
+            durationLabel: p.durationLabel ?? null,
+            airTime: p.airTime ?? null,
+            seasonality: p.seasonality ?? null,
             tags: p.tags ?? [],
             color: p.color ?? "BLUE",
           })),
@@ -284,9 +499,20 @@ router.patch("/:id/status", requireAuth, async (req, res): Promise<void> => {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
-    const proposal = await prisma.proposal.update({
-      where: { id: String(req.params["id"]) },
-      data: { status: parsed.data.status },
+    const proposal = await prisma.$transaction(async (tx) => {
+      const updated = await tx.proposal.update({
+        where: { id: String(req.params["id"]) },
+        data: { status: parsed.data.status },
+      });
+
+      if (parsed.data.status === "APPROVED" && updated.advertiserId) {
+        await tx.advertiser.update({
+          where: { id: updated.advertiserId },
+          data: { status: "CLIENT" },
+        });
+      }
+
+      return updated;
     });
     res.json(await buildFullProposal(proposal.id));
   } catch {
@@ -344,6 +570,9 @@ router.post("/:id/duplicate", requireAuth, async (req, res): Promise<void> => {
               description: p.description,
               detail: p.detail,
               program: p.program,
+              durationLabel: p.durationLabel,
+              airTime: p.airTime,
+              seasonality: p.seasonality,
               tags: p.tags,
               color: p.color,
             })),

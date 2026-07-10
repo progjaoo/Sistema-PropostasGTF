@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuthStore } from '@/store/auth';
 import { useLogout } from '@workspace/api-client-react';
-import { Building2, FileCog, FileText, Users, LogOut, Radio, Package, Layers, UserCircle } from 'lucide-react';
+import { Building2, FileCog, FileText, Users, LogOut, Radio, Package, Layers, UserCircle, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -53,7 +53,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navItems = [
     { icon: Radio, label: 'Dashboard', href: '/dashboard', roles: ['ADMIN'] },
     { icon: FileText, label: 'Propostas', href: '/proposals', roles: ['COMERCIAL', 'ADMIN'] },
-    { icon: Users, label: 'Anunciantes', href: '/advertisers', roles: ['COMERCIAL', 'ADMIN'] },
+    { icon: Users, label: 'Clientes', href: '/advertisers', roles: ['COMERCIAL', 'ADMIN'] },
+    { icon: UserPlus, label: 'Leads', href: '/leads', roles: ['COMERCIAL', 'ADMIN'] },
     { icon: Layers, label: 'Programas', href: '/programs', roles: ['COMERCIAL'] },
   ];
 

@@ -170,6 +170,7 @@ export const ListStationsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -182,6 +183,7 @@ export const ListStationsResponse = zod.array(ListStationsResponseItem)
 export const CreateStationBody = zod.object({
   "name": zod.string(),
   "slogan": zod.string().optional(),
+  "primaryColor": zod.string().optional(),
   "logoBase64": zod.string().optional()
 })
 
@@ -189,6 +191,7 @@ export const CreateStationResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -204,6 +207,7 @@ export const UpdateStationParams = zod.object({
 export const UpdateStationBody = zod.object({
   "name": zod.string().optional(),
   "slogan": zod.string().optional(),
+  "primaryColor": zod.string().optional(),
   "logoBase64": zod.string().optional()
 })
 
@@ -211,6 +215,7 @@ export const UpdateStationResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -221,7 +226,8 @@ export const UpdateStationResponse = zod.object({
  */
 export const ListAdvertisersQueryParams = zod.object({
   "search": zod.coerce.string().optional(),
-  "active": zod.coerce.boolean().optional()
+  "active": zod.coerce.boolean().optional(),
+  "status": zod.enum(['LEAD', 'CLIENT']).optional()
 })
 
 export const ListAdvertisersResponseItem = zod.object({
@@ -235,6 +241,7 @@ export const ListAdvertisersResponseItem = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -253,7 +260,8 @@ export const CreateAdvertiserBody = zod.object({
   "contactName": zod.string().optional(),
   "contactPhone": zod.string().optional(),
   "contactEmail": zod.string().optional(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "status": zod.enum(['LEAD', 'CLIENT']).optional()
 })
 
 export const CreateAdvertiserResponse = zod.object({
@@ -267,6 +275,7 @@ export const CreateAdvertiserResponse = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -290,6 +299,7 @@ export const GetAdvertiserResponse = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -312,6 +322,7 @@ export const UpdateAdvertiserBody = zod.object({
   "contactPhone": zod.string().optional(),
   "contactEmail": zod.string().optional(),
   "notes": zod.string().optional(),
+  "status": zod.enum(['LEAD', 'CLIENT']).optional(),
   "active": zod.boolean().optional()
 })
 
@@ -326,6 +337,7 @@ export const UpdateAdvertiserResponse = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -349,6 +361,7 @@ export const DeleteAdvertiserResponse = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -1479,5 +1492,3 @@ export const GetTemplateUsageResponseItem = zod.object({
   "usageCount": zod.number()
 })
 export const GetTemplateUsageResponse = zod.array(GetTemplateUsageResponseItem)
-
-

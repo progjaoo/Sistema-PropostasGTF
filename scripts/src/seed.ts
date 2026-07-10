@@ -4,12 +4,13 @@ import { prisma } from "@workspace/db";
 async function seed() {
   console.log("Seeding database...");
 
-  const station =
+  let station =
     (await prisma.station.findFirst({ orderBy: { createdAt: "asc" } })) ??
     (await prisma.station.create({
       data: {
         name: "Radio 88 FM",
         slogan: "A mais ouvida da cidade",
+        primaryColor: "#427EFF",
         tradeName: "Radio 88 FM",
         legalName: "Radio 88 FM Comunicacao Ltda",
         cnpj: "00.000.000/0001-88",
@@ -17,6 +18,10 @@ async function seed() {
         contactEmail: "comercial@radio88fm.com.br",
       },
     }));
+  station = await prisma.station.update({
+    where: { id: station.id },
+    data: { primaryColor: "#427EFF" },
+  });
   const stationId = station.id;
   console.log("Station OK:", stationId);
 
@@ -77,6 +82,7 @@ async function seed() {
       contactName: "Maria Oliveira",
       contactPhone: "(11) 98765-4321",
       contactEmail: "maria@bompreco.com.br",
+      status: "CLIENT",
       active: true,
     },
     create: {
@@ -86,6 +92,7 @@ async function seed() {
       contactName: "Maria Oliveira",
       contactPhone: "(11) 98765-4321",
       contactEmail: "maria@bompreco.com.br",
+      status: "CLIENT",
       active: true,
     },
   });
@@ -121,56 +128,79 @@ async function seed() {
   }
   console.log("Programs OK:", Object.keys(catIds));
 
+  const durationDefs = [
+    { label: "4s", seconds: 4, order: 0 },
+    { label: "10s", seconds: 10, order: 1 },
+    { label: "15s", seconds: 15, order: 2 },
+    { label: "30s", seconds: 30, order: 3 },
+    { label: "60s", seconds: 60, order: 4 },
+    { label: "120s", seconds: 120, order: 5 },
+  ];
+  const durationIds: Record<string, string> = {};
+  for (const duration of durationDefs) {
+    const saved = await prisma.productDuration.upsert({
+      where: { label: duration.label },
+      update: { ...duration, active: true },
+      create: { ...duration, active: true },
+    });
+    durationIds[duration.label] = saved.id;
+  }
+  console.log("Product durations OK:", Object.keys(durationIds));
+
   const productDefs = [
     {
       name: "Spot 30s",
       programId: catIds["rotativo-comercial"],
+      durationId: durationIds["30s"],
       qty: "08",
       title: "SPOT 30 SEGUNDOS",
       description: "Insercoes diarias em horario nobre",
       detail: "Producao incluida",
       program: "Programacao Geral",
       suggestedValueMin: "R$ 1.500,00",
-      suggestedValueMax: "R$ 4.000,00",
+      suggestedValueMax: null,
       tags: ["spot", "30s", "nobre"],
       color: "BLUE" as const,
     },
     {
       name: "Patrocinio de Quadro",
       programId: catIds["show-da-manha"],
+      durationId: null,
       qty: "01",
       title: "PATROCINIO DE QUADRO",
       description: "Quadro exclusivo com mensagem do patrocinador",
       detail: "Alta visibilidade e associacao de marca",
       program: "Programa da Manha",
       suggestedValueMin: "R$ 3.000,00",
-      suggestedValueMax: "R$ 8.000,00",
+      suggestedValueMax: null,
       tags: ["patrocinio", "quadro", "manha"],
       color: "GREEN" as const,
     },
     {
       name: "Live Commerce",
       programId: catIds["digital-88-fm"],
+      durationId: durationIds["120s"],
       qty: "02",
       title: "LIVE COMMERCE",
       description: "Transmissao ao vivo com participacao do anunciante",
       detail: "Ate 2h de duracao, divulgacao nas redes sociais",
       program: "Digital + On Air",
       suggestedValueMin: "R$ 2.000,00",
-      suggestedValueMax: "R$ 6.000,00",
+      suggestedValueMax: null,
       tags: ["live", "digital", "commerce"],
       color: "YELLOW" as const,
     },
     {
       name: "Vinheta de Intervalo",
       programId: catIds["rotativo-comercial"],
+      durationId: durationIds["10s"],
       qty: "12",
       title: "VINHETA DE INTERVALO",
       description: "Vinheta de 10 segundos nos intervalos comerciais",
       detail: "Rotatividade garantida",
       program: "Todos os programas",
       suggestedValueMin: "R$ 800,00",
-      suggestedValueMax: "R$ 2.000,00",
+      suggestedValueMax: null,
       tags: ["vinheta", "10s", "intervalo"],
       color: "RED" as const,
     },

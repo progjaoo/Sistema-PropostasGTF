@@ -32,14 +32,12 @@ import { useAuthStore } from '@/store/auth';
 import { currencyToNumberString, formatCurrencyBRL } from '@/lib/masks';
 
 const schema = z.object({
-  name: z.string().min(1, 'Nome interno é obrigatório'),
-  title: z.string().min(1, 'Título é obrigatório'),
-  qty: z.string().optional(),
+  programId: z.string().min(1, 'Programa é obrigatório'),
+  title: z.string().min(1, 'Nome do produto é obrigatório'),
+  durationId: z.string().optional(),
   description: z.string().optional(),
   detail: z.string().optional(),
-  programId: z.string().optional(),
   suggestedValueMin: z.string().optional(),
-  suggestedValueMax: z.string().optional(),
   tags: z.array(z.string()).optional(),
   color: z.enum(['BLUE', 'YELLOW', 'RED', 'GREEN', 'DARK']),
 });
@@ -56,6 +54,8 @@ export default function AdminProductTemplates() {
   const queryClient = useQueryClient();
   const token = useAuthStore((state) => state.accessToken);
   const [isOpen, setIsOpen] = useState(false);
+  const [durationDialogOpen, setDurationDialogOpen] = useState(false);
+  const [newDurationLabel, setNewDurationLabel] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [filters, setFilters] = useState({
@@ -85,6 +85,16 @@ export default function AdminProductTemplates() {
     },
   });
   const { data: programs } = useListProposalCategories();
+  const { data: durations } = useQuery({
+    queryKey: ['product-durations'],
+    queryFn: async () => {
+      const response = await fetch('/api/product-durations', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok) throw new Error('Erro ao carregar durações');
+      return response.json();
+    },
+  });
 
   const createMutation = useCreateProductTemplate();
   const updateMutation = useUpdateProductTemplate();
@@ -103,14 +113,12 @@ export default function AdminProductTemplates() {
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: '',
+      programId: '',
       title: '',
-      qty: '1x',
+      durationId: '',
       description: '',
       detail: '',
-      programId: '',
       suggestedValueMin: '',
-      suggestedValueMax: '',
       tags: [],
       color: 'BLUE',
     },
@@ -119,14 +127,12 @@ export default function AdminProductTemplates() {
   const openEdit = (product: any) => {
     setEditingId(product.id);
     form.reset({
-      name: product.name,
+      programId: product.programId || '',
       title: product.title,
-      qty: product.qty || '',
+      durationId: product.durationId || '',
       description: product.description || '',
       detail: product.detail || '',
-      programId: product.programId || '',
       suggestedValueMin: formatCurrencyBRL(product.suggestedValueMin || ''),
-      suggestedValueMax: formatCurrencyBRL(product.suggestedValueMax || ''),
       tags: product.tags || [],
       color: product.color || 'BLUE',
     });
@@ -136,14 +142,12 @@ export default function AdminProductTemplates() {
   const openCreate = () => {
     setEditingId(null);
     form.reset({
-      name: '',
+      programId: '',
       title: '',
-      qty: '1x',
+      durationId: '',
       description: '',
       detail: '',
-      programId: '',
       suggestedValueMin: '',
-      suggestedValueMax: '',
       tags: [],
       color: 'BLUE',
     });
@@ -152,10 +156,15 @@ export default function AdminProductTemplates() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     const data = {
-      ...values,
-      programId: values.programId || null,
+      programId: values.programId,
+      title: values.title,
+      durationId: values.durationId || null,
+      description: values.description || null,
+      detail: values.detail || null,
       suggestedValueMin: values.suggestedValueMin || null,
-      suggestedValueMax: values.suggestedValueMax || null,
+      suggestedValueMax: null,
+      tags: values.tags || [],
+      color: values.color,
     };
 
     try {
@@ -172,6 +181,34 @@ export default function AdminProductTemplates() {
       setIsOpen(false);
     } catch {
       toast.error('Erro ao salvar produto');
+    }
+  };
+
+  const createDuration = async () => {
+    const label = newDurationLabel.trim();
+    if (!label) {
+      toast.error('Informe a duração');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/product-durations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ label }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || 'Erro ao criar duração');
+      queryClient.invalidateQueries({ queryKey: ['product-durations'] });
+      form.setValue('durationId', payload.id, { shouldDirty: true });
+      setNewDurationLabel('');
+      setDurationDialogOpen(false);
+      toast.success('Duração criada');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao criar duração');
     }
   };
 
@@ -248,8 +285,19 @@ export default function AdminProductTemplates() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem><FormLabel>Nome interno</FormLabel><FormControl><Input placeholder="Ex: Spot 30s Padrão" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormField control={form.control} name="programId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Programa</FormLabel>
+                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue placeholder="Selecione um programa" /></SelectTrigger>
+                      <SelectContent>
+                        {programs?.map((program) => (
+                          <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="color" render={({ field }) => (
                   <FormItem>
@@ -269,41 +317,40 @@ export default function AdminProductTemplates() {
                 )} />
               </div>
 
-              <div className="grid grid-cols-12 gap-4 border-t pt-4">
-                <div className="col-span-3">
-                  <FormField control={form.control} name="qty" render={({ field }) => (
-                    <FormItem><FormLabel>Quantidade</FormLabel><FormControl><Input placeholder="Ex: 50x" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                </div>
-                <div className="col-span-9">
-                  <FormField control={form.control} name="title" render={({ field }) => (
-                    <FormItem><FormLabel>Título na proposta</FormLabel><FormControl><Input placeholder="Ex: Spot Comercial 30s" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                </div>
+              <div className="grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-2">
+                <FormField control={form.control} name="title" render={({ field }) => (
+                  <FormItem><FormLabel>Nome do Produto</FormLabel><FormControl><Input placeholder="Ex: Spot Comercial 30s" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="durationId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Duração</FormLabel>
+                    <Select
+                      value={field.value || 'none'}
+                      onValueChange={(value) => {
+                        if (value === 'new') {
+                          setDurationDialogOpen(true);
+                          return;
+                        }
+                        field.onChange(value === 'none' ? '' : value);
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione a duração" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Não informar</SelectItem>
+                        {(durations || []).map((duration: any) => (
+                          <SelectItem key={duration.id} value={duration.id}>{duration.label}</SelectItem>
+                        ))}
+                        <SelectItem value="new">+ Nova duração</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
               </div>
 
-              <FormField control={form.control} name="programId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Programa</FormLabel>
-                  <Select value={field.value || 'none'} onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}>
-                    <SelectTrigger><SelectValue placeholder="Selecione um programa" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sem programa</SelectItem>
-                      {programs?.map((program) => (
-                        <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField control={form.control} name="suggestedValueMin" render={({ field }) => (
-                  <FormItem><FormLabel>Valor sugerido mínimo</FormLabel><FormControl><Input inputMode="numeric" placeholder="R$ 1.500,00" {...field} onChange={(event) => field.onChange(formatCurrencyBRL(event.target.value))} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="suggestedValueMax" render={({ field }) => (
-                  <FormItem><FormLabel>Valor sugerido máximo</FormLabel><FormControl><Input inputMode="numeric" placeholder="R$ 4.000,00" {...field} onChange={(event) => field.onChange(formatCurrencyBRL(event.target.value))} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Valor sugerido</FormLabel><FormControl><Input inputMode="numeric" placeholder="R$ 1.500,00" {...field} onChange={(event) => field.onChange(formatCurrencyBRL(event.target.value))} /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
 
@@ -314,6 +361,20 @@ export default function AdminProductTemplates() {
               <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending}>Salvar Produto</Button>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={durationDialogOpen} onOpenChange={setDurationDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Nova duração</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={newDurationLabel}
+              onChange={(event) => setNewDurationLabel(event.target.value)}
+              placeholder="Ex: 30s"
+            />
+            <Button className="w-full" onClick={createDuration}>Salvar duração</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -338,14 +399,16 @@ export default function AdminProductTemplates() {
                   </DropdownMenu>
                 </div>
                 <h3 className="font-bold text-lg mb-1 flex items-center gap-2">
-                  <span className="text-sm bg-neutral-100 px-1.5 rounded">{product.qty}</span>
                   {product.title}
                 </h3>
                 {(product.programName || product.program) && <p className="text-xs text-muted-foreground mb-2 font-medium">{product.programName || product.program}</p>}
+                {product.durationLabel && (
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">Duração: {product.durationLabel}</p>
+                )}
                 <p className="text-sm text-neutral-600 line-clamp-2">{product.description}</p>
-                {(product.suggestedValueMin || product.suggestedValueMax) && (
+                {product.suggestedValueMin && (
                   <p className="text-xs font-semibold text-primary mt-3">
-                    Faixa sugerida: {product.suggestedValueMin || '0'} a {product.suggestedValueMax || 'sem teto'}
+                    Valor sugerido: {product.suggestedValueMin}
                   </p>
                 )}
               </div>

@@ -7,11 +7,24 @@ interface ProposalPreviewProps {
       tradeName?: string | null;
       legalName?: string | null;
     } | null;
+    station?: {
+      id?: string;
+      name?: string | null;
+      slogan?: string | null;
+      logoBase64?: string | null;
+      primaryColor?: string | null;
+      tradeName?: string | null;
+    } | null;
     proposalTypeName?: string | null;
     periodicity?: string | null;
   };
   scale?: number;
 }
+
+type NormalizedStat = {
+  value: string;
+  description: string;
+};
 
 const PERIODICITY_LABELS: Record<string, string> = {
   MONTHLY: 'Mensal',
@@ -19,138 +32,267 @@ const PERIODICITY_LABELS: Record<string, string> = {
   YEARLY: 'Anual',
 };
 
+const SEASONALITY_LABELS: Record<string, string> = {
+  MONTHLY: 'Mensal',
+  SEMIANNUAL: 'Semestral',
+  ANNUAL: 'Anual',
+};
+
+const isHexColor = (value?: string | null) => /^#[0-9A-Fa-f]{6}$/.test(value || '');
+
+function getPrimaryColor(proposal: ProposalPreviewProps['proposal']) {
+  const color = proposal.station?.primaryColor;
+  return isHexColor(color) ? color! : '#427EFF';
+}
+
+function formatDateBR(value?: string | null) {
+  if (!value) return '';
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+function formatPeriod(proposal: ProposalPreviewProps['proposal']) {
+  const start = formatDateBR(proposal.dateStart);
+  const end = formatDateBR(proposal.dateEnd);
+  if (start || end) return `${start || '00/00/0000'} à ${end || '00/00/0000'}`;
+  return PERIODICITY_LABELS[String(proposal.periodicity || 'MONTHLY')] || 'Mensal';
+}
+
+function normalizeStats(stats: unknown): NormalizedStat[] {
+  if (!Array.isArray(stats)) return [];
+  return stats
+    .slice(0, 4)
+    .map((item: any) => {
+      const value = [item?.num, item?.suf].filter(Boolean).join(' ').trim()
+        || String(item?.value ?? item?.title ?? '').trim();
+      const description = String(item?.desc ?? item?.description ?? '').trim();
+      return { value, description };
+    })
+    .filter((item) => item.value || item.description);
+}
+
+function getStationMonogram(name?: string | null) {
+  const safeName = String(name || '').trim();
+  const digits = safeName.match(/\d+/)?.[0];
+  if (digits) return digits.slice(0, 3);
+  const initials = safeName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+  return initials || 'G';
+}
+
+function getClientName(proposal: ProposalPreviewProps['proposal']) {
+  return proposal.advertiser?.tradeName
+    || proposal.advertiser?.legalName
+    || proposal.clientLine1
+    || 'NOME DO CLIENTE';
+}
+
+function getInvestmentValue(value?: string | null) {
+  return value?.trim() || 'R$ 0,00';
+}
+
+function SectionLabel({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5 flex items-center gap-3">
+      <span className="block h-[14px] w-1 rounded-full" style={{ backgroundColor: color }} />
+      <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#111111]">
+        {children}
+      </span>
+    </div>
+  );
+}
+
 export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
   const a4Width = 794;
   const a4Height = 1123;
-
-  const getAccentColor = (colorCode?: string) => {
-    switch (colorCode) {
-      case 'BLUE': return '#3B82F6';
-      case 'YELLOW': return '#EAB308';
-      case 'RED': return '#EF4444';
-      case 'GREEN': return '#22C55E';
-      case 'DARK': return '#374151';
-      default: return '#6366F1';
-    }
-  };
-
+  const primaryColor = getPrimaryColor(proposal);
+  const stats = normalizeStats(proposal.stats);
+  const stationName = proposal.station?.name || proposal.station?.tradeName || 'Empresa';
   const typeLabel = proposal.proposalTypeName || proposal.propType || 'Proposta Comercial';
-  const periodicityLabel = proposal.periodDesc
-    || (proposal.dateStart || proposal.dateEnd ? `${proposal.dateStart || ''} a ${proposal.dateEnd || ''}` : PERIODICITY_LABELS[String(proposal.periodicity || 'MONTHLY')]);
-  const clientName = proposal.advertiser?.tradeName || proposal.advertiser?.legalName || 'NOME DO CLIENTE';
+  const clientName = getClientName(proposal);
+  const periodRange = formatPeriod(proposal);
+  const periodNote = proposal.periodDesc || '';
+  const products = (proposal.products || []) as any[];
   const seller = (proposal as any).createdBy;
   const sellerContactName = seller?.name || proposal.contactName || 'Contato do vendedor';
   const sellerContactRole = seller?.jobTitle || proposal.contactRole || 'Comercial';
   const sellerContactPhone = seller?.contactPhone || proposal.contactPhone || '(00) 00000-0000';
-  const sellerContactEmail = seller?.contactEmail || '';
+  const investmentValue = getInvestmentValue(proposal.investValue);
 
   return (
     <div
-      className="bg-white shadow-2xl relative overflow-hidden"
+      className="a4-preview relative overflow-hidden bg-white text-[#111111] shadow-2xl"
       style={{
         width: `${a4Width}px`,
-        height: `${a4Height}px`,
+        minHeight: `${a4Height}px`,
         transform: `scale(${scale})`,
         transformOrigin: 'top left',
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'Montserrat', Arial, sans-serif",
       }}
     >
-      <div className="absolute top-0 left-0 right-0 h-[38%] bg-[#111827]" />
-      <div className="absolute top-0 left-0 right-0 h-[38%] bg-indigo-700/20" />
-
-      <div className="relative z-10 p-12 h-full flex flex-col">
-        <div className="flex justify-between items-start text-white">
-          <div className="flex items-center gap-3">
+      <div className="px-[58px] pb-[48px] pt-[44px]">
+        <header className="mb-8 flex items-center gap-4">
+          <div
+            className="flex h-[66px] w-[66px] shrink-0 items-center justify-center overflow-hidden rounded-xl text-[24px] font-black tracking-tight text-white"
+            style={{ backgroundColor: primaryColor }}
+          >
             {proposal.station?.logoBase64 ? (
-              <img src={proposal.station.logoBase64} alt="Logo" className="h-12 object-contain" />
+              <img src={proposal.station.logoBase64} alt="Logo" className="h-full w-full object-contain p-2" />
             ) : (
-              <div className="text-2xl font-bold font-['General_Sans'] tracking-tight">
-                {proposal.station?.name || 'Empresa'}
-              </div>
-            )}
-            {proposal.station?.slogan && (
-              <div className="pl-3 border-l border-white/20 text-sm opacity-80">
-                {proposal.station.slogan}
-              </div>
+              getStationMonogram(stationName)
             )}
           </div>
-
-          <div className="bg-indigo-600 px-4 py-1.5 rounded-full text-sm font-bold tracking-wider font-['Barlow_Condensed'] uppercase">
-            {typeLabel} • {periodicityLabel}
+          <div className="min-w-0">
+            <div className="text-[23px] font-black uppercase leading-none tracking-[0.03em]">
+              {stationName}
+            </div>
+            <div className="mt-2 text-[13px] font-medium text-[#727272]">
+              {proposal.station?.slogan || 'Propostas comerciais'}
+            </div>
           </div>
-        </div>
+        </header>
 
-        <div className="mt-24 text-white">
-          <h1 className="text-5xl font-bold font-['Barlow_Condensed'] leading-none uppercase">
+        <section
+          className="mb-9 rounded-[28px] px-[42px] py-[44px] text-white"
+          style={{ backgroundColor: primaryColor }}
+        >
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-white/75">
+            {typeLabel}
+          </div>
+          <h1 className="mt-5 max-w-[620px] text-[58px] font-black uppercase leading-[0.93] tracking-tight">
             {clientName}
           </h1>
-          {periodicityLabel && (
-            <div className="mt-6 inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg text-sm border border-white/10">
-              <span className="opacity-70 mr-2">PERÍODO:</span>
-              <span className="font-semibold">{periodicityLabel}</span>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="rounded-full border border-white/85 px-5 py-2 text-[13px] font-bold">
+              Período: {periodRange}
             </div>
-          )}
-        </div>
+            {periodNote && (
+              <div className="max-w-[360px] text-[13px] font-medium text-white/80">
+                {periodNote}
+              </div>
+            )}
+          </div>
+        </section>
 
-        <div className="flex-1 mt-32">
-          <h3 className="text-xl font-bold font-['Barlow_Condensed'] text-gray-900 tracking-widest uppercase mb-4 flex items-center">
-            <span className="w-6 h-1 bg-indigo-600 mr-3" />
-            Produtos
-          </h3>
-
-          <div className="space-y-3">
-            {proposal.products && proposal.products.length > 0 ? (
-              proposal.products.map((prod, i) => (
-                <div key={i} className="flex bg-gray-50 rounded-lg overflow-hidden border border-gray-100">
-                  <div
-                    className="w-2 shrink-0"
-                    style={{ backgroundColor: getAccentColor(prod.color) }}
-                  />
-                  <div className="p-4 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-xs font-bold">
-                        {prod.qty}
-                      </span>
-                      <h4 className="font-bold text-gray-900">{prod.title}</h4>
-                      {prod.program && <span className="text-xs text-gray-500">• {prod.program}</span>}
+        {stats.length > 0 && (
+          <section className="mb-9">
+            <SectionLabel color={primaryColor}>Apresentação</SectionLabel>
+            <div className="grid grid-cols-4 overflow-hidden rounded-[18px] border border-[#E1E7F0] bg-[#F8FBFF]">
+              {stats.map((stat, index) => {
+                const accent = index % 2 === 0 ? primaryColor : '#727272';
+                return (
+                  <div key={`${stat.value}-${index}`} className="min-h-[116px] border-r border-[#E1E7F0] last:border-r-0">
+                    <div className="h-[7px]" style={{ backgroundColor: accent }} />
+                    <div className="px-5 py-5">
+                      <div className="text-[33px] font-black leading-none" style={{ color: accent }}>
+                        {stat.value || '00'}
+                      </div>
+                      <div className="mt-3 text-[11px] font-bold uppercase leading-snug tracking-[0.08em] text-[#555555]">
+                        {stat.description || 'Indicador'}
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600 line-clamp-2">{prod.description}</p>
-                    {prod.tags && prod.tags.length > 0 && (
-                      <div className="flex gap-1 mt-2">
-                        {prod.tags.map((tag, j) => (
-                          <span key={j} className="text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded text-gray-500 uppercase tracking-wider">
-                            {tag}
-                          </span>
-                        ))}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        <section className="mb-9">
+          <SectionLabel color={primaryColor}>Plano de Ações</SectionLabel>
+          {products.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4">
+              {products.map((product, index) => (
+                <article
+                  key={product.id || index}
+                  className="min-h-[150px] rounded-[20px] border border-[#DCE7F6] bg-[#F8FBFF] p-5 pl-6"
+                  style={{ borderLeft: `12px solid ${primaryColor}` }}
+                >
+                  <div className="mb-4 flex items-start gap-3">
+                    <div className="text-[38px] font-black leading-none" style={{ color: primaryColor }}>
+                      {product.qty || '01'}
+                    </div>
+                    <div className="pt-1 text-[10px] font-extrabold uppercase leading-[1.15] tracking-[0.12em] text-[#727272]">
+                      Quantidade<br />de inserções
+                    </div>
+                  </div>
+                  <div className="text-[15px] font-black uppercase leading-tight">
+                    {product.title || 'Produto'}
+                  </div>
+                  {product.description && (
+                    <p className="mt-2 line-clamp-3 text-[12px] leading-snug text-[#565656]">
+                      {product.description}
+                    </p>
+                  )}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {product.program && (
+                      <div className="inline-flex max-w-full rounded-full bg-[#111111] px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white">
+                        <span className="truncate">{product.program}</span>
+                      </div>
+                    )}
+                    {product.durationLabel && (
+                      <div className="inline-flex rounded-full border border-[#DCE7F6] bg-white px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#565656]">
+                        {product.durationLabel}
                       </div>
                     )}
                   </div>
+                  {(product.airTime || product.seasonality) && (
+                    <div className="mt-3 space-y-1 text-[10px] font-bold uppercase leading-snug tracking-[0.08em] text-[#727272]">
+                      {product.airTime && <div>Horário: {product.airTime}</div>}
+                      {product.seasonality && (
+                        <div>Sazonalidade: {SEASONALITY_LABELS[String(product.seasonality)] || product.seasonality}</div>
+                      )}
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[20px] border border-dashed border-[#DCE7F6] bg-[#F8FBFF] px-6 py-10 text-center text-[13px] font-medium text-[#727272]">
+              Nenhum produto adicionado.
+            </div>
+          )}
+        </section>
+
+        <section className="mb-9 rounded-[28px] bg-black px-8 py-8 text-white">
+          <div className="grid grid-cols-[1fr_auto] items-end gap-6">
+            <div>
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-white/55">
+                Investimento
+              </div>
+              {proposal.investDesc && (
+                <div className="mt-3 max-w-[390px] text-[13px] font-medium leading-snug text-white/72">
+                  {proposal.investDesc}
                 </div>
-              ))
-            ) : (
-              <div className="p-8 border-2 border-dashed border-gray-200 rounded-xl text-center text-gray-400 text-sm">
-                Nenhum produto adicionado.
-              </div>
-            )}
-          </div>
-
-          <div className="mt-8 flex gap-8">
-            <div className="flex-1 bg-gray-900 text-white rounded-xl p-6">
-              <div className="text-sm text-gray-400 uppercase tracking-wider mb-2 font-bold">Investimento</div>
-              <div className="text-4xl font-bold font-['Barlow_Condensed'] text-indigo-400">
-                {proposal.investValue || 'R$ 0,00'}
-              </div>
+              )}
             </div>
-
-            <div className="flex-1 bg-indigo-50 border border-indigo-100 rounded-xl p-6 flex flex-col justify-center">
-              <div className="text-sm text-indigo-400 uppercase tracking-wider mb-2 font-bold">Contato Comercial</div>
-              <div className="font-bold text-gray-900">{sellerContactName}</div>
-              <div className="text-sm text-gray-600">{sellerContactRole}</div>
-              <div className="text-sm text-indigo-600 font-medium mt-1">{sellerContactPhone}</div>
-              {sellerContactEmail && <div className="text-xs text-indigo-500 mt-1">{sellerContactEmail}</div>}
+            <div className="text-right text-[42px] font-black leading-none tracking-tight">
+              {investmentValue}
             </div>
           </div>
-        </div>
+        </section>
+
+        <footer className="flex items-end justify-between border-t border-[#E1E7F0] pt-7">
+          <div>
+            <div className="text-[23px] font-black leading-none">{sellerContactName}</div>
+            <div className="mt-2 text-[12px] font-bold uppercase tracking-[0.08em] text-[#727272]">
+              {sellerContactRole} · {stationName}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#727272]">
+              Contato Direto
+            </div>
+            <div className="mt-2 text-[18px] font-black" style={{ color: primaryColor }}>
+              {sellerContactPhone}
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ import { formatCpfCnpj, formatPhoneBR, formatUf, normalizeEmailInput } from '@/l
 const schema = z.object({
   name: z.string().min(1, 'Nome da empresa é obrigatório'),
   slogan: z.string().optional(),
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor inválida'),
   logoBase64: z.string().optional(),
   cnpj: z.string().optional(),
   tradeName: z.string().optional(),
@@ -52,6 +53,7 @@ export default function AdminStation() {
     defaultValues: {
       name: '',
       slogan: '',
+      primaryColor: '#427EFF',
       logoBase64: '',
       cnpj: '',
       tradeName: '',
@@ -72,6 +74,7 @@ export default function AdminStation() {
     form.reset({
       name: '',
       slogan: '',
+      primaryColor: '#427EFF',
       logoBase64: '',
       cnpj: '',
       tradeName: '',
@@ -100,6 +103,7 @@ export default function AdminStation() {
     form.reset({
       name: company.name || '',
       slogan: company.slogan || '',
+      primaryColor: company.primaryColor || '#427EFF',
       logoBase64: company.logoBase64 || '',
       cnpj: formatCpfCnpj(company.cnpj || ''),
       tradeName: company.tradeName || '',
@@ -211,6 +215,18 @@ export default function AdminStation() {
                   <FormField control={form.control} name="slogan" render={({ field }) => (
                     <FormItem className="md:col-span-2"><FormLabel>Slogan</FormLabel><FormControl><Input placeholder="Ex: A rádio que conecta sua marca" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
+                  <FormField control={form.control} name="primaryColor" render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Cor padrão da proposta</FormLabel>
+                      <FormControl>
+                        <div className="flex items-center gap-3">
+                          <span className="h-9 w-9 rounded-md border" style={{ backgroundColor: field.value || '#427EFF' }} />
+                          <Input placeholder="#427EFF" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                 </div>
               </div>
 
@@ -265,6 +281,10 @@ export default function AdminStation() {
                     <h3 className="font-bold text-lg truncate">{company.name}</h3>
                     <p className="text-sm text-muted-foreground truncate">{company.cnpj || company.slogan || 'Sem CNPJ'}</p>
                     <p className="text-xs text-muted-foreground mt-1 truncate">{company.contactPhone || company.contactEmail || company.city || 'Sem contato complementar'}</p>
+                    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="h-4 w-4 rounded border" style={{ backgroundColor: company.primaryColor || '#427EFF' }} />
+                      {company.primaryColor || '#427EFF'}
+                    </div>
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-5">

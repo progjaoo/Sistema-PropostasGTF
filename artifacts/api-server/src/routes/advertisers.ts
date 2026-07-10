@@ -49,6 +49,7 @@ function formatAdvertiser(a: AdvertiserRow, viewer: { userId?: string; role?: st
     contactPhone: a.contactPhone ?? null,
     contactEmail: a.contactEmail ?? null,
     notes: a.notes ?? null,
+    status: a.status,
     active: a.active,
     proposals: a.proposals.map((p) => {
       const viewerCanEdit = viewer.role === "ADMIN" || p.createdById === viewer.userId;
@@ -74,9 +75,16 @@ function formatAdvertiser(a: AdvertiserRow, viewer: { userId?: string; role?: st
 }
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const { search, active } = req.query as { search?: string; active?: string };
+  const { search, active, status } = req.query as { search?: string; active?: string; status?: string };
   const where: Prisma.AdvertiserWhereInput = {};
 
+  if (status) {
+    if (status !== "LEAD" && status !== "CLIENT") {
+      res.status(400).json({ error: "Invalid advertiser status" });
+      return;
+    }
+    where.status = status;
+  }
   if (active !== undefined) {
     where.active = active === "true";
   }

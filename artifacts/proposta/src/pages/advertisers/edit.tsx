@@ -23,8 +23,7 @@ import {
 import { formatCpfCnpj, formatPhoneBR, normalizeEmailInput } from '@/lib/masks';
 
 const schema = z.object({
-  tradeName: z.string().min(1, 'Nome Fantasia é obrigatório'),
-  legalName: z.string().optional(),
+  tradeName: z.string().min(1, 'Nome é obrigatório'),
   cnpj: z.string().optional(),
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
@@ -33,8 +32,13 @@ const schema = z.object({
   active: z.boolean(),
 });
 
-export default function AdvertiserEdit({ params }: { params: { id: string } }) {
+type AdvertiserFormMode = 'client' | 'lead';
+
+export default function AdvertiserEdit({ params, mode = 'client' }: { params: { id: string }; mode?: AdvertiserFormMode }) {
   const [, setLocation] = useLocation();
+  const isLead = mode === 'lead';
+  const backPath = isLead ? '/leads' : '/advertisers';
+  const entityLabel = isLead ? 'Lead' : 'Cliente';
   const { data: advertiser, isLoading } = useGetAdvertiser(params.id);
   const updateMutation = useUpdateAdvertiser();
 
@@ -42,7 +46,6 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
     resolver: zodResolver(schema),
     defaultValues: {
       tradeName: '',
-      legalName: '',
       cnpj: '',
       contactName: '',
       contactPhone: '',
@@ -56,7 +59,6 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
     if (advertiser) {
       form.reset({
         tradeName: advertiser.tradeName || '',
-        legalName: advertiser.legalName || '',
         cnpj: formatCpfCnpj(advertiser.cnpj || ''),
         contactName: advertiser.contactName || '',
         contactPhone: formatPhoneBR(advertiser.contactPhone || ''),
@@ -70,10 +72,10 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
       await updateMutation.mutateAsync({ id: params.id, data: values });
-      toast.success('Anunciante atualizado com sucesso!');
-      setLocation('/advertisers');
+      toast.success(`${entityLabel} atualizado com sucesso!`);
+      setLocation(backPath);
     } catch (error) {
-      toast.error('Erro ao atualizar anunciante');
+      toast.error(`Erro ao atualizar ${entityLabel.toLowerCase()}`);
     }
   };
 
@@ -84,11 +86,11 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation('/advertisers')}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation(backPath)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Editar Anunciante</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Editar {entityLabel}</h1>
         </div>
       </div>
 
@@ -103,7 +105,7 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 w-full">
                       <div className="space-y-0.5">
-                        <FormLabel className="text-base">Anunciante Ativo</FormLabel>
+                        <FormLabel className="text-base">{entityLabel} Ativo</FormLabel>
                       </div>
                       <FormControl>
                         <Switch
@@ -122,22 +124,9 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                   name="tradeName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome Fantasia *</FormLabel>
+                      <FormLabel>Nome *</FormLabel>
                       <FormControl>
                         <Input placeholder="Ex: Supermercado Central" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="legalName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Razão Social</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Supermercado Central Ltda." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -194,7 +183,7 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                       <FormItem>
                         <FormLabel>E-mail</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="contato@anunciante.com.br" {...field} onChange={(event) => field.onChange(normalizeEmailInput(event.target.value))} />
+                          <Input type="email" placeholder="contato@cliente.com.br" {...field} onChange={(event) => field.onChange(normalizeEmailInput(event.target.value))} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -209,9 +198,9 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Observações</FormLabel>
+                      <FormLabel>Informação Interna</FormLabel>
                       <FormControl>
-                        <Textarea rows={4} placeholder="Observações sobre o anunciante, histórico de atendimento ou preferências comerciais" {...field} />
+                        <Textarea rows={4} placeholder="Informações internas sobre atendimento, histórico ou preferências comerciais" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -220,7 +209,7 @@ export default function AdvertiserEdit({ params }: { params: { id: string } }) {
               </div>
 
               <div className="flex justify-end gap-3 pt-6">
-                <Button variant="outline" type="button" onClick={() => setLocation('/advertisers')}>
+                <Button variant="outline" type="button" onClick={() => setLocation(backPath)}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={updateMutation.isPending}>

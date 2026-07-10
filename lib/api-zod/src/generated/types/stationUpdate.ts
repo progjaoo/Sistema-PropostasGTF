@@ -9,5 +9,6 @@
 export interface StationUpdate {
   name?: string;
   slogan?: string;
+  primaryColor?: string;
   logoBase64?: string;
 }

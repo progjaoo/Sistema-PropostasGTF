@@ -42,6 +42,21 @@ enum ProposalPeriodicity {
   @@map("proposal_periodicity")
 }
 
+enum ProposalProductSeasonality {
+  MONTHLY
+  SEMIANNUAL
+  ANNUAL
+
+  @@map("proposal_product_seasonality")
+}
+
+enum AdvertiserStatus {
+  LEAD
+  CLIENT
+
+  @@map("advertiser_status")
+}
+
 model User {
   id            String         @id @default(cuid())
   name          String
@@ -76,6 +91,7 @@ model Station {
   id                String             @id @default(cuid())
   name              String
   slogan            String?
+  primaryColor      String             @default("#427EFF") @map("primary_color")
   logoBase64        String?            @map("logo_base64") @db.Text
   cnpj              String?
   tradeName         String?            @map("trade_name")
@@ -99,47 +115,63 @@ model Station {
 }
 
 model Advertiser {
-  id           String     @id @default(cuid())
-  tradeName    String     @map("trade_name")
-  legalName    String?    @map("legal_name")
-  cnpj         String?    @unique
-  logoBase64   String?    @map("logo_base64") @db.Text
-  contactName  String?    @map("contact_name")
-  contactPhone String?    @map("contact_phone")
-  contactEmail String?    @map("contact_email")
-  notes        String?    @db.Text
-  active       Boolean    @default(true)
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id           String           @id @default(cuid())
+  tradeName    String           @map("trade_name")
+  legalName    String?          @map("legal_name")
+  cnpj         String?          @unique
+  logoBase64   String?          @map("logo_base64") @db.Text
+  contactName  String?          @map("contact_name")
+  contactPhone String?          @map("contact_phone")
+  contactEmail String?          @map("contact_email")
+  notes        String?          @db.Text
+  status       AdvertiserStatus @default(CLIENT)
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
   proposals    Proposal[]
 
   @@map("advertisers")
 }
 
 model ProductTemplate {
-  id          String       @id @default(cuid())
-  stationId   String       @map("station_id")
-  station     Station      @relation(fields: [stationId], references: [id])
-  programId   String?      @map("program_id")
-  programRef  ProposalCategory? @relation(fields: [programId], references: [id], onDelete: SetNull)
-  order       Int          @default(0)
-  name        String
-  qty         String       @default("01")
-  title       String
-  description String?      @db.Text
-  detail      String?
-  program     String?
-  suggestedValueMin String? @map("suggested_value_min")
-  suggestedValueMax String? @map("suggested_value_max")
-  tags        String[]     @default([])
-  color       ProductColor @default(BLUE)
-  active      Boolean      @default(true)
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  proposalProducts ProposalProduct[]
+  id                String            @id @default(cuid())
+  stationId         String            @map("station_id")
+  station           Station           @relation(fields: [stationId], references: [id])
+  programId         String?           @map("program_id")
+  programRef        ProposalCategory? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  durationId        String?           @map("duration_id")
+  duration          ProductDuration?  @relation(fields: [durationId], references: [id], onDelete: SetNull)
+  order             Int               @default(0)
+  name              String
+  qty               String            @default("01")
+  title             String
+  description       String?           @db.Text
+  detail            String?
+  program           String?
+  suggestedValueMin String?           @map("suggested_value_min")
+  suggestedValueMax String?           @map("suggested_value_max")
+  tags              String[]          @default([])
+  color             ProductColor      @default(BLUE)
+  active            Boolean           @default(true)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  proposalProducts  ProposalProduct[]
 
   @@unique([stationId, name])
   @@map("product_templates")
+}
+
+model ProductDuration {
+  id               String            @id @default(cuid())
+  label            String            @unique
+  seconds          Int?
+  active           Boolean           @default(true)
+  order            Int               @default(0)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  productTemplates ProductTemplate[]
+
+  @@map("product_durations")
 }
 
 model ProposalType {
@@ -210,38 +242,38 @@ model ProposalTemplateProduct {
 }
 
 model Proposal {
-  id             String            @id @default(cuid())
-  stationId      String            @map("station_id")
-  station        Station           @relation(fields: [stationId], references: [id])
-  advertiserId   String?           @map("advertiser_id")
-  advertiser     Advertiser?       @relation(fields: [advertiserId], references: [id])
-  createdById    String            @map("created_by_id")
-  createdBy      User              @relation(fields: [createdById], references: [id])
-  status         ProposalStatus    @default(DRAFT)
-  fromTemplateId String?           @map("from_template_id")
-  fromTemplate   ProposalTemplate? @relation(fields: [fromTemplateId], references: [id])
-  proposalTypeId String?           @map("proposal_type_id")
-  proposalType   ProposalType?     @relation(fields: [proposalTypeId], references: [id], onDelete: SetNull)
+  id             String              @id @default(cuid())
+  stationId      String              @map("station_id")
+  station        Station             @relation(fields: [stationId], references: [id])
+  advertiserId   String?             @map("advertiser_id")
+  advertiser     Advertiser?         @relation(fields: [advertiserId], references: [id])
+  createdById    String              @map("created_by_id")
+  createdBy      User                @relation(fields: [createdById], references: [id])
+  status         ProposalStatus      @default(DRAFT)
+  fromTemplateId String?             @map("from_template_id")
+  fromTemplate   ProposalTemplate?   @relation(fields: [fromTemplateId], references: [id])
+  proposalTypeId String?             @map("proposal_type_id")
+  proposalType   ProposalType?       @relation(fields: [proposalTypeId], references: [id], onDelete: SetNull)
   periodicity    ProposalPeriodicity @default(MONTHLY)
-  propType       String            @default("Proposta Comercial") @map("prop_type")
-  propMonth      String            @default("") @map("prop_month")
-  propYear       String            @default("") @map("prop_year")
-  campTag        String?           @map("camp_tag")
-  clientLine1    String?           @map("client_line1")
-  clientLine2    String?           @map("client_line2")
-  dateStart      String?           @map("date_start")
-  dateEnd        String?           @map("date_end")
-  periodDesc     String?           @map("period_desc")
-  bannerBase64   String?           @map("banner_base64") @db.Text
-  overlayOpacity Int               @default(70) @map("overlay_opacity")
-  stats          Json              @default("[]")
-  investDesc     String?           @map("invest_desc")
-  investValue    String?           @map("invest_value")
-  contactName    String?           @map("contact_name")
-  contactRole    String?           @map("contact_role")
-  contactPhone   String?           @map("contact_phone")
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  propType       String              @default("Proposta Comercial") @map("prop_type")
+  propMonth      String              @default("") @map("prop_month")
+  propYear       String              @default("") @map("prop_year")
+  campTag        String?             @map("camp_tag")
+  clientLine1    String?             @map("client_line1")
+  clientLine2    String?             @map("client_line2")
+  dateStart      String?             @map("date_start")
+  dateEnd        String?             @map("date_end")
+  periodDesc     String?             @map("period_desc")
+  bannerBase64   String?             @map("banner_base64") @db.Text
+  overlayOpacity Int                 @default(70) @map("overlay_opacity")
+  stats          Json                @default("[]")
+  investDesc     String?             @map("invest_desc")
+  investValue    String?             @map("invest_value")
+  contactName    String?             @map("contact_name")
+  contactRole    String?             @map("contact_role")
+  contactPhone   String?             @map("contact_phone")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
   products       ProposalProduct[]
   versions       ProposalVersion[]
 
@@ -249,19 +281,22 @@ model Proposal {
 }
 
 model ProposalProduct {
-  id          String       @id @default(cuid())
-  proposalId  String       @map("proposal_id")
-  proposal    Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  productTemplateId String? @map("product_template_id")
-  productTemplate ProductTemplate? @relation(fields: [productTemplateId], references: [id], onDelete: SetNull)
-  order       Int          @default(0)
-  qty         String       @default("01")
-  title       String
-  description String?      @db.Text
-  detail      String?
-  program     String?
-  tags        String[]     @default([])
-  color       ProductColor @default(BLUE)
+  id                String           @id @default(cuid())
+  proposalId        String           @map("proposal_id")
+  proposal          Proposal         @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  productTemplateId String?          @map("product_template_id")
+  productTemplate   ProductTemplate? @relation(fields: [productTemplateId], references: [id], onDelete: SetNull)
+  order             Int              @default(0)
+  qty               String           @default("01")
+  title             String
+  description       String?          @db.Text
+  detail            String?
+  program           String?
+  durationLabel     String?          @map("duration_label")
+  airTime           String?          @map("air_time")
+  seasonality       ProposalProductSeasonality?
+  tags              String[]         @default([])
+  color             ProductColor     @default(BLUE)
 
   @@map("proposal_products")
 }

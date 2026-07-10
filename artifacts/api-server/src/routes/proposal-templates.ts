@@ -241,6 +241,11 @@ async function buildFullProposal(id: string) {
             select: {
               suggestedValueMin: true,
               suggestedValueMax: true,
+              duration: {
+                select: {
+                  label: true,
+                },
+              },
             },
           },
         },
@@ -256,6 +261,7 @@ async function buildFullProposal(id: string) {
           id: p.station.id,
           name: p.station.name,
           slogan: p.station.slogan ?? null,
+          primaryColor: p.station.primaryColor ?? "#427EFF",
           logoBase64: p.station.logoBase64 ?? null,
           tradeName: p.station.tradeName ?? null,
           legalName: p.station.legalName ?? null,
@@ -280,6 +286,7 @@ async function buildFullProposal(id: string) {
           contactName: p.advertiser.contactName ?? null,
           contactPhone: p.advertiser.contactPhone ?? null,
           contactEmail: p.advertiser.contactEmail ?? null,
+          status: p.advertiser.status,
           active: p.advertiser.active,
           createdAt: p.advertiser.createdAt.toISOString(),
         }
@@ -331,6 +338,9 @@ async function buildFullProposal(id: string) {
       description: pr.description ?? null,
       detail: pr.detail ?? null,
       program: pr.program ?? null,
+      durationLabel: pr.durationLabel ?? pr.productTemplate?.duration?.label ?? null,
+      airTime: pr.airTime ?? null,
+      seasonality: pr.seasonality ?? null,
       suggestedValueMin: pr.productTemplate?.suggestedValueMin ?? null,
       suggestedValueMax: pr.productTemplate?.suggestedValueMax ?? null,
       tags: pr.tags ?? [],

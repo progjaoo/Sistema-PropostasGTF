@@ -9,4 +9,5 @@
 export type ListAdvertisersParams = {
 search?: string;
 active?: boolean;
+status?: 'LEAD' | 'CLIENT';
 };

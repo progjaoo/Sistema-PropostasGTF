@@ -25,6 +25,7 @@ export interface Advertiser {
   contactEmail?: string | null;
   /** @nullable */
   notes?: string | null;
+  status: 'LEAD' | 'CLIENT';
   active: boolean;
   createdAt: string;
 }

@@ -16,4 +16,5 @@ export interface AdvertiserInput {
   contactPhone?: string;
   contactEmail?: string;
   notes?: string;
+  status?: 'LEAD' | 'CLIENT';
 }

@@ -13,7 +13,7 @@ import {
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertTriangle, ArrowLeft, FilePlus, Plus, Printer, Save, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Plus, Printer, Save, Search, Trash2 } from 'lucide-react';
 
 import { ProposalPreview } from '@/components/proposal/ProposalPreview';
 import { useAuthStore } from '@/store/auth';
@@ -53,6 +53,12 @@ const STATUS_LABELS: Record<string, string> = {
   REJECTED: 'Rejeitada',
 };
 
+const SEASONALITY_LABELS: Record<string, string> = {
+  MONTHLY: 'Mensal',
+  SEMIANNUAL: 'Semestral',
+  ANNUAL: 'Anual',
+};
+
 type ProposalType = {
   id: string;
   name: string;
@@ -61,7 +67,6 @@ type ProposalType = {
 
 type AdvertiserDraft = {
   tradeName: string;
-  legalName: string;
   cnpj: string;
   contactName: string;
   contactPhone: string;
@@ -71,7 +76,6 @@ type AdvertiserDraft = {
 
 const emptyAdvertiser: AdvertiserDraft = {
   tradeName: '',
-  legalName: '',
   cnpj: '',
   contactName: '',
   contactPhone: '',
@@ -99,7 +103,6 @@ function getSuggestedUnitValue(product: any) {
   const min = currencyLikeToNumber(product?.suggestedValueMin);
   const max = currencyLikeToNumber(product?.suggestedValueMax);
 
-  if (min !== null && max !== null) return (min + max) / 2;
   if (min !== null) return min;
   if (max !== null) return max;
   return null;
@@ -109,9 +112,6 @@ function getSuggestedRangeText(product: any) {
   const min = currencyLikeToNumber(product?.suggestedValueMin);
   const max = currencyLikeToNumber(product?.suggestedValueMax);
 
-  if (min !== null && max !== null) {
-    return `Sugerido: ${formatCurrencyFromNumber(min)} a ${formatCurrencyFromNumber(max)}`;
-  }
   if (min !== null) return `Sugerido: ${formatCurrencyFromNumber(min)}`;
   if (max !== null) return `Sugerido: ${formatCurrencyFromNumber(max)}`;
   return null;
@@ -137,6 +137,18 @@ function sortStations(stations: any[]) {
   });
 }
 
+function normalizeStatsForPayload(stats: unknown, keepEmpty = false) {
+  if (!Array.isArray(stats)) return [];
+  const normalized = stats
+    .slice(0, 4)
+    .map((item: any) => ({
+      num: String(item?.num ?? item?.value ?? item?.title ?? '').trim(),
+      suf: String(item?.suf ?? '').trim(),
+      desc: String(item?.desc ?? item?.description ?? '').trim(),
+    }));
+  return keepEmpty ? normalized : normalized.filter((item) => item.num || item.desc);
+}
+
 function cleanProposalPayload(data: any) {
   const {
     id,
@@ -159,8 +171,8 @@ function cleanProposalPayload(data: any) {
     clientLine2: null,
     bannerBase64: null,
     overlayOpacity: 70,
-    stats: [],
-    investDesc: null,
+    stats: normalizeStatsForPayload(data.stats),
+    investDesc: data.investDesc || null,
     contactName: data.createdBy?.name ?? null,
     contactRole: data.createdBy?.jobTitle ?? null,
     contactPhone: data.createdBy?.contactPhone ?? null,
@@ -172,6 +184,9 @@ function cleanProposalPayload(data: any) {
       description: product.description || null,
       detail: product.detail || null,
       program: product.program || null,
+      durationLabel: product.durationLabel || null,
+      airTime: product.airTime || null,
+      seasonality: product.seasonality || null,
       tags: product.tags || [],
       color: product.color || 'BLUE',
     })),
@@ -188,9 +203,10 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const [typeDialogOpen, setTypeDialogOpen] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
   const [advertiserSearch, setAdvertiserSearch] = useState('');
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [advertiserDialogOpen, setAdvertiserDialogOpen] = useState(false);
   const [advertiserDraft, setAdvertiserDraft] = useState<AdvertiserDraft>(emptyAdvertiser);
-  const [selectedCatalogProductId, setSelectedCatalogProductId] = useState('');
+  const [catalogProductSearch, setCatalogProductSearch] = useState('');
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const dirtyRef = useRef(false);
   const initialized = useRef(false);
@@ -274,6 +290,20 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
     }, {});
   }, [products]);
 
+  const filteredGroupedProducts = useMemo(() => {
+    const needle = catalogProductSearch.trim().toLowerCase();
+    if (!needle) return groupedProducts;
+
+    return Object.entries(groupedProducts).reduce<Record<string, any[]>>((groups, [program, items]) => {
+      const filtered = items.filter((product) => {
+        const content = `${product.title || ''} ${product.description || ''} ${product.durationLabel || ''} ${program}`.toLowerCase();
+        return content.includes(needle);
+      });
+      if (filtered.length > 0) groups[program] = filtered;
+      return groups;
+    }, {});
+  }, [catalogProductSearch, groupedProducts]);
+
   const stationOptions = useMemo(() => {
     return sortStations(((stations as any[]) || []).filter((item) => item.active !== false));
   }, [stations]);
@@ -296,6 +326,8 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
       { total: 0, itemCount: 0 },
     );
   }, [localData?.products]);
+
+  const proposalStats = useMemo(() => normalizeStatsForPayload(localData?.stats, true), [localData?.stats]);
 
   const markDirty = () => {
     dirtyRef.current = true;
@@ -372,19 +404,20 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
       advertiserId: advertiser.id,
       advertiser,
     }));
-    setAdvertiserSearch(advertiser.tradeName);
+    setAdvertiserSearch('');
+    setClientPickerOpen(false);
   };
 
   const createAdvertiser = async () => {
     try {
-      const advertiser = await createAdvertiserMutation.mutateAsync({ data: advertiserDraft as any });
-      toast.success('Anunciante salvo');
+      const advertiser = await createAdvertiserMutation.mutateAsync({ data: { ...advertiserDraft, status: 'LEAD' } as any });
+      toast.success('Lead salvo');
       queryClient.invalidateQueries({ queryKey: [getListAdvertisersQueryKey()[0]] });
       setAdvertiserDraft(emptyAdvertiser);
       setAdvertiserDialogOpen(false);
       selectAdvertiser(advertiser as any);
     } catch {
-      toast.error('Erro ao salvar anunciante');
+      toast.error('Erro ao salvar cliente');
     }
   };
 
@@ -412,6 +445,9 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
           title: 'Produto avulso',
           description: '',
           program: '',
+          durationLabel: '',
+          airTime: '',
+          seasonality: null,
           tags: [],
           color: 'BLUE',
         },
@@ -419,8 +455,8 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
     }));
   };
 
-  const addCatalogProduct = () => {
-    const product = ((products as any[]) || []).find((item) => item.id === selectedCatalogProductId);
+  const addCatalogProduct = (productId: string) => {
+    const product = ((products as any[]) || []).find((item) => item.id === productId);
     if (!product) {
       toast.error('Selecione um produto do catálogo');
       return;
@@ -434,11 +470,14 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
           id: Math.random().toString(36).slice(2),
           productTemplateId: product.id,
           order: prev.products?.length || 0,
-          qty: product.qty || '01',
+          qty: '01',
           title: product.title,
           description: product.description || '',
           detail: product.detail || '',
           program: product.programName || product.program || '',
+          durationLabel: product.durationLabel || product.duration?.label || '',
+          airTime: '',
+          seasonality: null,
           suggestedValueMin: product.suggestedValueMin || null,
           suggestedValueMax: product.suggestedValueMax || null,
           tags: product.tags || [],
@@ -446,7 +485,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
         },
       ],
     }));
-    setSelectedCatalogProductId('');
+    setCatalogProductSearch('');
     toast.success('Produto do catálogo adicionado');
   };
 
@@ -468,14 +507,39 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
     });
   };
 
+  const addStatItem = () => {
+    const currentStats = normalizeStatsForPayload(localData?.stats, true);
+    if (currentStats.length >= 4) {
+      toast.error('A apresentação permite no máximo 4 itens');
+      return;
+    }
+    handleChange('stats', [...currentStats, { num: '', suf: '', desc: '' }]);
+  };
+
+  const updateStatItem = (index: number, field: 'num' | 'desc', value: string) => {
+    const currentStats = normalizeStatsForPayload(localData?.stats, true);
+    const nextStats = [...currentStats];
+    nextStats[index] = {
+      ...(nextStats[index] || { num: '', suf: '', desc: '' }),
+      [field]: value,
+    };
+    handleChange('stats', nextStats);
+  };
+
+  const removeStatItem = (index: number) => {
+    const currentStats = normalizeStatsForPayload(localData?.stats, true);
+    handleChange('stats', currentStats.filter((_, itemIndex) => itemIndex !== index));
+  };
+
   const handleStatusChange = (status: any) => {
     updateStatusMutation.mutate(
       { id: params.id, data: { status } },
       {
-        onSuccess: () => {
+        onSuccess: (saved: any) => {
           toast.success(`Status atualizado para ${STATUS_LABELS[status] || status}`);
-          setLocalData((prev: any) => ({ ...prev, status }));
+          setLocalData((prev: any) => ({ ...prev, ...saved, status }));
           queryClient.invalidateQueries({ queryKey: [getListProposalsQueryKey()[0]] });
+          queryClient.invalidateQueries({ queryKey: [getListAdvertisersQueryKey()[0]] });
         },
         onError: () => toast.error('Erro ao atualizar status'),
       },
@@ -514,20 +578,56 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={clientPickerOpen} onOpenChange={setClientPickerOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Selecionar cliente ou lead</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                value={advertiserSearch}
+                onChange={(event) => setAdvertiserSearch(event.target.value)}
+                placeholder="Buscar por nome, contato ou documento"
+                autoFocus
+              />
+            </div>
+            <div className="max-h-[360px] overflow-y-auto rounded-lg border">
+              {(advertisers as any[])?.length ? (advertisers as any[]).slice(0, 12).map((advertiser) => (
+                <button
+                  key={advertiser.id}
+                  type="button"
+                  className={`block w-full border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted ${localData.advertiserId === advertiser.id ? 'bg-primary/10 text-primary' : ''}`}
+                  onClick={() => selectAdvertiser(advertiser)}
+                >
+                  <span className="font-semibold">{advertiser.tradeName}</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {[advertiser.status === 'LEAD' ? 'Lead' : 'Cliente', advertiser.contactName, advertiser.contactPhone].filter(Boolean).join(' · ')}
+                  </span>
+                </button>
+              )) : (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  Nenhum cliente ou lead encontrado.
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={advertiserDialogOpen} onOpenChange={setAdvertiserDialogOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Novo anunciante</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Novo lead</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input placeholder="Nome fantasia *" value={advertiserDraft.tradeName} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, tradeName: e.target.value }))} />
-            <Input placeholder="Razão social" value={advertiserDraft.legalName} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, legalName: e.target.value }))} />
+            <Input placeholder="Nome *" value={advertiserDraft.tradeName} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, tradeName: e.target.value }))} />
             <Input inputMode="numeric" placeholder="CPF/CNPJ" value={advertiserDraft.cnpj} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, cnpj: formatCpfCnpj(e.target.value) }))} />
             <Input placeholder="Nome do contato" value={advertiserDraft.contactName} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactName: e.target.value }))} />
             <Input inputMode="tel" placeholder="(31) 99999-9999" value={advertiserDraft.contactPhone} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactPhone: formatPhoneBR(e.target.value) }))} />
-            <Input type="email" placeholder="contato@anunciante.com.br" value={advertiserDraft.contactEmail} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactEmail: normalizeEmailInput(e.target.value) }))} />
-            <Textarea className="md:col-span-2" rows={3} placeholder="Observações" value={advertiserDraft.notes} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, notes: e.target.value }))} />
+            <Input type="email" placeholder="contato@cliente.com.br" value={advertiserDraft.contactEmail} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactEmail: normalizeEmailInput(e.target.value) }))} />
+            <Textarea className="md:col-span-2" rows={3} placeholder="Informação interna" value={advertiserDraft.notes} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, notes: e.target.value }))} />
           </div>
           <Button className="w-full" disabled={createAdvertiserMutation.isPending} onClick={createAdvertiser}>
-            {createAdvertiserMutation.isPending ? 'Salvando...' : 'Salvar anunciante'}
+            {createAdvertiserMutation.isPending ? 'Salvando...' : 'Salvar lead'}
           </Button>
         </DialogContent>
       </Dialog>
@@ -622,36 +722,27 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
             <AccordionItem value="cliente">
               <AccordionTrigger className="text-sm font-semibold hover:no-underline">Cliente</AccordionTrigger>
               <AccordionContent className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium">Buscar anunciante</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      className="pl-9"
-                      value={advertiserSearch}
-                      onChange={(event) => setAdvertiserSearch(event.target.value)}
-                      placeholder={selectedAdvertiser?.tradeName || 'Digite para buscar...'}
-                    />
-                  </div>
-                  <div className="max-h-44 overflow-y-auto rounded-md border">
-                    {(advertisers as any[])?.length ? (advertisers as any[]).slice(0, 8).map((advertiser) => (
-                      <button
-                        key={advertiser.id}
-                        type="button"
-                        className={`block w-full px-3 py-2 text-left text-sm hover:bg-muted ${localData.advertiserId === advertiser.id ? 'bg-primary/10 text-primary' : ''}`}
-                        onClick={() => selectAdvertiser(advertiser)}
-                      >
-                        <span className="font-medium">{advertiser.tradeName}</span>
-                        {advertiser.contactName && <span className="block text-xs text-muted-foreground">{advertiser.contactName}</span>}
-                      </button>
-                    )) : (
-                      <div className="px-3 py-3 text-sm text-muted-foreground">Nenhum anunciante encontrado.</div>
-                    )}
-                  </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="text-[10px] font-semibold uppercase text-muted-foreground">Cliente ou lead selecionado</div>
+                  {selectedAdvertiser ? (
+                    <div className="mt-2">
+                      <div className="text-sm font-semibold">{selectedAdvertiser.tradeName}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {[selectedAdvertiser.status === 'LEAD' ? 'Lead' : 'Cliente', selectedAdvertiser.contactName, selectedAdvertiser.contactPhone].filter(Boolean).join(' · ') || 'Sem contato cadastrado'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-sm text-muted-foreground">Nenhum cliente selecionado.</div>
+                  )}
                 </div>
-                <Button variant="outline" className="w-full" onClick={() => setAdvertiserDialogOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" /> Novo Anunciante
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" className="w-full" onClick={() => setClientPickerOpen(true)}>
+                    <Search className="w-4 h-4 mr-2" /> Selecionar
+                  </Button>
+                  <Button variant="outline" className="w-full" onClick={() => setAdvertiserDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" /> Novo Lead
+                  </Button>
+                </div>
               </AccordionContent>
             </AccordionItem>
 
@@ -675,35 +766,109 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
               </AccordionContent>
             </AccordionItem>
 
+            <AccordionItem value="estatisticas">
+              <AccordionTrigger className="text-sm font-semibold hover:no-underline">Apresentação</AccordionTrigger>
+              <AccordionContent className="space-y-4 pt-2">
+                <div className="space-y-3">
+                  {proposalStats.length > 0 ? (
+                    proposalStats.map((stat, index) => (
+                      <div key={index} className="grid grid-cols-[1fr_1.6fr_auto] items-end gap-2 rounded-lg border bg-muted/20 p-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-medium uppercase text-muted-foreground">Destaque</label>
+                          <Input
+                            className="h-8"
+                            value={stat.num}
+                            maxLength={12}
+                            placeholder="Ex: 350 mil"
+                            onChange={(event) => updateStatItem(index, 'num', event.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-medium uppercase text-muted-foreground">Descrição</label>
+                          <Input
+                            className="h-8"
+                            value={stat.desc}
+                            maxLength={42}
+                            placeholder="Ex: ouvintes por dia"
+                            onChange={(event) => updateStatItem(index, 'desc', event.target.value)}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-error hover:bg-error/10"
+                          onClick={() => removeStatItem(index)}
+                          aria-label="Remover item de apresentação"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                      Nenhum item de apresentação cadastrado.
+                    </div>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-dashed"
+                  onClick={addStatItem}
+                  disabled={proposalStats.length >= 4}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar item ({proposalStats.length}/4)
+                </Button>
+              </AccordionContent>
+            </AccordionItem>
+
             <AccordionItem value="produtos">
               <AccordionTrigger className="text-sm font-semibold hover:no-underline">Produtos</AccordionTrigger>
               <AccordionContent className="space-y-4 pt-2">
                 <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-                  <label className="text-xs font-medium">Adicionar produto do catálogo</label>
-                  <Select value={selectedCatalogProductId || 'none'} onValueChange={(value) => setSelectedCatalogProductId(value === 'none' ? '' : value)}>
-                    <SelectTrigger><SelectValue placeholder="Selecione um produto" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Selecione</SelectItem>
-                      {Object.entries(groupedProducts).map(([program, items]) => (
-                        <React.Fragment key={program}>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{program}</div>
-                          {items.map((product) => (
-                            <SelectItem key={product.id} value={product.id}>{product.title}</SelectItem>
-                          ))}
-                        </React.Fragment>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" className="w-full" onClick={addCatalogProduct}>
-                    <FilePlus className="w-4 h-4 mr-2" /> Adicionar produto do catálogo
-                  </Button>
+                  <label className="text-xs font-medium">Pesquisar produto do catálogo</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      className="pl-9"
+                      value={catalogProductSearch}
+                      onChange={(event) => setCatalogProductSearch(event.target.value)}
+                      placeholder="Digite para buscar e clique no produto"
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto rounded-md border bg-background">
+                    {Object.keys(filteredGroupedProducts).length ? Object.entries(filteredGroupedProducts).map(([program, items]) => (
+                      <div key={program} className="border-b last:border-b-0">
+                        <div className="bg-muted/60 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{program}</div>
+                        {items.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            className="block w-full border-t px-3 py-2 text-left hover:bg-primary/5"
+                            onClick={() => addCatalogProduct(product.id)}
+                          >
+                            <span className="text-sm font-semibold">{product.title}</span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              {[product.durationLabel, getSuggestedRangeText(product)?.replace('Sugerido: ', 'Sugestão: ')].filter(Boolean).join(' · ') || 'Produto cadastrado'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )) : (
+                      <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        Nenhum produto encontrado.
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {localData.products?.map((prod: any, i: number) => (
-                  <div key={prod.id || i} className="p-3 border border-border rounded-lg bg-card shadow-sm space-y-3 relative group">
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-error hover:bg-error/10" onClick={() => removeProduct(i)}>
-                        <Trash2 className="w-3 h-3" />
+                  <div key={prod.id || i} className="p-3 border border-border rounded-lg bg-card shadow-sm space-y-3 relative">
+                    <div className="absolute top-3 right-3">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-error hover:bg-error/10 hover:text-error" onClick={() => removeProduct(i)}>
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                     <div className="flex gap-1 pr-8">
@@ -733,26 +898,55 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Programa/Horário</label>
+                      <label className="text-[10px] font-medium text-muted-foreground">Programa</label>
                       <Input className="h-8 text-sm" value={prod.program || ''} onChange={(e) => updateProduct(i, 'program', e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground">Duração</label>
+                        <Input
+                          className="h-8 text-sm"
+                          value={prod.durationLabel || ''}
+                          onChange={(e) => updateProduct(i, 'durationLabel', e.target.value)}
+                          placeholder="Ex: 30s"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground">Horário</label>
+                        <Input
+                          className="h-8 text-sm"
+                          value={prod.airTime || ''}
+                          onChange={(e) => updateProduct(i, 'airTime', e.target.value)}
+                          placeholder="Ex: 13H AS 15H"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground">Sazonalidade</label>
+                        <Select
+                          value={prod.seasonality || 'none'}
+                          onValueChange={(value) => updateProduct(i, 'seasonality', value === 'none' ? null : value)}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Não informar</SelectItem>
+                            {Object.entries(SEASONALITY_LABELS).map(([value, label]) => (
+                              <SelectItem key={value} value={value}>{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-medium text-muted-foreground">Descrição</label>
                       <Textarea className="min-h-[60px] text-sm resize-none" value={prod.description || ''} onChange={(e) => updateProduct(i, 'description', e.target.value)} />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Tags</label>
-                      <Input
-                        className="h-8 text-sm"
-                        value={prod.tags?.join(', ') || ''}
-                        onChange={(e) => updateProduct(i, 'tags', e.target.value.split(',').map((tag) => tag.trim()).filter(Boolean))}
-                      />
-                    </div>
                   </div>
                 ))}
 
                 <Button variant="outline" className="w-full border-dashed" onClick={addBlankProduct}>
-                  <Plus className="w-4 h-4 mr-2" /> Adicionar produto avulso
+                  <Plus className="w-4 h-4 mr-2" /> Criar Produto Novo
                 </Button>
               </AccordionContent>
             </AccordionItem>
@@ -766,7 +960,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                       <div className="text-xs font-semibold uppercase text-primary">Sugestão de investimento</div>
                       <div className="text-2xl font-bold text-foreground">{suggestedInvestmentText}</div>
                       <p className="text-xs text-muted-foreground">
-                        Soma da média sugerida dos produtos do catálogo multiplicada pela quantidade.
+                        Soma do valor sugerido dos produtos do catálogo multiplicada pela quantidade.
                       </p>
                     </div>
                     <Button
@@ -780,6 +974,15 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                     </Button>
                   </div>
                 )}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium">Descrição do investimento</label>
+                  <Textarea
+                    rows={2}
+                    value={localData.investDesc || ''}
+                    onChange={(e) => handleChange('investDesc', e.target.value)}
+                    placeholder="Ex: Investimento mensal com produção inclusa"
+                  />
+                </div>
                 <div className="space-y-2">
                   <label className="text-xs font-medium">Valor (R$)</label>
                   <Input inputMode="numeric" value={localData.investValue || ''} onChange={(e) => handleChange('investValue', formatCurrencyBRL(e.target.value))} placeholder="R$ 15.000,00" />

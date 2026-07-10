@@ -8,6 +8,7 @@ const router = Router();
 const stationBody = z.object({
   name: z.string().min(1),
   slogan: z.string().optional().nullable(),
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   logoBase64: z.string().optional().nullable(),
   cnpj: z.string().optional().nullable(),
   tradeName: z.string().optional().nullable(),
@@ -28,6 +29,7 @@ function formatStation(s: Station) {
     id: s.id,
     name: s.name,
     slogan: s.slogan ?? null,
+    primaryColor: s.primaryColor ?? "#427EFF",
     logoBase64: s.logoBase64 ?? null,
     cnpj: s.cnpj ?? null,
     tradeName: s.tradeName ?? null,

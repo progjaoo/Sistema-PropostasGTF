@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useListAdvertisers, useDeleteAdvertiser, getListAdvertisersQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown, ChevronRight, Plus, Search, MoreHorizontal, Edit, Trash2, Users, Lock } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Search, MoreHorizontal, Edit, Trash2, Users, Lock, UserPlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,23 +18,71 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export default function AdvertisersList() {
+type AdvertiserListMode = 'client' | 'lead';
+
+interface AdvertisersListProps {
+  mode?: AdvertiserListMode;
+}
+
+const MODE_COPY: Record<AdvertiserListMode, {
+  title: string;
+  description: string;
+  singular: string;
+  singularLower: string;
+  newLabel: string;
+  searchPlaceholder: string;
+  emptyTitle: string;
+  emptyAction: string;
+  newPath: string;
+  editBasePath: string;
+  status: 'CLIENT' | 'LEAD';
+}> = {
+  client: {
+    title: 'Clientes',
+    description: 'Gerencie a carteira de clientes.',
+    singular: 'Cliente',
+    singularLower: 'cliente',
+    newLabel: 'Novo Cliente',
+    searchPlaceholder: 'Buscar cliente...',
+    emptyTitle: 'Nenhum cliente encontrado',
+    emptyAction: 'Cadastrar Cliente',
+    newPath: '/advertisers/new',
+    editBasePath: '/advertisers',
+    status: 'CLIENT',
+  },
+  lead: {
+    title: 'Leads',
+    description: 'Acompanhe oportunidades ainda não convertidas em clientes.',
+    singular: 'Lead',
+    singularLower: 'lead',
+    newLabel: 'Novo Lead',
+    searchPlaceholder: 'Buscar lead...',
+    emptyTitle: 'Nenhum lead encontrado',
+    emptyAction: 'Cadastrar Lead',
+    newPath: '/leads/new',
+    editBasePath: '/leads',
+    status: 'LEAD',
+  },
+};
+
+export default function AdvertisersList({ mode = 'client' }: AdvertisersListProps) {
   const [, setLocation] = useLocation();
+  const copy = MODE_COPY[mode];
   const queryClient = useQueryClient();
   const [search, setSearch] = React.useState('');
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [deleteTarget, setDeleteTarget] = React.useState<any | null>(null);
 
-  const advertiserParams = { search: search || undefined };
+  const advertiserParams = { search: search || undefined, status: copy.status };
   const { data: advertisers, isLoading } = useListAdvertisers(advertiserParams);
 
   const deleteMutation = useDeleteAdvertiser({
     mutation: {
       onSuccess: () => {
-        toast.success('Anunciante excluído');
+        toast.success(`${copy.singular} excluído`);
         queryClient.invalidateQueries({ queryKey: [getListAdvertisersQueryKey()[0]] });
       },
-      onError: () => toast.error('Erro ao excluir anunciante')
+      onError: () => toast.error(`Erro ao excluir ${copy.singularLower}`)
     }
   });
 
@@ -52,12 +100,12 @@ export default function AdvertisersList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Anunciantes</h1>
-          <p className="text-muted-foreground mt-1">Gerencie a carteira de clientes.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{copy.title}</h1>
+          <p className="text-muted-foreground mt-1">{copy.description}</p>
         </div>
-        <Button onClick={() => setLocation('/advertisers/new')} size="lg">
+        <Button onClick={() => setLocation(copy.newPath)} size="lg">
           <Plus className="w-5 h-5 mr-2" />
-          Novo Anunciante
+          {copy.newLabel}
         </Button>
       </div>
 
@@ -65,7 +113,7 @@ export default function AdvertisersList() {
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Buscar anunciante..." 
+            placeholder={copy.searchPlaceholder}
             className="pl-9 w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -81,7 +129,7 @@ export default function AdvertisersList() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border/50">
                 <tr>
-                  <th className="px-6 py-4 font-medium">Nome Fantasia</th>
+                  <th className="px-6 py-4 font-medium">Nome</th>
                   <th className="px-6 py-4 font-medium">CNPJ</th>
                   <th className="px-6 py-4 font-medium">Contato</th>
                   <th className="px-6 py-4 font-medium">Status</th>
@@ -127,7 +175,7 @@ export default function AdvertisersList() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => setLocation(`/advertisers/${adv.id}/edit`)}>
+                            <DropdownMenuItem onClick={() => setLocation(`${copy.editBasePath}/${adv.id}/edit`)}>
                               <Edit className="w-4 h-4 mr-2" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -198,7 +246,7 @@ export default function AdvertisersList() {
                               })}
                             </div>
                           ) : (
-                            <div className="text-sm text-muted-foreground">Nenhuma proposta vinculada para este anunciante.</div>
+                            <div className="text-sm text-muted-foreground">Nenhuma proposta vinculada para este {copy.singularLower}.</div>
                           )}
                         </td>
                       </tr>
@@ -210,10 +258,14 @@ export default function AdvertisersList() {
           </div>
         ) : (
           <div className="py-16 text-center">
-            <Users className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium">Nenhum anunciante encontrado</h3>
-            <Button className="mt-4" onClick={() => setLocation('/advertisers/new')} variant="outline">
-              Cadastrar Anunciante
+            {mode === 'lead' ? (
+              <UserPlus className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+            ) : (
+              <Users className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+            )}
+            <h3 className="text-lg font-medium">{copy.emptyTitle}</h3>
+            <Button className="mt-4" onClick={() => setLocation(copy.newPath)} variant="outline">
+              {copy.emptyAction}
             </Button>
           </div>
         )}
@@ -221,8 +273,8 @@ export default function AdvertisersList() {
       <ConfirmActionDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Excluir anunciante?"
-        description={`Tem certeza que deseja excluir ${deleteTarget?.tradeName || 'este anunciante'}? Essa ação não poderá ser desfeita.`}
+        title={`Excluir ${copy.singularLower}?`}
+        description={`Tem certeza que deseja excluir ${deleteTarget?.tradeName || `este ${copy.singularLower}`}? Essa ação não poderá ser desfeita.`}
         onConfirm={() => {
           if (!deleteTarget) return;
           deleteMutation.mutate({ id: deleteTarget.id });

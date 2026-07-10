@@ -7,8 +7,9 @@ const router = Router();
 
 const productBody = z.object({
   programId: z.string().optional().nullable(),
+  durationId: z.string().optional().nullable(),
   order: z.number().int().optional(),
-  name: z.string().min(1),
+  name: z.string().min(1).optional().nullable(),
   qty: z.string().optional().nullable(),
   title: z.string().min(1),
   description: z.string().optional().nullable(),
@@ -23,6 +24,7 @@ const productBody = z.object({
 
 type ProductWithProgram = ProductTemplate & {
   programRef?: { id: string; name: string; slug: string } | null;
+  duration?: { id: string; label: string; seconds: number | null } | null;
 };
 
 function formatTemplate(t: ProductWithProgram) {
@@ -31,6 +33,15 @@ function formatTemplate(t: ProductWithProgram) {
     stationId: t.stationId,
     programId: t.programId ?? null,
     programName: t.programRef?.name ?? t.program ?? null,
+    durationId: t.durationId ?? null,
+    duration: t.duration
+      ? {
+          id: t.duration.id,
+          label: t.duration.label,
+          seconds: t.duration.seconds,
+        }
+      : null,
+    durationLabel: t.duration?.label ?? null,
     name: t.name,
     qty: t.qty,
     title: t.title,
@@ -54,6 +65,57 @@ function parseMoney(value?: string | null) {
     .replace(",", ".");
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+}
+
+async function buildProductName(options: {
+  stationId: string;
+  title: string;
+  programId?: string | null;
+  durationId?: string | null;
+  fallback?: string | null;
+  excludeId?: string;
+}) {
+  if (options.fallback?.trim()) {
+    return options.fallback.trim();
+  }
+
+  const [program, duration] = await Promise.all([
+    options.programId ? prisma.proposalCategory.findUnique({ where: { id: options.programId } }) : Promise.resolve(null),
+    options.durationId ? prisma.productDuration.findUnique({ where: { id: options.durationId } }) : Promise.resolve(null),
+  ]);
+
+  const base = slugify([program?.name, options.title, duration?.label].filter(Boolean).join(" ")) || slugify(options.title) || "produto";
+  let candidate = base;
+  let suffix = 2;
+
+  while (true) {
+    const existing = await prisma.productTemplate.findFirst({
+      where: {
+        stationId: options.stationId,
+        name: candidate,
+        ...(options.excludeId ? { id: { not: options.excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (!existing) return candidate;
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+}
+
+async function getProgramName(programId?: string | null) {
+  if (!programId) return null;
+  const program = await prisma.proposalCategory.findUnique({ where: { id: programId } });
+  return program?.name ?? null;
 }
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
@@ -93,7 +155,10 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
 
   const templates = await prisma.productTemplate.findMany({
     where,
-    include: { programRef: { select: { id: true, name: true, slug: true } } },
+    include: {
+      programRef: { select: { id: true, name: true, slug: true } },
+      duration: { select: { id: true, label: true, seconds: true } },
+    },
     orderBy,
   });
   const min = minValue ? Number.parseFloat(minValue) : null;
@@ -131,16 +196,34 @@ router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: "No station configured" });
     return;
   }
+  if (!parsed.data.programId) {
+    res.status(400).json({ error: "Program is required" });
+    return;
+  }
+  const generatedName = await buildProductName({
+    stationId: station.id,
+    title: parsed.data.title,
+    programId: parsed.data.programId,
+    durationId: parsed.data.durationId,
+    fallback: parsed.data.name,
+  });
+  const programName = await getProgramName(parsed.data.programId);
   const t = await prisma.productTemplate.create({
     data: {
       ...parsed.data,
       stationId: station.id,
+      name: generatedName,
       qty: parsed.data.qty ?? "01",
+      program: parsed.data.program ?? programName,
+      suggestedValueMax: parsed.data.suggestedValueMax ?? null,
       tags: parsed.data.tags ?? [],
       color: parsed.data.color ?? "BLUE",
       active: parsed.data.active ?? true,
     },
-    include: { programRef: { select: { id: true, name: true, slug: true } } },
+    include: {
+      programRef: { select: { id: true, name: true, slug: true } },
+      duration: { select: { id: true, label: true, seconds: true } },
+    },
   });
   res.status(201).json(formatTemplate(t));
 });
@@ -152,10 +235,49 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
     return;
   }
   try {
+    const existing = await prisma.productTemplate.findUnique({ where: { id: String(req.params["id"]) } });
+    if (!existing) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+    const nextProgramId = parsed.data.programId === undefined ? existing.programId : parsed.data.programId;
+    const nextDurationId = parsed.data.durationId === undefined ? existing.durationId : parsed.data.durationId;
+    const nextTitle = parsed.data.title ?? existing.title;
+    const shouldRegenerateName =
+      !parsed.data.name &&
+      (parsed.data.title !== undefined || parsed.data.programId !== undefined || parsed.data.durationId !== undefined);
+    const generatedName = shouldRegenerateName
+      ? await buildProductName({
+          stationId: existing.stationId,
+          title: nextTitle,
+          programId: nextProgramId,
+          durationId: nextDurationId,
+          excludeId: existing.id,
+        })
+      : parsed.data.name?.trim();
+    const programName = parsed.data.programId !== undefined
+      ? await getProgramName(parsed.data.programId)
+      : undefined;
+    const {
+      name: _name,
+      qty: _qty,
+      suggestedValueMax: _suggestedValueMax,
+      ...updateInput
+    } = parsed.data;
+    const data: Prisma.ProductTemplateUncheckedUpdateInput = {
+      ...updateInput,
+      ...(generatedName ? { name: generatedName } : {}),
+      ...(parsed.data.qty === undefined ? {} : { qty: parsed.data.qty ?? "01" }),
+      ...(programName !== undefined ? { program: parsed.data.program ?? programName } : {}),
+      ...(parsed.data.suggestedValueMax === undefined ? {} : { suggestedValueMax: parsed.data.suggestedValueMax ?? null }),
+    };
     const t = await prisma.productTemplate.update({
       where: { id: String(req.params["id"]) },
-      data: parsed.data as Prisma.ProductTemplateUncheckedUpdateInput,
-      include: { programRef: { select: { id: true, name: true, slug: true } } },
+      data,
+      include: {
+        programRef: { select: { id: true, name: true, slug: true } },
+        duration: { select: { id: true, label: true, seconds: true } },
+      },
     });
     res.json(formatTemplate(t));
   } catch {

@@ -60,5 +60,13 @@ Padroes:
 - O preview fica em `components/proposal/ProposalPreview.tsx`.
 - O contato exibido na proposta vem de `createdBy`, nao da empresa.
 - A empresa da proposta deve ser selecionavel na criacao e no editor.
+- O preview deve usar `station.primaryColor` como cor principal, com fallback `#427EFF`.
 - O investimento sugerido e calculado no frontend a partir dos produtos de catalogo.
+- Estatisticas da apresentacao devem aceitar ate 4 itens editaveis.
 
+## Clientes e Leads
+
+- A rota tecnica de Clientes continua em `/advertisers`.
+- A UI deve chamar `Advertiser.status = CLIENT` de Cliente.
+- A UI deve chamar `Advertiser.status = LEAD` de Lead.
+- A tela de Leads usa a mesma entidade, filtrada por `status=LEAD`.

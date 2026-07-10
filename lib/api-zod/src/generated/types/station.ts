@@ -11,6 +11,7 @@ export interface Station {
   name: string;
   /** @nullable */
   slogan?: string | null;
+  primaryColor: string;
   /** @nullable */
   logoBase64?: string | null;
   createdAt: string;

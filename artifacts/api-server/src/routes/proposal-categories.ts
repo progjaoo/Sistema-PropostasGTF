@@ -52,6 +52,8 @@ async function getCategories(options: { search?: string; active?: string; sort?:
           name: true,
           qty: true,
           title: true,
+          durationId: true,
+          duration: { select: { id: true, label: true, seconds: true } },
           description: true,
           detail: true,
           suggestedValueMin: true,
@@ -80,6 +82,15 @@ async function getCategories(options: { search?: string; active?: string; sort?:
       name: p.name,
       qty: p.qty,
       title: p.title,
+      durationId: p.durationId ?? null,
+      duration: p.duration
+        ? {
+            id: p.duration.id,
+            label: p.duration.label,
+            seconds: p.duration.seconds,
+          }
+        : null,
+      durationLabel: p.duration?.label ?? null,
       description: p.description ?? null,
       detail: p.detail ?? null,
       suggestedValueMin: p.suggestedValueMin ?? null,

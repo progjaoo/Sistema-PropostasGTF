@@ -41,6 +41,8 @@ URLs:
 - Porta: `21709`
 - Usa Vite em modo dev.
 - Proxy para API via `API_PROXY_TARGET=http://api:8080`.
+- O codigo fonte e copiado para a imagem no `docker build`; o compose atual nao usa bind mount de codigo local.
+- Depois de alterar frontend, API ou libs, recrie a imagem com `docker compose up -d --build`.
 
 ## Variaveis Importantes
 
@@ -191,5 +193,19 @@ docker compose down
 ```bash
 pnpm run typecheck
 PORT=21709 BASE_PATH=/ pnpm --filter @workspace/proposta run build
+pnpm --filter @workspace/api-server run build
 docker compose up -d --build
+```
+
+Se o navegador ainda mostrar uma versao antiga, valide o arquivo servido pelo container:
+
+```bash
+curl -s http://localhost:21709/src/pages/proposals/index.tsx
+```
+
+Quando o plan-004 estiver aplicado no Docker, esse arquivo deve conter `program-board` e a tela de propostas por programas. Se ainda aparecer a lista tabular antiga, rode:
+
+```bash
+docker compose build --no-cache
+docker compose up -d
 ```

@@ -27,13 +27,24 @@ Teko@123
 
 ## Depois de alterar textos, icones, botoes ou telas
 
+Importante: o `docker-compose.yml` atual roda frontend e API a partir da imagem `sistema-propostas-app:latest`. O codigo local e copiado para a imagem no build do Dockerfile, nao fica montado por volume. Portanto, se voce alterar arquivos React/API e apenas atualizar o navegador, o container pode continuar servindo a versao antiga.
+
 Sempre rode os comandos abaixo dentro da pasta do projeto:
 
 ```bash
 cd /Users/joaomvalente/Projetos/Projetos-GTF/Sistema-Propostas
 pnpm run typecheck
 PORT=21709 BASE_PATH=/ pnpm --filter @workspace/proposta run build
+pnpm --filter @workspace/api-server run build
 docker compose up -d --build
+```
+
+Se quiser forcar rebuild completo quando suspeitar de cache da imagem:
+
+```bash
+cd /Users/joaomvalente/Projetos/Projetos-GTF/Sistema-Propostas
+docker compose build --no-cache
+docker compose up -d
 ```
 
 Depois acesse novamente:
@@ -47,6 +58,22 @@ Se a tela ainda mostrar a versao antiga, faca um hard refresh no navegador:
 ```text
 Cmd + Shift + R
 ```
+
+Para confirmar se o Docker esta servindo o codigo novo de Propostas:
+
+```bash
+curl -s http://localhost:21709/src/pages/proposals/index.tsx
+```
+
+Procure no retorno por termos do fluxo novo, como:
+
+```text
+program-board
+Navegue por programas, produtos e propostas vinculadas
+Nova proposta
+```
+
+Se aparecer `useListProposals` com tabela simples e botao para `/proposals/new`, a imagem ainda esta antiga e precisa de `docker compose up -d --build`.
 
 ## Validacao
 

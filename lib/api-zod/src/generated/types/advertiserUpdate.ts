@@ -16,5 +16,6 @@ export interface AdvertiserUpdate {
   contactPhone?: string;
   contactEmail?: string;
   notes?: string;
+  status?: 'LEAD' | 'CLIENT';
   active?: boolean;
 }

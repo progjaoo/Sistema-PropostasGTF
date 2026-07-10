@@ -22,8 +22,7 @@ import {
 import { formatCpfCnpj, formatPhoneBR, normalizeEmailInput } from '@/lib/masks';
 
 const schema = z.object({
-  tradeName: z.string().min(1, 'Nome Fantasia é obrigatório'),
-  legalName: z.string().optional(),
+  tradeName: z.string().min(1, 'Nome é obrigatório'),
   cnpj: z.string().optional(),
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
@@ -31,15 +30,23 @@ const schema = z.object({
   notes: z.string().optional(),
 });
 
-export default function AdvertiserNew() {
+type AdvertiserFormMode = 'client' | 'lead';
+
+interface AdvertiserNewProps {
+  mode?: AdvertiserFormMode;
+}
+
+export default function AdvertiserNew({ mode = 'client' }: AdvertiserNewProps) {
   const [, setLocation] = useLocation();
+  const isLead = mode === 'lead';
+  const backPath = isLead ? '/leads' : '/advertisers';
+  const entityLabel = isLead ? 'Lead' : 'Cliente';
   const createMutation = useCreateAdvertiser();
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
       tradeName: '',
-      legalName: '',
       cnpj: '',
       contactName: '',
       contactPhone: '',
@@ -50,22 +57,22 @@ export default function AdvertiserNew() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
-      await createMutation.mutateAsync({ data: values });
-      toast.success('Anunciante criado com sucesso!');
-      setLocation('/advertisers');
+      await createMutation.mutateAsync({ data: { ...values, status: isLead ? 'LEAD' : 'CLIENT' } });
+      toast.success(`${entityLabel} criado com sucesso!`);
+      setLocation(backPath);
     } catch (error) {
-      toast.error('Erro ao criar anunciante');
+      toast.error(`Erro ao criar ${entityLabel.toLowerCase()}`);
     }
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation('/advertisers')}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation(backPath)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Novo Anunciante</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Novo {entityLabel}</h1>
         </div>
       </div>
 
@@ -79,22 +86,9 @@ export default function AdvertiserNew() {
                   name="tradeName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome Fantasia *</FormLabel>
+                      <FormLabel>Nome *</FormLabel>
                       <FormControl>
                         <Input placeholder="Ex: Supermercado Central" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="legalName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Razão Social</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Supermercado Central Ltda." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -151,7 +145,7 @@ export default function AdvertiserNew() {
                       <FormItem>
                         <FormLabel>E-mail</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="contato@anunciante.com.br" {...field} onChange={(event) => field.onChange(normalizeEmailInput(event.target.value))} />
+                          <Input type="email" placeholder="contato@cliente.com.br" {...field} onChange={(event) => field.onChange(normalizeEmailInput(event.target.value))} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -166,9 +160,9 @@ export default function AdvertiserNew() {
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Observações</FormLabel>
+                      <FormLabel>Informação Interna</FormLabel>
                       <FormControl>
-                        <Textarea rows={4} placeholder="Observações sobre o anunciante, histórico de atendimento ou preferências comerciais" {...field} />
+                        <Textarea rows={4} placeholder="Informações internas sobre atendimento, histórico ou preferências comerciais" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -177,11 +171,11 @@ export default function AdvertiserNew() {
               </div>
 
               <div className="flex justify-end gap-3 pt-6">
-                <Button variant="outline" type="button" onClick={() => setLocation('/advertisers')}>
+                <Button variant="outline" type="button" onClick={() => setLocation(backPath)}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Salvando...' : 'Salvar Anunciante'}
+                  {createMutation.isPending ? 'Salvando...' : `Salvar ${entityLabel}`}
                 </Button>
               </div>
             </form>

@@ -39,13 +39,11 @@ const schema = z.object({
 type ProgramForm = z.infer<typeof schema>;
 
 const productSchema = z.object({
-  name: z.string().min(1, 'Nome interno é obrigatório'),
-  title: z.string().min(1, 'Título é obrigatório'),
-  qty: z.string().optional(),
+  title: z.string().min(1, 'Nome do produto é obrigatório'),
+  durationId: z.string().optional(),
   description: z.string().optional(),
   detail: z.string().optional(),
   suggestedValueMin: z.string().optional(),
-  suggestedValueMax: z.string().optional(),
   tags: z.array(z.string()).optional(),
   color: z.enum(['BLUE', 'YELLOW', 'RED', 'GREEN', 'DARK']),
 });
@@ -81,6 +79,8 @@ export default function AdminProposalCategories() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isProductOpen, setIsProductOpen] = useState(false);
+  const [durationDialogOpen, setDurationDialogOpen] = useState(false);
+  const [newDurationLabel, setNewDurationLabel] = useState('');
   const [pendingProducts, setPendingProducts] = useState<PendingProduct[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [filters, setFilters] = useState({ search: '', active: 'true', sort: 'order_asc' });
@@ -106,6 +106,16 @@ export default function AdminProposalCategories() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!response.ok) throw new Error('Erro ao carregar produtos');
+      return response.json();
+    },
+  });
+  const { data: durations } = useQuery({
+    queryKey: ['product-durations'],
+    queryFn: async () => {
+      const response = await fetch('/api/product-durations', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok) throw new Error('Erro ao carregar durações');
       return response.json();
     },
   });
@@ -141,13 +151,11 @@ export default function AdminProposalCategories() {
   const productForm = useForm<ProductForm>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      name: '',
       title: '',
-      qty: '01',
+      durationId: '',
       description: '',
       detail: '',
       suggestedValueMin: '',
-      suggestedValueMax: '',
       tags: [],
       color: 'BLUE',
     },
@@ -161,6 +169,11 @@ export default function AdminProposalCategories() {
       .slice()
       .sort((a, b) => String(a.title || a.name).localeCompare(String(b.title || b.name)));
   }, [products]);
+
+  const getDurationLabel = (durationId?: string | null) => {
+    if (!durationId) return null;
+    return ((durations as any[]) || []).find((duration) => duration.id === durationId)?.label || null;
+  };
 
   const openEdit = (program: any) => {
     setEditingId(program.id);
@@ -192,13 +205,11 @@ export default function AdminProposalCategories() {
 
   const openInlineProduct = () => {
     productForm.reset({
-      name: '',
       title: '',
-      qty: '01',
+      durationId: '',
       description: '',
       detail: '',
       suggestedValueMin: '',
-      suggestedValueMax: '',
       tags: [],
       color: 'BLUE',
     });
@@ -242,13 +253,14 @@ export default function AdminProposalCategories() {
 
   const handleInlineProduct = async (values: ProductForm) => {
     const payload = {
-      ...values,
-      qty: values.qty || '01',
+      title: values.title,
+      durationId: values.durationId || null,
       description: values.description || null,
       detail: values.detail || null,
       suggestedValueMin: values.suggestedValueMin || null,
-      suggestedValueMax: values.suggestedValueMax || null,
+      suggestedValueMax: null,
       tags: values.tags || [],
+      color: values.color,
     };
 
     if (!editingId) {
@@ -257,7 +269,6 @@ export default function AdminProposalCategories() {
         {
           ...values,
           tempId: crypto.randomUUID(),
-          qty: values.qty || '01',
         },
       ]);
       setIsProductOpen(false);
@@ -304,13 +315,12 @@ export default function AdminProposalCategories() {
             pendingProducts.map((product) =>
               createProductMutation.mutateAsync({
                 data: {
-                  name: product.name,
                   title: product.title,
-                  qty: product.qty || '01',
+                  durationId: product.durationId || null,
                   description: product.description || null,
                   detail: product.detail || null,
                   suggestedValueMin: product.suggestedValueMin || null,
-                  suggestedValueMax: product.suggestedValueMax || null,
+                  suggestedValueMax: null,
                   tags: product.tags || [],
                   color: product.color,
                   programId,
@@ -329,6 +339,34 @@ export default function AdminProposalCategories() {
       setIsOpen(false);
     } catch {
       toast.error('Erro ao salvar programa');
+    }
+  };
+
+  const createDuration = async () => {
+    const label = newDurationLabel.trim();
+    if (!label) {
+      toast.error('Informe a duração');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/product-durations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ label }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || 'Erro ao criar duração');
+      queryClient.invalidateQueries({ queryKey: ['product-durations'] });
+      productForm.setValue('durationId', payload.id, { shouldDirty: true });
+      setNewDurationLabel('');
+      setDurationDialogOpen(false);
+      toast.success('Duração criada');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao criar duração');
     }
   };
 
@@ -497,9 +535,11 @@ export default function AdminProposalCategories() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-3">
                                 <span className="truncate text-sm font-semibold">{product.title}</span>
-                                <span className="shrink-0 rounded bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
-                                  {product.qty || '01'}
-                                </span>
+                                {getDurationLabel(product.durationId) && (
+                                  <span className="shrink-0 rounded bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
+                                    {getDurationLabel(product.durationId)}
+                                  </span>
+                                )}
                               </div>
                               <p className="mt-1 text-xs text-muted-foreground">Será criado ao salvar o programa.</p>
                             </div>
@@ -528,9 +568,11 @@ export default function AdminProposalCategories() {
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-3">
                                   <span className="truncate text-sm font-semibold">{product.title || product.name}</span>
-                                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                                    {product.qty || '01'}
-                                  </span>
+                                  {product.durationLabel && (
+                                    <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                                      {product.durationLabel}
+                                    </span>
+                                  )}
                                 </div>
                                 {product.description && (
                                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{product.description}</p>
@@ -574,10 +616,10 @@ export default function AdminProposalCategories() {
           <Form {...productForm}>
             <form onSubmit={productForm.handleSubmit(handleInlineProduct)} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField control={productForm.control} name="name" render={({ field }) => (
+                <FormField control={productForm.control} name="title" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nome interno</FormLabel>
-                    <FormControl><Input placeholder="Ex: Spot 30s Padrão" {...field} /></FormControl>
+                    <FormLabel>Nome do Produto</FormLabel>
+                    <FormControl><Input placeholder="Ex: Spot Comercial 30s" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -598,40 +640,38 @@ export default function AdminProposalCategories() {
                   </FormItem>
                 )} />
               </div>
-              <div className="grid grid-cols-12 gap-4 border-t pt-4">
-                <div className="col-span-4 sm:col-span-3">
-                  <FormField control={productForm.control} name="qty" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantidade</FormLabel>
-                      <FormControl><Input placeholder="Ex: 50x" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-                <div className="col-span-8 sm:col-span-9">
-                  <FormField control={productForm.control} name="title" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Título na proposta</FormLabel>
-                      <FormControl><Input placeholder="Ex: Spot Comercial 30s" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField control={productForm.control} name="suggestedValueMin" render={({ field }) => (
+              <div className="grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-2">
+                <FormField control={productForm.control} name="durationId" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Valor sugerido mínimo</FormLabel>
-                    <FormControl><Input inputMode="numeric" placeholder="R$ 1.500,00" {...field} onChange={(event) => field.onChange(formatCurrencyBRL(event.target.value))} /></FormControl>
+                    <FormLabel>Duração</FormLabel>
+                    <Select
+                      value={field.value || 'none'}
+                      onValueChange={(value) => {
+                        if (value === 'new') {
+                          setDurationDialogOpen(true);
+                          return;
+                        }
+                        field.onChange(value === 'none' ? '' : value);
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione a duração" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Não informar</SelectItem>
+                        {(durations || []).map((duration: any) => (
+                          <SelectItem key={duration.id} value={duration.id}>{duration.label}</SelectItem>
+                        ))}
+                        <SelectItem value="new">+ Nova duração</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={productForm.control} name="suggestedValueMax" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor sugerido máximo</FormLabel>
-                    <FormControl><Input inputMode="numeric" placeholder="R$ 4.000,00" {...field} onChange={(event) => field.onChange(formatCurrencyBRL(event.target.value))} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
+                <FormField control={productForm.control} name="suggestedValueMin" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor sugerido</FormLabel>
+                      <FormControl><Input inputMode="numeric" placeholder="R$ 1.500,00" {...field} onChange={(event) => field.onChange(formatCurrencyBRL(event.target.value))} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                 )} />
               </div>
               <FormField control={productForm.control} name="description" render={({ field }) => (
@@ -646,6 +686,20 @@ export default function AdminProposalCategories() {
               </Button>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={durationDialogOpen} onOpenChange={setDurationDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Nova duração</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={newDurationLabel}
+              onChange={(event) => setNewDurationLabel(event.target.value)}
+              placeholder="Ex: 30s"
+            />
+            <Button className="w-full" onClick={createDuration}>Salvar duração</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -694,16 +748,18 @@ export default function AdminProposalCategories() {
                     <div key={product.id} className="rounded-md border bg-muted/20 px-3 py-2">
                       <div className="flex items-start justify-between gap-3">
                         <span className="min-w-0 flex-1 text-sm font-semibold leading-tight">{product.title}</span>
-                        <span className="shrink-0 rounded bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
-                          {product.qty}
-                        </span>
+                        {product.durationLabel && (
+                          <span className="shrink-0 rounded bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
+                            {product.durationLabel}
+                          </span>
+                        )}
                       </div>
                       {product.description && (
                         <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{product.description}</p>
                       )}
-                      {(product.suggestedValueMin || product.suggestedValueMax) && (
+                      {product.suggestedValueMin && (
                         <p className="mt-1 text-xs font-medium text-primary">
-                          Sugestão: {product.suggestedValueMin || 'R$ 0,00'} a {product.suggestedValueMax || 'sem teto'}
+                          Sugestão: {product.suggestedValueMin}
                         </p>
                       )}
                     </div>

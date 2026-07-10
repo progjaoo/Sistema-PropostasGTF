@@ -79,6 +79,7 @@ export interface Station {
   name: string;
   /** @nullable */
   slogan?: string | null;
+  primaryColor: string;
   /** @nullable */
   logoBase64?: string | null;
   createdAt: string;
@@ -87,12 +88,14 @@ export interface Station {
 export interface StationInput {
   name: string;
   slogan?: string;
+  primaryColor?: string;
   logoBase64?: string;
 }
 
 export interface StationUpdate {
   name?: string;
   slogan?: string;
+  primaryColor?: string;
   logoBase64?: string;
 }
 
@@ -115,6 +118,7 @@ export interface Advertiser {
   contactEmail?: string | null;
   /** @nullable */
   notes?: string | null;
+  status: 'LEAD' | 'CLIENT';
   active: boolean;
   createdAt: string;
 }
@@ -129,6 +133,7 @@ export interface AdvertiserInput {
   contactPhone?: string;
   contactEmail?: string;
   notes?: string;
+  status?: 'LEAD' | 'CLIENT';
 }
 
 export interface AdvertiserUpdate {
@@ -141,6 +146,7 @@ export interface AdvertiserUpdate {
   contactPhone?: string;
   contactEmail?: string;
   notes?: string;
+  status?: 'LEAD' | 'CLIENT';
   active?: boolean;
 }
 
@@ -587,6 +593,7 @@ export interface TemplateUsageStat {
 export type ListAdvertisersParams = {
 search?: string;
 active?: boolean;
+status?: 'LEAD' | 'CLIENT';
 };
 
 export type ListProposalTemplatesParams = {
@@ -600,4 +607,3 @@ status?: string;
 advertiserId?: string;
 search?: string;
 };
-
