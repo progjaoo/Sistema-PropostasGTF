@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
   getListAdvertisersQueryKey,
@@ -16,6 +16,8 @@ import { toast } from 'sonner';
 import { AlertTriangle, ArrowLeft, Plus, Printer, Save, Search, Trash2 } from 'lucide-react';
 
 import { ProposalPreview } from '@/components/proposal/ProposalPreview';
+import { ProposalPrint } from '@/components/proposal/ProposalPrint';
+import { ProposalTimeline } from '@/components/proposal/ProposalTimeline';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import { ConfirmActionDialog } from '@/components/ui/confirm-action-dialog';
@@ -49,7 +51,7 @@ const PERIODICITY_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Rascunho',
   SENT: 'Enviada',
-  APPROVED: 'Aprovada',
+  APPROVED: 'Aceita',
   REJECTED: 'Rejeitada',
 };
 
@@ -82,6 +84,8 @@ const emptyAdvertiser: AdvertiserDraft = {
   contactEmail: '',
   notes: '',
 };
+
+type PrintIntent = 'button' | 'keyboard' | null;
 
 function currencyLikeToNumber(value: unknown) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
@@ -142,11 +146,18 @@ function normalizeStatsForPayload(stats: unknown, keepEmpty = false) {
   const normalized = stats
     .slice(0, 4)
     .map((item: any) => ({
-      num: String(item?.num ?? item?.value ?? item?.title ?? '').trim(),
-      suf: String(item?.suf ?? '').trim(),
-      desc: String(item?.desc ?? item?.description ?? '').trim(),
+      num: String(item?.num ?? item?.value ?? item?.title ?? ''),
+      suf: String(item?.suf ?? ''),
+      desc: String(item?.desc ?? item?.description ?? ''),
     }));
-  return keepEmpty ? normalized : normalized.filter((item) => item.num || item.desc);
+  if (keepEmpty) return normalized;
+  return normalized
+    .map((item) => ({
+      num: item.num.trim(),
+      suf: item.suf.trim(),
+      desc: item.desc.trim(),
+    }))
+    .filter((item) => item.num || item.desc);
 }
 
 function cleanProposalPayload(data: any) {
@@ -161,6 +172,7 @@ function cleanProposalPayload(data: any) {
     status,
     fromTemplateName,
     proposalTypeName,
+    timeline,
     ...payload
   } = data;
 
@@ -208,6 +220,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const [advertiserDraft, setAdvertiserDraft] = useState<AdvertiserDraft>(emptyAdvertiser);
   const [catalogProductSearch, setCatalogProductSearch] = useState('');
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [printIntent, setPrintIntent] = useState<PrintIntent>(null);
   const dirtyRef = useRef(false);
   const initialized = useRef(false);
 
@@ -281,14 +294,47 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
     return found || current || null;
   }, [advertisers, localData]);
 
+  const startProposalPrint = useCallback((intent: Exclude<PrintIntent, null>) => {
+    if (!localData) return;
+    setPrintIntent(intent);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.print();
+        window.setTimeout(() => setPrintIntent(null), 3000);
+      });
+    });
+  }, [localData]);
+
+  useEffect(() => {
+    const handleAfterPrint = () => setPrintIntent(null);
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => window.removeEventListener('afterprint', handleAfterPrint);
+  }, []);
+
+  useEffect(() => {
+    const handlePrintShortcut = (event: KeyboardEvent) => {
+      const isPrintShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'p';
+      if (!isPrintShortcut) return;
+      event.preventDefault();
+      startProposalPrint('keyboard');
+    };
+
+    window.addEventListener('keydown', handlePrintShortcut);
+    return () => window.removeEventListener('keydown', handlePrintShortcut);
+  }, [startProposalPrint]);
+
   const groupedProducts = useMemo(() => {
-    const list = ((products as any[]) || []).filter((product) => product.active !== false);
+    const list = ((products as any[]) || []).filter((product) => {
+      if (product.active === false) return false;
+      if (!localData?.stationId) return true;
+      return product.stationId === localData.stationId || product.programStationId === localData.stationId;
+    });
     return list.reduce<Record<string, any[]>>((groups, product) => {
       const groupName = product.programName || product.program || 'Sem programa';
       groups[groupName] = [...(groups[groupName] || []), product];
       return groups;
     }, {});
-  }, [products]);
+  }, [products, localData?.stationId]);
 
   const filteredGroupedProducts = useMemo(() => {
     const needle = catalogProductSearch.trim().toLowerCase();
@@ -423,12 +469,16 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
 
   const handleStationChange = (nextStationId: string) => {
     const selectedStation = stationOptions.find((item) => item.id === nextStationId);
+    const hasProducts = (localData?.products || []).length > 0;
     markDirty();
     setLocalData((prev: any) => ({
       ...prev,
       stationId: nextStationId,
       station: selectedStation || prev.station,
     }));
+    if (hasProducts) {
+      toast.warning('Revise os produtos da proposta após trocar a empresa.');
+    }
   };
 
   const addBlankProduct = () => {
@@ -546,6 +596,10 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
     );
   };
 
+  const handlePrint = () => {
+    startProposalPrint('button');
+  };
+
   if (isLoading || !localData) {
     return <div className="p-8 text-center text-muted-foreground">Carregando editor...</div>;
   }
@@ -555,9 +609,11 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const seller = localData.createdBy || null;
   const sellerProfileIncomplete = !seller?.jobTitle || !seller?.contactPhone;
   const suggestedInvestmentText = formatCurrencyFromNumber(investmentSuggestion.total);
+  const proposalPrintData = { ...localData, station, advertiser: selectedAdvertiser };
 
   return (
     <div className="flex h-[calc(100vh-6rem)] -m-6 border-t border-border overflow-hidden bg-background">
+      {printIntent && <ProposalPrint proposal={proposalPrintData} />}
       <ConfirmActionDialog
         open={leaveDialogOpen}
         onOpenChange={setLeaveDialogOpen}
@@ -759,10 +815,6 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                     <Input type="date" value={localData.dateEnd || ''} onChange={(e) => handleChange('dateEnd', e.target.value)} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium">Texto de Período Personalizado</label>
-                  <Input value={localData.periodDesc || ''} onChange={(e) => handleChange('periodDesc', e.target.value)} placeholder="Ex: Julho a Setembro de 2026" />
-                </div>
               </AccordionContent>
             </AccordionItem>
 
@@ -772,7 +824,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                 <div className="space-y-3">
                   {proposalStats.length > 0 ? (
                     proposalStats.map((stat, index) => (
-                      <div key={index} className="grid grid-cols-[1fr_1.6fr_auto] items-end gap-2 rounded-lg border bg-muted/20 p-3">
+                      <div key={index} className="grid grid-cols-[1fr_1.6fr_auto] items-start gap-2 rounded-lg border bg-muted/20 p-3">
                         <div className="space-y-1">
                           <label className="text-[10px] font-medium uppercase text-muted-foreground">Destaque</label>
                           <Input
@@ -785,11 +837,11 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-medium uppercase text-muted-foreground">Descrição</label>
-                          <Input
-                            className="h-8"
+                          <Textarea
+                            className="min-h-16 resize-none text-sm"
                             value={stat.desc}
-                            maxLength={42}
-                            placeholder="Ex: ouvintes por dia"
+                            maxLength={140}
+                            placeholder="Ex: ouvintes por dia, com quebra de linha se necessário"
                             onChange={(event) => updateStatItem(index, 'desc', event.target.value)}
                           />
                         </div>
@@ -867,7 +919,14 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                 {localData.products?.map((prod: any, i: number) => (
                   <div key={prod.id || i} className="p-3 border border-border rounded-lg bg-card shadow-sm space-y-3 relative">
                     <div className="absolute top-3 right-3">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-error hover:bg-error/10 hover:text-error" onClick={() => removeProduct(i)}>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="h-8 w-8 shadow-sm"
+                        onClick={() => removeProduct(i)}
+                        aria-label="Remover produto"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -1012,6 +1071,24 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                 </div>
               </AccordionContent>
             </AccordionItem>
+
+            <AccordionItem value="timeline">
+              <AccordionTrigger className="text-sm font-semibold hover:no-underline">Andamento da Proposta</AccordionTrigger>
+              <AccordionContent className="pt-2">
+                <ProposalTimeline
+                  proposalId={params.id}
+                  items={localData.timeline || []}
+                  onAdded={(item) => {
+                    setLocalData((prev: any) => ({
+                      ...prev,
+                      timeline: [...(prev.timeline || []), item],
+                    }));
+                    queryClient.invalidateQueries({ queryKey: [getListProposalsQueryKey()[0]] });
+                    queryClient.invalidateQueries({ queryKey: [getListAdvertisersQueryKey()[0]] });
+                  }}
+                />
+              </AccordionContent>
+            </AccordionItem>
           </Accordion>
         </div>
 
@@ -1021,7 +1098,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
             <SelectContent>
               <SelectItem value="DRAFT">Rascunho</SelectItem>
               <SelectItem value="SENT">Enviada</SelectItem>
-              <SelectItem value="APPROVED">Aprovada</SelectItem>
+              <SelectItem value="APPROVED">Aceita</SelectItem>
               <SelectItem value="REJECTED">Rejeitada</SelectItem>
             </SelectContent>
           </Select>
@@ -1029,7 +1106,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
             <Button variant="outline" className="flex-1" onClick={handleManualSave} disabled={updateMutation.isPending}>
               <Save className="w-4 h-4 mr-2" /> Salvar
             </Button>
-            <Button className="flex-1" onClick={() => window.print()}>
+            <Button className="flex-1" onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-2" /> PDF
             </Button>
           </div>
@@ -1040,8 +1117,8 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
         <div className="absolute top-4 right-4 text-xs font-bold text-muted-foreground/30 uppercase tracking-widest no-print">
           Preview
         </div>
-        <div className="print-area print:!transform-none print:w-[210mm] print:h-auto shadow-2xl transition-transform origin-top">
-          <ProposalPreview proposal={{ ...localData, station, advertiser: selectedAdvertiser }} scale={0.8} />
+        <div className="print-area print-scale-wrapper print:!transform-none print:w-[210mm] print:h-auto shadow-2xl transition-transform origin-top">
+          <ProposalPreview proposal={proposalPrintData} scale={0.8} />
         </div>
       </div>
     </div>

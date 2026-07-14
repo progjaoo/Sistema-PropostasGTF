@@ -468,8 +468,20 @@ export interface ProposalSummary {
   /** @nullable */
   advertiserName?: string | null;
   /** @nullable */
+  advertiserTradeName?: string | null;
+  stationId?: string;
+  /** @nullable */
+  stationName?: string | null;
+  /** @nullable */
   fromTemplateName?: string | null;
+  /** @nullable */
+  proposalTypeId?: string | null;
+  /** @nullable */
+  proposalTypeName?: string | null;
+  createdById?: string;
   createdByName?: string;
+  /** @nullable */
+  investValue?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -605,5 +617,12 @@ page?: number;
 limit?: number;
 status?: string;
 advertiserId?: string;
+stationId?: string;
+proposalTypeId?: string;
+createdById?: string;
+dateFrom?: string;
+dateTo?: string;
+sortBy?: string;
+sortDir?: string;
 search?: string;
 };

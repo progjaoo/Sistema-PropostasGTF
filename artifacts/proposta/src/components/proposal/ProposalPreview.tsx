@@ -96,6 +96,17 @@ function getInvestmentValue(value?: string | null) {
   return value?.trim() || 'R$ 0,00';
 }
 
+function getProductMetaLine(product: any) {
+  return [
+    product.durationLabel,
+    product.airTime,
+    product.seasonality ? SEASONALITY_LABELS[String(product.seasonality)] || product.seasonality : null,
+  ]
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .join(' - ');
+}
+
 function SectionLabel({ color, children }: { color: string; children: React.ReactNode }) {
   return (
     <div className="mb-5 flex items-center gap-3">
@@ -126,7 +137,7 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
 
   return (
     <div
-      className="a4-preview relative overflow-hidden bg-white text-[#111111] shadow-2xl"
+      className="a4-preview proposal-preview-page relative overflow-hidden bg-white text-[#111111] shadow-2xl"
       style={{
         width: `${a4Width}px`,
         minHeight: `${a4Height}px`,
@@ -135,7 +146,7 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
         fontFamily: "'Montserrat', Arial, sans-serif",
       }}
     >
-      <div className="px-[58px] pb-[48px] pt-[44px]">
+      <div className="proposal-preview-content px-[58px] pb-[48px] pt-[44px]">
         <header className="mb-8 flex items-center gap-4">
           <div
             className="flex h-[66px] w-[66px] shrink-0 items-center justify-center overflow-hidden rounded-xl text-[24px] font-black tracking-tight text-white"
@@ -158,7 +169,7 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
         </header>
 
         <section
-          className="mb-9 rounded-[28px] px-[42px] py-[44px] text-white"
+          className="proposal-hero-section mb-9 rounded-[28px] px-[42px] py-[44px] text-white"
           style={{ backgroundColor: primaryColor }}
         >
           <div className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-white/75">
@@ -186,13 +197,13 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
               {stats.map((stat, index) => {
                 const accent = index % 2 === 0 ? primaryColor : '#727272';
                 return (
-                  <div key={`${stat.value}-${index}`} className="min-h-[116px] border-r border-[#E1E7F0] last:border-r-0">
+                  <div key={`${stat.value}-${index}`} className="proposal-stat-card min-h-[116px] border-r border-[#E1E7F0] last:border-r-0">
                     <div className="h-[7px]" style={{ backgroundColor: accent }} />
                     <div className="px-5 py-5">
                       <div className="text-[33px] font-black leading-none" style={{ color: accent }}>
                         {stat.value || '00'}
                       </div>
-                      <div className="mt-3 text-[11px] font-bold uppercase leading-snug tracking-[0.08em] text-[#555555]">
+                      <div className="mt-3 whitespace-pre-line text-[11px] font-bold uppercase leading-snug tracking-[0.08em] text-[#555555]">
                         {stat.description || 'Indicador'}
                       </div>
                     </div>
@@ -210,7 +221,7 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
               {products.map((product, index) => (
                 <article
                   key={product.id || index}
-                  className="min-h-[150px] rounded-[20px] border border-[#DCE7F6] bg-[#F8FBFF] p-5 pl-6"
+                  className="proposal-product-card min-h-[150px] rounded-[20px] border border-[#DCE7F6] bg-[#F8FBFF] p-5 pl-6"
                   style={{ borderLeft: `12px solid ${primaryColor}` }}
                 >
                   <div className="mb-4 flex items-start gap-3">
@@ -224,8 +235,13 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
                   <div className="text-[15px] font-black uppercase leading-tight">
                     {product.title || 'Produto'}
                   </div>
+                  {getProductMetaLine(product) && (
+                    <div className="mt-2 text-[12px] font-semibold uppercase leading-snug tracking-[0.02em] text-[#565656]">
+                      {getProductMetaLine(product)}
+                    </div>
+                  )}
                   {product.description && (
-                    <p className="mt-2 line-clamp-3 text-[12px] leading-snug text-[#565656]">
+                    <p className="proposal-product-description mt-2 line-clamp-3 text-[12px] leading-snug text-[#565656]">
                       {product.description}
                     </p>
                   )}
@@ -235,20 +251,7 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
                         <span className="truncate">{product.program}</span>
                       </div>
                     )}
-                    {product.durationLabel && (
-                      <div className="inline-flex rounded-full border border-[#DCE7F6] bg-white px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#565656]">
-                        {product.durationLabel}
-                      </div>
-                    )}
                   </div>
-                  {(product.airTime || product.seasonality) && (
-                    <div className="mt-3 space-y-1 text-[10px] font-bold uppercase leading-snug tracking-[0.08em] text-[#727272]">
-                      {product.airTime && <div>Horário: {product.airTime}</div>}
-                      {product.seasonality && (
-                        <div>Sazonalidade: {SEASONALITY_LABELS[String(product.seasonality)] || product.seasonality}</div>
-                      )}
-                    </div>
-                  )}
                 </article>
               ))}
             </div>
@@ -259,7 +262,7 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
           )}
         </section>
 
-        <section className="mb-9 rounded-[28px] bg-black px-8 py-8 text-white">
+        <section className="proposal-investment-block mb-9 rounded-[28px] px-8 py-8 text-white" style={{ backgroundColor: '#000000' }}>
           <div className="grid grid-cols-[1fr_auto] items-end gap-6">
             <div>
               <div className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-white/55">
@@ -277,7 +280,7 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
           </div>
         </section>
 
-        <footer className="flex items-end justify-between border-t border-[#E1E7F0] pt-7">
+        <footer className="proposal-footer flex items-end justify-between border-t border-[#E1E7F0] pt-7">
           <div>
             <div className="text-[23px] font-black leading-none">{sellerContactName}</div>
             <div className="mt-2 text-[12px] font-bold uppercase tracking-[0.08em] text-[#727272]">

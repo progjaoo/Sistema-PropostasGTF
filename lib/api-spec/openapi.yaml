@@ -712,6 +712,36 @@ paths:
           in: query
           schema:
             type: string
+        - name: stationId
+          in: query
+          schema:
+            type: string
+        - name: proposalTypeId
+          in: query
+          schema:
+            type: string
+        - name: createdById
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, updatedAt]
+        - name: sortDir
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
         - name: search
           in: query
           schema:
@@ -1591,10 +1621,24 @@ components:
           type: ["string", "null"]
         advertiserName:
           type: ["string", "null"]
+        advertiserTradeName:
+          type: ["string", "null"]
+        stationId:
+          type: string
+        stationName:
+          type: ["string", "null"]
         fromTemplateName:
           type: ["string", "null"]
+        proposalTypeId:
+          type: ["string", "null"]
+        proposalTypeName:
+          type: ["string", "null"]
+        createdById:
+          type: string
         createdByName:
           type: string
+        investValue:
+          type: ["string", "null"]
         createdAt:
           type: string
         updatedAt:

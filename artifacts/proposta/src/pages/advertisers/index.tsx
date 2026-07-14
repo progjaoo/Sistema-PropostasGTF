@@ -90,10 +90,19 @@ export default function AdvertisersList({ mode = 'client' }: AdvertisersListProp
     switch (status) {
       case 'DRAFT': return <span className="bg-neutral-100 text-neutral-600 px-2 py-1 rounded-md text-xs font-medium">Rascunho</span>;
       case 'SENT': return <span className="bg-warning/10 text-warning px-2 py-1 rounded-md text-xs font-medium">Enviada</span>;
-      case 'APPROVED': return <span className="bg-success/10 text-success px-2 py-1 rounded-md text-xs font-medium">Aprovada</span>;
+      case 'APPROVED': return <span className="bg-success/10 text-success px-2 py-1 rounded-md text-xs font-medium">Aceita</span>;
       case 'REJECTED': return <span className="bg-error/10 text-error px-2 py-1 rounded-md text-xs font-medium">Rejeitada</span>;
       default: return null;
     }
+  };
+
+  const renderTimelineStep = (proposal: any) => {
+    if (!proposal.lastTimelineStep) return null;
+    return (
+      <div className="mt-1 text-xs text-muted-foreground">
+        Etapa: <span className="font-medium text-foreground">{proposal.lastTimelineStep.label}</span>
+      </div>
+    );
   };
 
   return (
@@ -209,6 +218,7 @@ export default function AdvertisersList({ mode = 'client' }: AdvertisersListProp
                                           <div className="mt-1 text-xs text-muted-foreground">
                                             Responsável: {proposal.createdByName || 'Comercial'}
                                           </div>
+                                          {renderTimelineStep(proposal)}
                                         </div>
                                         <div className="flex shrink-0 items-center gap-2">
                                           {getStatusBadge(proposal.status)}
@@ -236,6 +246,7 @@ export default function AdvertisersList({ mode = 'client' }: AdvertisersListProp
                                       <div className="mt-1 text-xs text-muted-foreground">
                                         {programName} · {proposal.createdByName || 'Comercial'}
                                       </div>
+                                      {renderTimelineStep(proposal)}
                                     </div>
                                     <div className="flex shrink-0 items-center gap-3">
                                       {proposal.investValue && <span className="text-sm font-medium">{proposal.investValue}</span>}

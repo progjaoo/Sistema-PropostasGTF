@@ -234,6 +234,12 @@ async function buildFullProposal(id: string) {
       createdBy: true,
       fromTemplate: true,
       proposalType: true,
+      timeline: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          createdBy: { select: { id: true, name: true } },
+        },
+      },
       products: {
         orderBy: { order: "asc" },
         include: {
@@ -241,6 +247,15 @@ async function buildFullProposal(id: string) {
             select: {
               suggestedValueMin: true,
               suggestedValueMax: true,
+              programId: true,
+              program: true,
+              programRef: {
+                select: {
+                  id: true,
+                  name: true,
+                  stationId: true,
+                },
+              },
               duration: {
                 select: {
                   label: true,
@@ -332,12 +347,14 @@ async function buildFullProposal(id: string) {
     products: p.products.map((pr) => ({
       id: pr.id,
       productTemplateId: pr.productTemplateId ?? null,
+      programId: pr.productTemplate?.programId ?? null,
+      programStationId: pr.productTemplate?.programRef?.stationId ?? null,
       order: pr.order,
       qty: pr.qty,
       title: pr.title,
       description: pr.description ?? null,
       detail: pr.detail ?? null,
-      program: pr.program ?? null,
+      program: pr.productTemplate?.programRef?.name ?? pr.productTemplate?.program ?? pr.program ?? null,
       durationLabel: pr.durationLabel ?? pr.productTemplate?.duration?.label ?? null,
       airTime: pr.airTime ?? null,
       seasonality: pr.seasonality ?? null,
@@ -345,6 +362,24 @@ async function buildFullProposal(id: string) {
       suggestedValueMax: pr.productTemplate?.suggestedValueMax ?? null,
       tags: pr.tags ?? [],
       color: pr.color,
+    })),
+    timeline: p.timeline.map((entry) => ({
+      id: entry.id,
+      proposalId: entry.proposalId,
+      step: entry.step,
+      label: {
+        LEAD_CREATED: "Lead criado",
+        IN_CONVERSATION: "Em conversa",
+        PROPOSAL_SENT: "Proposta enviada",
+        CLIENT_REVIEWING: "Cliente analisando",
+        NEGOTIATION: "Negociação",
+        APPROVED: "Aceita",
+        REJECTED: "Rejeitada",
+      }[entry.step] ?? entry.step,
+      note: entry.note ?? null,
+      createdById: entry.createdById ?? null,
+      createdByName: entry.createdBy?.name ?? null,
+      createdAt: entry.createdAt.toISOString(),
     })),
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),

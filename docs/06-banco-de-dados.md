@@ -22,6 +22,8 @@
 - `Proposal`
 - `ProposalProduct`
 - `ProposalVersion`
+- `ProposalTimeline`
+- `ProposalRecallReminder`
 
 ## Enums Principais
 
@@ -31,6 +33,8 @@
 - `ProposalProductSeasonality`: `MONTHLY`, `SEMIANNUAL`, `ANNUAL`
 - `ProductColor`: `BLUE`, `YELLOW`, `RED`, `GREEN`, `DARK`
 - `AdvertiserStatus`: `LEAD`, `CLIENT`
+- `ProposalTimelineStep`: `LEAD_CREATED`, `IN_CONVERSATION`, `PROPOSAL_SENT`, `CLIENT_REVIEWING`, `NEGOTIATION`, `APPROVED`, `REJECTED`
+- `ProposalRecallReminderStatus`: `PENDING`, `NOTIFIED`, `SNOOZED`, `DONE`, `CANCELLED`
 
 ## Convencoes
 
@@ -48,12 +52,21 @@
 - `Proposal.products` define o plano de produtos da proposta.
 - `ProposalProduct.productTemplateId` rastreia origem do item no catalogo.
 - `ProductTemplate.programId` vincula produto a programa.
+- `ProposalCategory.stationId` vincula programa a uma empresa/emissora. O campo aceita nulo para dados legados, mas a API exige empresa em novos cadastros e edicoes.
+- `Station.proposalCategories` lista os programas daquela empresa.
 - `ProductTemplate.durationId` vincula produto a uma duracao reutilizavel.
 - `ProposalProduct.durationLabel` guarda a duracao exibida na proposta como snapshot textual.
 - `ProposalProduct.airTime` guarda o horario negociado daquele item na proposta.
 - `ProposalProduct.seasonality` guarda a sazonalidade do item (`MONTHLY`, `SEMIANNUAL`, `ANNUAL`).
 - `Advertiser.status` separa Leads (`LEAD`) de Clientes (`CLIENT`) sem duplicar tabela.
 - `Station.primaryColor` define a cor padrao usada no preview da proposta.
+- `Proposal.timeline` registra as etapas comerciais da negociacao.
+- `ProposalTimeline.createdById` registra quem adicionou uma etapa manual ou automatica.
+- `Proposal.recallReminders` registra avisos recorrentes de recaptura quando a proposta e rejeitada.
+- `ProposalRecallReminder.assignedToId` aponta para o vendedor responsavel pela proposta rejeitada.
+- `ProposalRecallReminder.milestoneMonths` define o marco de recaptura: 3, 6 ou 10 meses.
+- `ProposalRecallReminder.dueAt` e `snoozedUntil` controlam quando o aviso aparece.
+- `ProposalRecallReminder.status` controla se o aviso esta pendente, avisado, reagendado, tratado ou cancelado.
 
 ## Comandos
 

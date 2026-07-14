@@ -12,9 +12,10 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import ProfileSettings from "@/pages/profile";
 
-import ProposalsList from "@/pages/proposals/index";
 import ProposalNew from "@/pages/proposals/new";
 import ProposalEdit from "@/pages/proposals/edit";
+import ProposalProgress from "@/pages/proposals/progress";
+import RecallRemindersPage from "@/pages/recall-reminders";
 
 import AdvertisersList from "@/pages/advertisers/index";
 import AdvertiserNew from "@/pages/advertisers/new";
@@ -84,7 +85,14 @@ function App() {
             <ProtectedRoute path="/programs" component={AdminProposalCategories} />
             
             {/* Proposals */}
-            <ProtectedRoute path="/proposals" component={ProposalsList} />
+            <ProtectedRoute path="/proposals" component={ProposalProgress} />
+            <Route path="/proposal-progress">
+              {() => {
+                window.location.href = '/proposals';
+                return null;
+              }}
+            </Route>
+            <ProtectedRoute path="/recall-reminders" component={RecallRemindersPage} />
             <ProtectedRoute path="/proposals/new" component={ProposalNew} />
             <ProtectedRoute path="/proposals/:id/edit" component={ProposalEdit} />
             

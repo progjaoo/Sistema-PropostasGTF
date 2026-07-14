@@ -1,5 +1,9 @@
 import React from 'react';
 import { useLocation } from 'wouter';
+
+// Tela legada de Propostas. A rota principal `/proposals` foi consolidada em
+// `progress.tsx`, que concentra listagem por programa, timeline e ações.
+// Manter este arquivo facilita consulta e rollback sem expor a tela na sidebar.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getListProposalsQueryKey,
@@ -15,8 +19,10 @@ import {
   Building2,
   CalendarClock,
   ChevronRight,
+  Clock,
   FilePlus,
   FileText,
+  CheckCircle2,
   Layers,
   Plus,
   Search,
@@ -44,6 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ProposalTimeline } from '@/components/proposal/ProposalTimeline';
 import { useAuthStore } from '@/store/auth';
 
 type BoardProduct = {
@@ -78,6 +85,9 @@ type BoardProposal = {
 
 type BoardProgram = {
   id: string;
+  stationId?: string | null;
+  stationName?: string | null;
+  primaryColor?: string | null;
   name: string;
   slug?: string;
   description?: string | null;
@@ -96,14 +106,14 @@ const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos os status' },
   { value: 'DRAFT', label: 'Rascunhos' },
   { value: 'SENT', label: 'Enviadas' },
-  { value: 'APPROVED', label: 'Aprovadas' },
+  { value: 'APPROVED', label: 'Aceitas' },
   { value: 'REJECTED', label: 'Rejeitadas' },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Rascunho',
   SENT: 'Enviada',
-  APPROVED: 'Aprovada',
+  APPROVED: 'Aceita',
   REJECTED: 'Rejeitada',
 };
 
@@ -133,7 +143,7 @@ function getStatusBadge(status: string) {
     case 'SENT':
       return <Badge className="border-warning/20 bg-warning/10 text-warning hover:bg-warning/10">Enviada</Badge>;
     case 'APPROVED':
-      return <Badge className="border-success/20 bg-success/10 text-success hover:bg-success/10">Aprovada</Badge>;
+      return <Badge className="border-success/20 bg-success/10 text-success hover:bg-success/10">Aceita</Badge>;
     case 'REJECTED':
       return <Badge variant="destructive">Rejeitada</Badge>;
     default:
@@ -160,7 +170,9 @@ export default function ProposalsList() {
   const [programId, setProgramId] = React.useState('all');
   const [status, setStatus] = React.useState('all');
   const [selectedProgramId, setSelectedProgramId] = React.useState<string | null>(null);
+  const [approveTarget, setApproveTarget] = React.useState<BoardProposal | null>(null);
   const [rejectTarget, setRejectTarget] = React.useState<BoardProposal | null>(null);
+  const [timelineTarget, setTimelineTarget] = React.useState<BoardProposal | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [newStationId, setNewStationId] = React.useState('');
   const [newProposalTypeId, setNewProposalTypeId] = React.useState<string | null>(null);
@@ -223,6 +235,31 @@ export default function ProposalsList() {
       },
       onError: () => toast.error('Erro ao rejeitar proposta'),
     },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      const response = await fetch(`/api/proposals/${proposalId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status: 'APPROVED' }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || 'Erro ao aprovar proposta');
+      return payload;
+    },
+    onSuccess: () => {
+      toast.success('Proposta aprovada');
+      queryClient.invalidateQueries({ queryKey: ['proposal-program-board'] });
+      queryClient.invalidateQueries({ queryKey: ['proposal-progress-board'] });
+      queryClient.invalidateQueries({ queryKey: [getListProposalsQueryKey()[0]] });
+      setApproveTarget(null);
+      setTimelineTarget(null);
+    },
+    onError: (error: any) => toast.error(error.message || 'Erro ao aprovar proposta'),
   });
 
   const duplicateMutation = useMutation({
@@ -295,7 +332,7 @@ export default function ProposalsList() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Propostas</h1>
           <p className="mt-1 text-muted-foreground">
-            Navegue por programas, produtos e propostas vinculadas em uma visão única.
+            Navegue por programas e acompanhe as propostas vinculadas em uma visão única.
           </p>
         </div>
         <Button onClick={openCreateDialog} size="lg">
@@ -367,7 +404,7 @@ export default function ProposalsList() {
           <p className="mt-1 text-muted-foreground">Ajuste os filtros ou cadastre programas e produtos.</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.4fr)]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
           <div className="space-y-3">
             {programs.map((program) => {
               const selected = selectedProgram?.id === program.id;
@@ -391,6 +428,9 @@ export default function ProposalsList() {
                           <p className="truncate text-xs text-muted-foreground">
                             {program.products.length} produtos · {program.proposals.length} propostas
                           </p>
+                          {program.stationName && (
+                            <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{program.stationName}</p>
+                          )}
                         </div>
                       </div>
                       {program.description && (
@@ -418,127 +458,122 @@ export default function ProposalsList() {
 
           <Card className="min-h-[520px] overflow-hidden">
             {selectedProgram ? (
-              <div className="grid h-full grid-cols-1 lg:grid-cols-[0.9fr_1.1fr]">
-                <div className="border-b bg-muted/20 p-5 lg:border-b-0 lg:border-r">
-                  <div className="flex items-start gap-3">
+              <div className="p-5">
+                <div className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary/10 text-base font-bold text-primary">
                       {selectedProgram.icon ? <img src={selectedProgram.icon} alt="" className="h-full w-full rounded-md object-cover" /> : selectedProgram.name.slice(0, 2).toUpperCase()}
                     </div>
-                    <div>
-                      <h2 className="text-xl font-bold">{selectedProgram.name}</h2>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Propostas vinculadas</p>
+                      <h2 className="truncate text-2xl font-bold">{selectedProgram.name}</h2>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Produtos disponíveis para montar propostas deste programa.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {selectedProgram.products.length ? selectedProgram.products.map((product) => (
-                      <div key={product.id} className="rounded-lg border bg-background p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="font-semibold">{product.title}</div>
-                          {product.durationLabel && (
-                            <Badge variant="outline">{product.durationLabel}</Badge>
-                          )}
-                        </div>
-                        {product.description && (
-                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{product.description}</p>
-                        )}
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          {product.stationName && <span>{product.stationName}</span>}
-                          {product.suggestedValueMin && <span className="font-medium text-primary">Sugestão: {product.suggestedValueMin}</span>}
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                        Nenhum produto vinculado a este programa.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-bold">Propostas vinculadas</h3>
-                      <p className="text-sm text-muted-foreground">
                         {selectedProgram.proposals.length} proposta(s) com produtos deste programa.
                       </p>
+                      {selectedProgram.stationName && (
+                        <p className="mt-1 text-sm font-medium text-primary">{selectedProgram.stationName}</p>
+                      )}
                     </div>
                   </div>
+                  <Badge variant="outline" className="w-fit">
+                    {selectedProgram.products.length} produto(s) no programa
+                  </Badge>
+                </div>
 
-                  <div className="mt-5 space-y-3">
-                    {selectedProgram.proposals.length ? selectedProgram.proposals.map((proposal) => (
-                      <div key={proposal.id} className="rounded-lg border bg-background p-4 shadow-sm">
-                        <div className="flex items-start justify-between gap-3">
+                <div className="mt-5 space-y-4">
+                  {selectedProgram.proposals.length ? selectedProgram.proposals.map((proposal) => (
+                    <div key={proposal.id} className="rounded-lg border bg-background p-4 shadow-sm">
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+                        <div className="min-w-0">
                           <button
                             type="button"
-                            className="min-w-0 flex-1 text-left"
+                            className="block w-full min-w-0 rounded-md text-left transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                             onClick={() => setLocation(`/proposals/${proposal.id}/edit`)}
                           >
                             <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="truncate text-base font-bold">{proposal.advertiserName}</h4>
-                              {getStatusBadge(proposal.status)}
-                            </div>
-                            <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-                              <span className="inline-flex items-center gap-1">
-                                <FileText className="h-3.5 w-3.5" />
-                                {proposal.proposalTypeName || 'Proposta Comercial'}
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <Building2 className="h-3.5 w-3.5" />
-                                {proposal.stationName || 'Empresa não informada'}
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <UserRound className="h-3.5 w-3.5" />
-                                {proposal.createdByName || 'Responsável não informado'}
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <CalendarClock className="h-3.5 w-3.5" />
-                                {formatDate(proposal.updatedAt)}
-                              </span>
+                              <h4 className="line-clamp-2 text-lg font-bold leading-tight">{proposal.advertiserName}</h4>
                             </div>
                           </button>
-                          <div className="flex shrink-0 flex-col items-end gap-2">
-                            {proposal.investValue && <div className="text-sm font-bold">{proposal.investValue}</div>}
-                            <div className="flex gap-1">
-                              <Button size="sm" variant="outline" onClick={() => duplicateMutation.mutate(proposal.id)}>
-                                Duplicar
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-error hover:bg-error/10 hover:text-error" onClick={() => setRejectTarget(proposal)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+
+                          <div className="mt-4 grid gap-3 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-4">
+                            <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                              <span className="flex items-center gap-1 font-medium text-foreground">
+                                <FileText className="h-3.5 w-3.5" />
+                                Tipo
+                              </span>
+                              <p className="mt-1 truncate">{proposal.proposalTypeName || 'Proposta Comercial'}</p>
+                            </div>
+                            <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                              <span className="flex items-center gap-1 font-medium text-foreground">
+                                <Building2 className="h-3.5 w-3.5" />
+                                Empresa
+                              </span>
+                              <p className="mt-1 truncate">{proposal.stationName || 'Empresa não informada'}</p>
+                            </div>
+                            <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                              <span className="flex items-center gap-1 font-medium text-foreground">
+                                <UserRound className="h-3.5 w-3.5" />
+                                Responsável
+                              </span>
+                              <p className="mt-1 truncate">{proposal.createdByName || 'Responsável não informado'}</p>
+                            </div>
+                            <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                              <span className="flex items-center gap-1 font-medium text-foreground">
+                                <CalendarClock className="h-3.5 w-3.5" />
+                                Atualização
+                              </span>
+                              <p className="mt-1 truncate">{formatDate(proposal.updatedAt)}</p>
                             </div>
                           </div>
                         </div>
 
-                        {proposal.products.length > 0 && (
-                          <div className="mt-4 space-y-2 border-t pt-3">
-                            {proposal.products.slice(0, 4).map((product) => (
-                              <div key={product.id} className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                <span className="font-semibold text-foreground">{product.qty || '01'}x {product.title}</span>
-                                {product.durationLabel && <span>{product.durationLabel}</span>}
-                                {product.airTime && <span>Horário: {product.airTime}</span>}
-                                {product.seasonality && <span>{SEASONALITY_LABELS[product.seasonality] || product.seasonality}</span>}
-                              </div>
-                            ))}
+                        <div className="flex shrink-0 flex-col gap-3 lg:items-end">
+                          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                            {getStatusBadge(proposal.status)}
+                            {proposal.investValue && <div className="text-sm font-bold">{proposal.investValue}</div>}
                           </div>
-                        )}
+                          <div className="flex flex-wrap gap-2 lg:justify-end">
+                            <Button size="sm" variant="outline" onClick={() => setTimelineTarget(proposal)}>
+                              <Clock className="mr-1.5 h-3.5 w-3.5" />
+                              Andamento
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => duplicateMutation.mutate(proposal.id)}>
+                              Duplicar
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-error hover:bg-error/10 hover:text-error" onClick={() => setRejectTarget(proposal)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    )) : (
-                      <div className="rounded-lg border border-dashed py-12 text-center">
-                        <FilePlus className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-                        <h4 className="font-medium">Nenhuma proposta neste programa</h4>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Crie um rascunho e adicione produtos deste programa no editor.
-                        </p>
-                        <Button className="mt-4" onClick={openCreateDialog}>
-                          <Plus className="h-4 w-4" />
-                          Nova Proposta
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+
+                      {proposal.products.length > 0 && (
+                        <div className="mt-4 space-y-2 border-t pt-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Produtos da proposta</p>
+                          {proposal.products.slice(0, 4).map((product) => (
+                            <div key={product.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">{product.qty || '01'}x {product.title}</span>
+                              {product.durationLabel && <span>{product.durationLabel}</span>}
+                              {product.airTime && <span>Horário: {product.airTime}</span>}
+                              {product.seasonality && <span>{SEASONALITY_LABELS[product.seasonality] || product.seasonality}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )) : (
+                    <div className="rounded-lg border border-dashed py-12 text-center">
+                      <FilePlus className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+                      <h4 className="font-medium">Nenhuma proposta vinculada a este programa</h4>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Crie um rascunho e adicione produtos deste programa no editor.
+                      </p>
+                      <Button className="mt-4" onClick={openCreateDialog}>
+                        <Plus className="h-4 w-4" />
+                        Nova Proposta
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : null}
@@ -593,6 +628,57 @@ export default function ProposalsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={Boolean(timelineTarget)} onOpenChange={(open) => !open && setTimelineTarget(null)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Andamento da Proposta</DialogTitle>
+            <DialogDescription>
+              {timelineTarget
+                ? `${timelineTarget.advertiserName} · ${timelineTarget.proposalTypeName || 'Proposta Comercial'}`
+                : 'Acompanhe as etapas comerciais da proposta.'}
+            </DialogDescription>
+          </DialogHeader>
+          {timelineTarget && (
+            <div className="space-y-4">
+              <ProposalTimeline
+                proposalId={timelineTarget.id}
+                onAdded={() => {
+                  queryClient.invalidateQueries({ queryKey: ['proposal-program-board'] });
+                  queryClient.invalidateQueries({ queryKey: [getListProposalsQueryKey()[0]] });
+                }}
+              />
+              {timelineTarget.status !== 'APPROVED' && (
+                <div className="flex justify-end border-t pt-4">
+                  <Button
+                    className="!border-success !bg-success !text-white shadow-sm hover:!bg-success/90 focus-visible:!ring-success"
+                    onClick={() => setApproveTarget(timelineTarget)}
+                    disabled={approveMutation.isPending}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Aprovada
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmActionDialog
+        open={Boolean(approveTarget)}
+        onOpenChange={(open) => !open && setApproveTarget(null)}
+        title="Marcar proposta como aprovada?"
+        description={`A proposta de ${approveTarget?.advertiserName || 'cliente'} será marcada como aprovada. Se o registro ainda for Lead, ele será promovido para Cliente.`}
+        actionLabel="Aprovada"
+        cancelLabel="Cancelar"
+        destructive={false}
+        actionClassName="!border-success !bg-success !text-white shadow-sm hover:!bg-success/90 focus-visible:!ring-success"
+        onConfirm={() => {
+          if (!approveTarget) return;
+          approveMutation.mutate(approveTarget.id);
+        }}
+      />
 
       <ConfirmActionDialog
         open={Boolean(rejectTarget)}

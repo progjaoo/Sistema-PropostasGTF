@@ -2,9 +2,10 @@ import React from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuthStore } from '@/store/auth';
 import { useLogout } from '@workspace/api-client-react';
-import { Building2, FileCog, FileText, Users, LogOut, Radio, Package, Layers, UserCircle, UserPlus } from 'lucide-react';
+import { BellRing, Building2, FileCog, FileText, Users, LogOut, Radio, Package, Layers, UserCircle, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { RecallReminderProvider, useRecallReminderCount } from '@/components/notifications/RecallReminderProvider';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [location, setLocation] = useLocation();
   const { user, clearAuth } = useAuthStore();
   const logout = useLogout();
+  const recallCountQuery = useRecallReminderCount();
 
   // Redirect if not logged in
   React.useEffect(() => {
@@ -37,6 +39,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   if (!user) return null;
   const userAvatar = (user as any).avatarBase64 as string | null | undefined;
+  const recallDueCount = recallCountQuery.data?.due ?? 0;
 
   const handleLogout = async () => {
     try {
@@ -53,6 +56,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navItems = [
     { icon: Radio, label: 'Dashboard', href: '/dashboard', roles: ['ADMIN'] },
     { icon: FileText, label: 'Propostas', href: '/proposals', roles: ['COMERCIAL', 'ADMIN'] },
+    { icon: BellRing, label: 'Avisos de Recaptura', href: '/recall-reminders', roles: ['COMERCIAL', 'ADMIN'], badge: recallDueCount },
     { icon: Users, label: 'Clientes', href: '/advertisers', roles: ['COMERCIAL', 'ADMIN'] },
     { icon: UserPlus, label: 'Leads', href: '/leads', roles: ['COMERCIAL', 'ADMIN'] },
     { icon: Layers, label: 'Programas', href: '/programs', roles: ['COMERCIAL'] },
@@ -77,7 +81,12 @@ export function AppLayout({ children }: AppLayoutProps) {
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )}>
           <item.icon className="w-4 h-4" />
-          {item.label}
+          <span className="flex-1 truncate">{item.label}</span>
+          {item.badge > 0 && (
+            <span className="ml-auto rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold leading-none text-destructive-foreground">
+              {item.badge > 99 ? '99+' : item.badge}
+            </span>
+          )}
         </span>
       </Link>
     );
@@ -161,6 +170,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <RecallReminderProvider />
         <main className="flex-1 overflow-y-auto bg-background p-6">
           <div className="mx-auto max-w-7xl">
             {children}

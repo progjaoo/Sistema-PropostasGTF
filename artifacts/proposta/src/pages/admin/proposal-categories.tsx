@@ -3,6 +3,7 @@ import {
   useCreateProductTemplate,
   useCreateProposalCategory,
   useDeleteProposalCategory,
+  useListStations,
   useUpdateProposalCategory,
   getListProductTemplatesQueryKey,
   getListProposalCategoriesQueryKey,
@@ -28,6 +29,7 @@ import { useAuthStore } from '@/store/auth';
 import { formatCurrencyBRL } from '@/lib/masks';
 
 const schema = z.object({
+  stationId: z.string().min(1, 'Empresa é obrigatória'),
   name: z.string().min(1, 'Nome é obrigatório'),
   slug: z.string().min(1, 'Slug é obrigatório'),
   description: z.string().optional(),
@@ -83,13 +85,28 @@ export default function AdminProposalCategories() {
   const [newDurationLabel, setNewDurationLabel] = useState('');
   const [pendingProducts, setPendingProducts] = useState<PendingProduct[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
-  const [filters, setFilters] = useState({ search: '', active: 'true', sort: 'order_asc' });
+  const [filters, setFilters] = useState({ search: '', stationId: 'all', active: 'true', sort: 'order_asc' });
+  const { data: stations } = useListStations();
+
+  const stationOptions = useMemo(() => {
+    const list = ((stations as any[]) || []).filter((station) => station.active !== false);
+    return list.sort((a, b) => {
+      const aName = String(a.name || '').toLowerCase();
+      const bName = String(b.name || '').toLowerCase();
+      const aIsRadio88 = aName.includes('radio 88 fm') || aName.includes('rádio 88 fm');
+      const bIsRadio88 = bName.includes('radio 88 fm') || bName.includes('rádio 88 fm');
+      if (aIsRadio88 && !bIsRadio88) return -1;
+      if (!aIsRadio88 && bIsRadio88) return 1;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+    });
+  }, [stations]);
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ['proposal-categories', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.search.trim()) params.set('search', filters.search.trim());
+      if (filters.stationId !== 'all') params.set('stationId', filters.stationId);
       if (filters.active) params.set('active', filters.active);
       if (filters.sort) params.set('sort', filters.sort);
       const response = await fetch(`/api/proposal-categories?${params.toString()}`, {
@@ -140,6 +157,7 @@ export default function AdminProposalCategories() {
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
+      stationId: '',
       slug: '',
       description: '',
       icon: '',
@@ -162,13 +180,15 @@ export default function AdminProposalCategories() {
   });
 
   const selectedProductIds = form.watch('productIds');
+  const selectedStationId = form.watch('stationId');
 
   const availableProducts = useMemo(() => {
     const list = (products as any[]) || [];
     return list
+      .filter((product) => !selectedStationId || product.stationId === selectedStationId)
       .slice()
       .sort((a, b) => String(a.title || a.name).localeCompare(String(b.title || b.name)));
-  }, [products]);
+  }, [products, selectedStationId]);
 
   const getDurationLabel = (durationId?: string | null) => {
     if (!durationId) return null;
@@ -180,6 +200,7 @@ export default function AdminProposalCategories() {
     setPendingProducts([]);
     form.reset({
       name: program.name,
+      stationId: program.stationId || program.station?.id || '',
       slug: program.slug,
       description: program.description || '',
       icon: isImageDataUrl(program.icon) ? program.icon : '',
@@ -194,6 +215,7 @@ export default function AdminProposalCategories() {
     setPendingProducts([]);
     form.reset({
       name: '',
+      stationId: filters.stationId !== 'all' ? filters.stationId : stationOptions[0]?.id || '',
       slug: '',
       description: '',
       icon: '',
@@ -254,6 +276,7 @@ export default function AdminProposalCategories() {
   const handleInlineProduct = async (values: ProductForm) => {
     const payload = {
       title: values.title,
+      stationId: form.getValues('stationId'),
       durationId: values.durationId || null,
       description: values.description || null,
       detail: values.detail || null,
@@ -315,6 +338,7 @@ export default function AdminProposalCategories() {
             pendingProducts.map((product) =>
               createProductMutation.mutateAsync({
                 data: {
+                  stationId: values.stationId,
                   title: product.title,
                   durationId: product.durationId || null,
                   description: product.description || null,
@@ -389,7 +413,7 @@ export default function AdminProposalCategories() {
         )}
       </div>
 
-      <div className="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-[1fr_180px_220px]">
+      <div className="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-[1fr_220px_180px_220px]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -399,6 +423,15 @@ export default function AdminProposalCategories() {
             onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
           />
         </div>
+        <Select value={filters.stationId} onValueChange={(stationId) => setFilters((current) => ({ ...current, stationId }))}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as empresas</SelectItem>
+            {stationOptions.map((station) => (
+              <SelectItem key={station.id} value={station.id}>{station.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={filters.active} onValueChange={(active) => setFilters((current) => ({ ...current, active }))}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -457,6 +490,24 @@ export default function AdminProposalCategories() {
                     )} />
 
                     <div className="space-y-4">
+                      <FormField control={form.control} name="stationId" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Empresa</FormLabel>
+                          <Select value={field.value || ''} onValueChange={(value) => {
+                            field.onChange(value);
+                            const validIds = ((products as any[]) || []).filter((product) => product.stationId === value).map((product) => product.id);
+                            form.setValue('productIds', form.getValues('productIds').filter((id) => validIds.includes(id)), { shouldDirty: true });
+                          }}>
+                            <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+                            <SelectContent>
+                              {stationOptions.map((station) => (
+                                <SelectItem key={station.id} value={station.id}>{station.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
                       <FormField control={form.control} name="name" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Nome</FormLabel>
@@ -716,6 +767,11 @@ export default function AdminProposalCategories() {
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-lg font-bold leading-tight">{program.name}</h3>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">{program.slug}</p>
+                  {program.station?.name && (
+                    <p className="mt-1 inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      {program.station.name}
+                    </p>
+                  )}
                   {program.description && (
                     <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{program.description}</p>
                   )}

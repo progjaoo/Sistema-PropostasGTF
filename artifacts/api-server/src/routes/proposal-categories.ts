@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { prisma } from "@workspace/db";
+import { prisma, type Prisma } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { z } from "zod/v4";
 
 const router = Router();
 
 const programBody = z.object({
+  stationId: z.string().min(1),
   name: z.string().min(1),
   slug: z.string().min(1),
   description: z.string().optional().nullable(),
@@ -15,8 +16,9 @@ const programBody = z.object({
   productIds: z.array(z.string()).optional(),
 });
 
-async function getCategories(options: { search?: string; active?: string; sort?: string } = {}) {
-  const where = {
+async function getCategories(options: { search?: string; active?: string; sort?: string; stationId?: string } = {}) {
+  const where: Prisma.ProposalCategoryWhereInput = {
+    ...(options.stationId && options.stationId !== "all" ? { stationId: options.stationId } : {}),
     ...(options.active !== undefined && options.active !== "all"
       ? { active: options.active === "true" }
       : {}),
@@ -44,10 +46,18 @@ async function getCategories(options: { search?: string; active?: string; sort?:
     where,
     orderBy,
     include: {
+      station: {
+        select: {
+          id: true,
+          name: true,
+          primaryColor: true,
+        },
+      },
       products: {
         orderBy: { order: "asc" },
         select: {
           id: true,
+          stationId: true,
           programId: true,
           name: true,
           qty: true,
@@ -67,6 +77,14 @@ async function getCategories(options: { search?: string; active?: string; sort?:
   });
   const result = cats.map((c) => ({
     id: c.id,
+    stationId: c.stationId,
+    station: c.station
+      ? {
+          id: c.station.id,
+          name: c.station.name,
+          primaryColor: c.station.primaryColor ?? "#427EFF",
+        }
+      : null,
     name: c.name,
     slug: c.slug,
     description: c.description ?? null,
@@ -78,6 +96,7 @@ async function getCategories(options: { search?: string; active?: string; sort?:
     productCount: c._count.products,
     products: c.products.map((p) => ({
       id: p.id,
+      stationId: p.stationId,
       programId: p.programId ?? null,
       name: p.name,
       qty: p.qty,
@@ -109,27 +128,43 @@ async function getCategories(options: { search?: string; active?: string; sort?:
   return result;
 }
 
-async function syncProgramProducts(programId: string, productIds: string[] | undefined) {
+async function syncProgramProducts(programId: string, stationId: string, productIds: string[] | undefined) {
   if (!productIds) return;
+  const distinctIds = [...new Set(productIds)];
+
+  if (distinctIds.length) {
+    const count = await prisma.productTemplate.count({
+      where: {
+        id: { in: distinctIds },
+        stationId,
+      },
+    });
+    if (count !== distinctIds.length) {
+      throw new Error("Todos os produtos vinculados devem pertencer à mesma empresa do programa");
+    }
+  }
 
   await prisma.$transaction([
     prisma.productTemplate.updateMany({
       where: {
         programId,
-        id: { notIn: productIds },
+        id: { notIn: distinctIds },
       },
       data: { programId: null },
     }),
     prisma.productTemplate.updateMany({
-      where: { id: { in: productIds } },
+      where: {
+        id: { in: distinctIds },
+        stationId,
+      },
       data: { programId },
     }),
   ]);
 }
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const { search, active, sort } = req.query as { search?: string; active?: string; sort?: string };
-  res.json(await getCategories({ search, active, sort }));
+  const { search, active, sort, stationId } = req.query as { search?: string; active?: string; sort?: string; stationId?: string };
+  res.json(await getCategories({ search, active, sort, stationId }));
 });
 
 router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
@@ -139,6 +174,11 @@ router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
     return;
   }
   const { productIds, ...data } = parsed.data;
+  const station = await prisma.station.findUnique({ where: { id: data.stationId } });
+  if (!station) {
+    res.status(400).json({ error: "Empresa não encontrada" });
+    return;
+  }
   const cat = await prisma.proposalCategory.create({
     data: {
       ...data,
@@ -148,8 +188,8 @@ router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
       order: data.order ?? 0,
     },
   });
-  await syncProgramProducts(cat.id, productIds);
-  const cats = await getCategories();
+  await syncProgramProducts(cat.id, cat.stationId!, productIds);
+  const cats = await getCategories({ stationId: cat.stationId! });
   res.status(201).json(cats.find((c) => c.id === cat.id));
 });
 
@@ -161,12 +201,29 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
   }
   try {
     const { productIds, ...data } = parsed.data;
+    const existing = await prisma.proposalCategory.findUnique({ where: { id: String(req.params["id"]) } });
+    if (!existing) {
+      res.status(404).json({ error: "Category not found" });
+      return;
+    }
+    const stationId = data.stationId ?? existing.stationId;
+    if (!stationId) {
+      res.status(400).json({ error: "Empresa é obrigatória para salvar o programa" });
+      return;
+    }
+    if (data.stationId) {
+      const station = await prisma.station.findUnique({ where: { id: data.stationId } });
+      if (!station) {
+        res.status(400).json({ error: "Empresa não encontrada" });
+        return;
+      }
+    }
     const cat = await prisma.proposalCategory.update({
       where: { id: String(req.params["id"]) },
       data,
     });
-    await syncProgramProducts(cat.id, productIds);
-    const cats = await getCategories();
+    await syncProgramProducts(cat.id, stationId, productIds);
+    const cats = await getCategories({ stationId });
     const updated = cats.find((c) => c.id === cat.id);
     res.json(updated);
   } catch {

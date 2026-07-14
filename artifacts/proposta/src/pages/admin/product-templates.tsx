@@ -9,12 +9,13 @@ import {
 } from '@workspace/api-client-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Edit, LayoutGrid, Package, Plus, Search, Trash2 } from 'lucide-react';
+import { Building2, ChevronRight, Clock, Edit, Package, Plus, Search, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ConfirmActionDialog } from '@/components/ui/confirm-action-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -22,12 +23,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/store/auth';
 import { currencyToNumberString, formatCurrencyBRL } from '@/lib/masks';
 
@@ -39,16 +34,7 @@ const schema = z.object({
   detail: z.string().optional(),
   suggestedValueMin: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  color: z.enum(['BLUE', 'YELLOW', 'RED', 'GREEN', 'DARK']),
 });
-
-const colorMap: Record<string, string> = {
-  BLUE: 'bg-blue-500',
-  YELLOW: 'bg-yellow-500',
-  RED: 'bg-red-500',
-  GREEN: 'bg-green-500',
-  DARK: 'bg-gray-700',
-};
 
 export default function AdminProductTemplates() {
   const queryClient = useQueryClient();
@@ -58,6 +44,7 @@ export default function AdminProductTemplates() {
   const [newDurationLabel, setNewDurationLabel] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     search: '',
     programId: 'all',
@@ -96,6 +83,52 @@ export default function AdminProductTemplates() {
     },
   });
 
+  const programList = React.useMemo(() => ((programs as any[]) || []), [programs]);
+  const productList = React.useMemo(() => ((products as any[]) || []), [products]);
+  const selectedProgram = React.useMemo(() => {
+    if (!selectedProgramId) return null;
+    return programList.find((program) => program.id === selectedProgramId) || null;
+  }, [programList, selectedProgramId]);
+  const visibleProducts = React.useMemo(() => {
+    if (filters.programId === 'none') return productList;
+    if (!selectedProgramId) return productList;
+    return productList.filter((product) => product.programId === selectedProgramId);
+  }, [filters.programId, productList, selectedProgramId]);
+
+  React.useEffect(() => {
+    if (filters.programId === 'none') {
+      setSelectedProgramId(null);
+      return;
+    }
+    if (filters.programId !== 'all') {
+      setSelectedProgramId(filters.programId);
+      return;
+    }
+    if (programList.length > 0 && (!selectedProgramId || !programList.some((program) => program.id === selectedProgramId))) {
+      setSelectedProgramId(programList[0].id);
+    }
+  }, [filters.programId, programList, selectedProgramId]);
+
+  const handleProgramSelect = (programId: string) => {
+    setSelectedProgramId(programId);
+    setFilters((current) => ({ ...current, programId }));
+  };
+
+  const handleProgramFilterChange = (programId: string) => {
+    setFilters((current) => ({ ...current, programId }));
+    if (programId === 'none') {
+      setSelectedProgramId(null);
+      return;
+    }
+    if (programId !== 'all') {
+      setSelectedProgramId(programId);
+      return;
+    }
+    if (!selectedProgramId && programList[0]) {
+      setSelectedProgramId(programList[0].id);
+    }
+  };
+
   const createMutation = useCreateProductTemplate();
   const updateMutation = useUpdateProductTemplate();
   const deleteMutation = useDeleteProductTemplate({
@@ -120,7 +153,6 @@ export default function AdminProductTemplates() {
       detail: '',
       suggestedValueMin: '',
       tags: [],
-      color: 'BLUE',
     },
   });
 
@@ -134,7 +166,6 @@ export default function AdminProductTemplates() {
       detail: product.detail || '',
       suggestedValueMin: formatCurrencyBRL(product.suggestedValueMin || ''),
       tags: product.tags || [],
-      color: product.color || 'BLUE',
     });
     setIsOpen(true);
   };
@@ -142,14 +173,13 @@ export default function AdminProductTemplates() {
   const openCreate = () => {
     setEditingId(null);
     form.reset({
-      programId: '',
+      programId: selectedProgramId || '',
       title: '',
       durationId: '',
       description: '',
       detail: '',
       suggestedValueMin: '',
       tags: [],
-      color: 'BLUE',
     });
     setIsOpen(true);
   };
@@ -164,7 +194,6 @@ export default function AdminProductTemplates() {
       suggestedValueMin: values.suggestedValueMin || null,
       suggestedValueMax: null,
       tags: values.tags || [],
-      color: values.color,
     };
 
     try {
@@ -234,13 +263,13 @@ export default function AdminProductTemplates() {
         </div>
         <Select
           value={filters.programId}
-          onValueChange={(programId) => setFilters((current) => ({ ...current, programId }))}
+          onValueChange={handleProgramFilterChange}
         >
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os programas</SelectItem>
             <SelectItem value="none">Sem programa</SelectItem>
-            {programs?.map((program) => (
+            {programList.map((program) => (
               <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>
             ))}
           </SelectContent>
@@ -284,32 +313,16 @@ export default function AdminProductTemplates() {
           <DialogHeader><DialogTitle>{editingId ? 'Editar Produto' : 'Criar Produto'}</DialogTitle></DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <FormField control={form.control} name="programId" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Programa</FormLabel>
                     <Select value={field.value || ''} onValueChange={field.onChange}>
                       <SelectTrigger><SelectValue placeholder="Selecione um programa" /></SelectTrigger>
                       <SelectContent>
-                        {programs?.map((program) => (
+                        {programList.map((program) => (
                           <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="color" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cor do destaque</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BLUE">Azul</SelectItem>
-                        <SelectItem value="YELLOW">Amarelo</SelectItem>
-                        <SelectItem value="RED">Vermelho</SelectItem>
-                        <SelectItem value="GREEN">Verde</SelectItem>
-                        <SelectItem value="DARK">Escuro</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -380,45 +393,163 @@ export default function AdminProductTemplates() {
 
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground">Carregando...</div>
-      ) : products?.length ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {products.map((product: any) => (
-            <Card key={product.id} className="relative overflow-hidden flex flex-col">
-              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${colorMap[product.color]}`} />
-              <div className="p-4 pl-5 flex-1">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">{product.name}</div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 -mr-2 -mt-2"><LayoutGrid className="w-4 h-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(product)}><Edit className="w-4 h-4 mr-2" /> Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-error" onClick={() => setDeleteTarget(product)}><Trash2 className="w-4 h-4 mr-2" /> Excluir</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+      ) : programList.length || filters.programId === 'none' ? (
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
+          <div className="space-y-3">
+            {programList.map((program) => {
+              const selected = selectedProgram?.id === program.id;
+              const productCount = program.productCount || program.templateCount || program.products?.length || 0;
+              return (
+                <button
+                  key={program.id}
+                  type="button"
+                  className={`w-full rounded-lg border bg-card p-4 text-left shadow-sm transition-colors ${
+                    selected ? 'border-primary bg-primary/5' : 'hover:border-primary/40 hover:bg-muted/30'
+                  }`}
+                  onClick={() => handleProgramSelect(program.id)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-bold text-primary">
+                          {program.icon ? <img src={program.icon} alt="" className="h-full w-full rounded-md object-cover" /> : program.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <h2 className="truncate text-base font-bold">{program.name}</h2>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {productCount} produto(s)
+                          </p>
+                          {program.station?.name && (
+                            <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{program.station.name}</p>
+                          )}
+                        </div>
+                      </div>
+                      {program.description && (
+                        <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{program.description}</p>
+                      )}
+                    </div>
+                    <ChevronRight className={`mt-2 h-4 w-4 shrink-0 text-muted-foreground transition-transform ${selected ? 'translate-x-1 text-primary' : ''}`} />
+                  </div>
+                </button>
+              );
+            })}
+
+            {filters.programId === 'none' && (
+              <Card className="border-primary bg-primary/5 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Package className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold">Sem programa</h2>
+                    <p className="text-xs text-muted-foreground">Produtos sem vinculo com programa.</p>
+                  </div>
                 </div>
-                <h3 className="font-bold text-lg mb-1 flex items-center gap-2">
-                  {product.title}
-                </h3>
-                {(product.programName || product.program) && <p className="text-xs text-muted-foreground mb-2 font-medium">{product.programName || product.program}</p>}
-                {product.durationLabel && (
-                  <p className="text-xs text-muted-foreground mb-2 font-medium">Duração: {product.durationLabel}</p>
-                )}
-                <p className="text-sm text-neutral-600 line-clamp-2">{product.description}</p>
-                {product.suggestedValueMin && (
-                  <p className="text-xs font-semibold text-primary mt-3">
-                    Valor sugerido: {product.suggestedValueMin}
-                  </p>
+              </Card>
+            )}
+          </div>
+
+          <Card className="min-h-[520px] overflow-hidden">
+            <div className="p-5">
+              <div className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md text-base font-bold text-white"
+                    style={{ backgroundColor: selectedProgram?.station?.primaryColor || '#427EFF' }}
+                  >
+                    {selectedProgram?.icon ? <img src={selectedProgram.icon} alt="" className="h-full w-full rounded-md object-cover" /> : (selectedProgram?.name || 'SP').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Produtos do programa</p>
+                    <h2 className="truncate text-2xl font-bold">{filters.programId === 'none' ? 'Sem programa' : selectedProgram?.name || 'Selecione um programa'}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {visibleProducts.length} produto(s) encontrado(s) com os filtros atuais.
+                    </p>
+                    {selectedProgram?.station?.name && (
+                      <p className="mt-1 text-sm font-medium text-primary">{selectedProgram.station.name}</p>
+                    )}
+                  </div>
+                </div>
+                {filters.active !== 'all' && (
+                  <Badge variant="outline" className="w-fit">
+                    {filters.active === 'true' ? 'Ativos' : 'Inativos'}
+                  </Badge>
                 )}
               </div>
-            </Card>
-          ))}
+
+              <div className="mt-5">
+                {visibleProducts.length ? (
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {visibleProducts.map((product: any) => (
+                      <Card
+                        key={product.id}
+                        className="overflow-hidden border-l-[6px] bg-background"
+                        style={{ borderLeftColor: product.programStationPrimaryColor || selectedProgram?.station?.primaryColor || '#427EFF' }}
+                      >
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant={product.active ? 'secondary' : 'outline'}>
+                                  {product.active ? 'Ativo' : 'Inativo'}
+                                </Badge>
+                                {product.durationLabel && (
+                                  <Badge variant="outline" className="gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    {product.durationLabel}
+                                  </Badge>
+                                )}
+                              </div>
+                              <h3 className="mt-3 line-clamp-2 text-lg font-bold leading-tight">{product.title}</h3>
+                              <p className="mt-1 truncate text-xs font-medium text-muted-foreground">{product.name}</p>
+                            </div>
+                            <div className="flex shrink-0 gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(product)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-error hover:bg-error/10 hover:text-error" onClick={() => setDeleteTarget(product)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                            <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                              <span className="flex items-center gap-1 font-medium text-foreground">
+                                <Building2 className="h-3.5 w-3.5" />
+                                Empresa
+                              </span>
+                              <p className="mt-1 truncate">{product.programStationName || selectedProgram?.station?.name || 'Empresa não informada'}</p>
+                            </div>
+                            <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                              <span className="font-medium text-foreground">Valor sugerido</span>
+                              <p className="mt-1 truncate">{product.suggestedValueMin || 'Não informado'}</p>
+                            </div>
+                          </div>
+
+                          {product.description && (
+                            <p className="mt-4 line-clamp-3 text-sm text-muted-foreground">{product.description}</p>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed py-12 text-center">
+                    <Package className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+                    <h3 className="text-lg font-medium">Nenhum produto neste programa</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Ajuste os filtros ou crie um novo produto.</p>
+                    <Button className="mt-4" onClick={openCreate} variant="outline"><Plus className="h-4 w-4" /> Criar Produto</Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
         </div>
       ) : (
         <div className="py-16 text-center border rounded-xl border-dashed">
           <Package className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
-          <h3 className="text-lg font-medium">Nenhum produto</h3>
+          <h3 className="text-lg font-medium">Nenhum programa encontrado</h3>
           <Button className="mt-4" onClick={openCreate} variant="outline"><Plus className="w-4 h-4 mr-2" /> Criar Primeiro</Button>
         </div>
       )}

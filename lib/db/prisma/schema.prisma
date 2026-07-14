@@ -57,6 +57,28 @@ enum AdvertiserStatus {
   @@map("advertiser_status")
 }
 
+enum ProposalTimelineStep {
+  LEAD_CREATED
+  IN_CONVERSATION
+  PROPOSAL_SENT
+  CLIENT_REVIEWING
+  NEGOTIATION
+  APPROVED
+  REJECTED
+
+  @@map("proposal_timeline_step")
+}
+
+enum ProposalRecallReminderStatus {
+  PENDING
+  NOTIFIED
+  SNOOZED
+  DONE
+  CANCELLED
+
+  @@map("proposal_recall_reminder_status")
+}
+
 model User {
   id            String         @id @default(cuid())
   name          String
@@ -71,6 +93,9 @@ model User {
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
   proposals     Proposal[]
+  proposalTimelines ProposalTimeline[]
+  assignedRecallReminders ProposalRecallReminder[] @relation("ProposalRecallReminderAssignedTo")
+  handledRecallReminders  ProposalRecallReminder[] @relation("ProposalRecallReminderHandledBy")
   refreshTokens RefreshToken[]
 
   @@map("users")
@@ -110,6 +135,7 @@ model Station {
   proposals         Proposal[]
   productTemplates  ProductTemplate[]
   proposalTemplates ProposalTemplate[]
+  proposalCategories ProposalCategory[]
 
   @@map("stations")
 }
@@ -129,6 +155,7 @@ model Advertiser {
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
   proposals    Proposal[]
+  recallReminders ProposalRecallReminder[]
 
   @@map("advertisers")
 }
@@ -187,6 +214,8 @@ model ProposalType {
 
 model ProposalCategory {
   id          String             @id @default(cuid())
+  stationId   String?            @map("station_id")
+  station     Station?           @relation(fields: [stationId], references: [id])
   name        String
   slug        String             @unique
   description String?
@@ -276,6 +305,8 @@ model Proposal {
   updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
   products       ProposalProduct[]
   versions       ProposalVersion[]
+  timeline       ProposalTimeline[]
+  recallReminders ProposalRecallReminder[]
 
   @@map("proposals")
 }
@@ -310,4 +341,46 @@ model ProposalVersion {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@map("proposal_versions")
+}
+
+model ProposalTimeline {
+  id          String               @id @default(cuid())
+  proposalId  String               @map("proposal_id")
+  proposal    Proposal             @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  step        ProposalTimelineStep
+  note        String?              @db.Text
+  createdById String?              @map("created_by_id")
+  createdBy   User?                @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([proposalId, createdAt])
+  @@map("proposal_timelines")
+}
+
+model ProposalRecallReminder {
+  id              String                       @id @default(cuid())
+  proposalId      String                       @map("proposal_id")
+  proposal        Proposal                     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  advertiserId    String?                      @map("advertiser_id")
+  advertiser      Advertiser?                  @relation(fields: [advertiserId], references: [id], onDelete: SetNull)
+  assignedToId    String?                      @map("assigned_to_id")
+  assignedTo      User?                        @relation("ProposalRecallReminderAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  milestoneMonths Int                          @map("milestone_months")
+  rejectedAt      DateTime                     @map("rejected_at") @db.Timestamptz(6)
+  dueAt           DateTime                     @map("due_at") @db.Timestamptz(6)
+  snoozedUntil    DateTime?                    @map("snoozed_until") @db.Timestamptz(6)
+  status          ProposalRecallReminderStatus @default(PENDING)
+  lastNotifiedAt  DateTime?                    @map("last_notified_at") @db.Timestamptz(6)
+  handledAt       DateTime?                    @map("handled_at") @db.Timestamptz(6)
+  handledById     String?                      @map("handled_by_id")
+  handledBy       User?                        @relation("ProposalRecallReminderHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  note            String?                      @db.Text
+  createdAt       DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([proposalId, milestoneMonths])
+  @@index([status, dueAt])
+  @@index([assignedToId, dueAt])
+  @@index([advertiserId])
+  @@map("proposal_recall_reminders")
 }

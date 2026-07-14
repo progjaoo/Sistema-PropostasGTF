@@ -25,6 +25,7 @@ Este diretorio centraliza as guidelines, padroes tecnicos e regras funcionais do
 ## Documentos Funcionais Existentes
 
 - [Rodar localmente](./rodar-local.md)
+- [Subir producao](./SUBIR-PRODUÇÃO.md)
 - [Paginas por perfil](./paginas-por-perfil.md)
 - [Task da pagina de proposta](./Task-PaginaProposta.md)
 
@@ -35,4 +36,3 @@ Este diretorio centraliza as guidelines, padroes tecnicos e regras funcionais do
 3. Leia [Arquitetura e pastas](./03-arquitetura-e-pastas.md).
 4. Rode o projeto seguindo [Rodar localmente](./rodar-local.md).
 5. Antes de alterar regras, leia [Regras de negocio principais](./08-regras-de-negocio.md) e [Paginas por perfil](./paginas-por-perfil.md).
-

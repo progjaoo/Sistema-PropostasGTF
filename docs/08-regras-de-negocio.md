@@ -12,6 +12,10 @@
 
 - Programas agrupam produtos comerciais.
 - Um programa pode ter varios produtos.
+- Um programa pertence a uma empresa/emissora.
+- Produtos vinculados a um programa devem pertencer a mesma empresa do programa.
+- A listagem de Programas permite filtrar por empresa.
+- A tela de Propostas filtra Programas e Produtos pela empresa selecionada.
 - Icones de programa podem ser armazenados em base64.
 - COMERCIAL consulta programas, mas nao altera.
 
@@ -33,7 +37,7 @@
 - Na UI, `Advertiser.status = LEAD` aparece como Lead.
 - A ficha do cliente mostra propostas vinculadas.
 - A visibilidade das propostas vinculadas depende do perfil e do dono da proposta.
-- Lead vira Cliente automaticamente quando uma proposta vinculada e marcada como `APPROVED`.
+- Lead vira Cliente automaticamente quando uma proposta vinculada e marcada como aceita (`APPROVED`).
 - O campo `legalName` continua no banco para historico, mas nao aparece no formulario de Cliente/Lead.
 
 ## Propostas
@@ -42,7 +46,7 @@ Status:
 
 - `DRAFT`: Rascunho
 - `SENT`: Enviada
-- `APPROVED`: Aprovada
+- `APPROVED`: Aceita
 - `REJECTED`: Rejeitada
 
 Regras:
@@ -59,6 +63,34 @@ Regras:
 - Duracao aparece na proposta quando o produto/item possui essa informacao.
 - O preview usa a cor primaria da empresa selecionada.
 - A apresentacao da proposta possui ate 4 itens editaveis, cada um com destaque e descricao.
+- A descricao dos itens de Apresentacao aceita texto livre e quebra de linha.
+
+## Andamento da Proposta
+
+- Toda proposta pode ter um andamento de etapas comerciais.
+- Ao criar proposta vinculada a Lead, a API registra `LEAD_CREATED` automaticamente.
+- COMERCIAL e ADMIN podem adicionar etapas manuais: `IN_CONVERSATION`, `PROPOSAL_SENT`, `CLIENT_REVIEWING`, `NEGOTIATION`.
+- Ao mudar status para `APPROVED`, a API registra etapa `APPROVED` automaticamente e exibe o status como `Aceita`.
+- Ao mudar status para `REJECTED`, a API registra etapa `REJECTED` automaticamente.
+- O andamento segue a permissao da proposta: COMERCIAL acessa apenas propostas proprias; ADMIN acessa todas.
+- O sistema mantem no maximo 50 etapas por proposta, removendo as mais antigas quando exceder esse limite.
+- Clientes e Leads exibem a ultima etapa do andamento nas propostas vinculadas.
+- A pagina `/proposal-progress` mostra `Andamento de Propostas` por programa, com timeline horizontal e acao de aceite.
+
+## Avisos de Recaptura
+
+- Propostas marcadas como `REJECTED` geram avisos recorrentes de recaptura.
+- Os avisos sao criados automaticamente para 3, 6 e 10 meses depois da rejeicao.
+- Lead com proposta rejeitada permanece `LEAD`.
+- Cliente com proposta rejeitada permanece `CLIENT`.
+- Somente proposta marcada como `APPROVED`/`Aceita` promove Lead para Cliente.
+- ADMIN visualiza todos os avisos vencidos.
+- COMERCIAL visualiza apenas avisos de propostas criadas por ele.
+- Avisos vencidos aparecem em badge na sidebar e em dialog central uma vez por sessao.
+- A tela `/recall-reminders` permite revisar avisos, abrir proposta, abrir Lead/Cliente, lembrar depois ou marcar como tratado.
+- `Lembrar depois` reagenda o aviso por 7, 15 ou 30 dias.
+- `Marcar tratado` remove o aviso da lista ativa e grava usuario/data de tratamento.
+- Se uma proposta rejeitada for aceita depois, os avisos pendentes dessa proposta sao cancelados.
 
 ## Sugestao de Investimento
 

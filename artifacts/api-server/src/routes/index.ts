@@ -10,6 +10,7 @@ import proposalCategoriesRouter from "./proposal-categories";
 import proposalTemplatesRouter from "./proposal-templates";
 import proposalTypesRouter from "./proposal-types";
 import proposalsRouter from "./proposals";
+import recallRemindersRouter from "./recall-reminders";
 import dashboardRouter from "./dashboard";
 import profileRouter from "./profile";
 
@@ -27,6 +28,7 @@ router.use("/proposal-categories", proposalCategoriesRouter);
 router.use("/proposal-templates", proposalTemplatesRouter);
 router.use("/proposal-types", proposalTypesRouter);
 router.use("/proposals", proposalsRouter);
+router.use("/recall-reminders", recallRemindersRouter);
 router.use("/dashboard", dashboardRouter);
 
 export default router;

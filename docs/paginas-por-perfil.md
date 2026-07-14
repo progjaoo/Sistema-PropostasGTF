@@ -85,8 +85,13 @@ Acesso:
 Funcionalidades:
 
 - Visao consolidada das propostas.
-- Indicadores por status: rascunhos, enviadas, aprovadas e rejeitadas.
-- Lista de propostas recentes.
+- Indicadores por status: total, rascunhos, enviadas, aceitas, rejeitadas e arquivadas.
+- Cards de status clicaveis: ao selecionar um card, a lista abaixo mostra somente as propostas daquele status.
+- Lista operacional de propostas com cliente, tipo, empresa, responsavel, atualizacao, status e investimento.
+- Filtros internos da lista: busca textual, empresa, responsavel, tipo de proposta, periodo e ordenacao.
+- Paginacao server-side usando `GET /api/proposals`.
+- Botao `Total` remove o filtro de status e lista todas as propostas.
+- Cada proposta listada pode ser aberta diretamente no editor.
 
 ### Propostas
 
@@ -102,24 +107,33 @@ Acesso:
 
 Funcionalidades:
 
-- Visualizar programas com seus produtos vinculados.
-- Consultar propostas vinculadas a cada programa em hierarquia.
+- Visualizar programas no painel lateral da tela de propostas.
+- Consultar propostas vinculadas ao programa selecionado em painel dedicado.
 - Filtrar por texto, empresa, programa e status.
 - Criar novo rascunho por dialog, escolhendo a empresa e o tipo inicial.
 - Editar proposta.
 - Alterar status da proposta.
+- Registrar etapas comerciais no andamento da proposta.
+- Abrir o andamento diretamente pela acao `Andamento` em cada proposta vinculada na tela `/proposals`.
+- Acompanhar propostas por programa diretamente na tela `/proposals`.
+- A rota `/proposal-progress` ficou como rota legada e redireciona para `/proposals`.
+- Consultar avisos de recaptura na tela `/recall-reminders`.
+- Marcar proposta como `Aceita`; quando a proposta vinculada a Lead e aceita, o Lead vira Cliente automaticamente.
+- Gerar PDF pela impressao nativa do navegador, preservando layout A4, fundos e rodape de contato.
 - Rejeitar proposta com confirmacao por dialog.
 
 Status atuais:
 
 - `DRAFT`: Rascunho
 - `SENT`: Enviada
-- `APPROVED`: Aprovada
+- `APPROVED`: Aceita
 - `REJECTED`: Rejeitada
 
 Observacao:
 
 - A exclusao visual de proposta foi ajustada para rejeicao, mantendo historico operacional.
+- Status `APPROVED` e `REJECTED` tambem registram etapas automaticas no andamento.
+- Status `REJECTED` cria avisos de recaptura para 3, 6 e 10 meses apos a rejeicao.
 
 ## Fluxo de Criacao e Edicao de Proposta
 
@@ -137,8 +151,9 @@ Rota:
 
 Funcionamento:
 
-- Exibe programas e produtos como a porta principal de trabalho.
-- Ao clicar em um programa, mostra as propostas vinculadas aos produtos daquele programa.
+- Exibe programas como a porta principal de trabalho.
+- Ao clicar em um programa, mostra somente as propostas vinculadas a esse programa no painel da direita.
+- A tela nao exibe mais uma coluna intermediaria com produtos disponiveis do programa; os produtos aparecem dentro de cada proposta listada.
 - ADMIN visualiza todas as propostas.
 - COMERCIAL visualiza apenas as propostas criadas por ele.
 - Permite buscar por cliente, produto, programa ou tipo de proposta.
@@ -146,8 +161,10 @@ Funcionamento:
 - Permite filtrar por programa.
 - Permite filtrar por status.
 - Clicar em uma proposta abre `/proposals/:id/edit`.
+- Clicar em `Andamento` abre um dialog com as etapas da proposta selecionada, sem sair da tela.
 - A acao `Rejeitar` chama a API de delete, mas o comportamento atual e mudar o status para `REJECTED`.
 - A acao `Duplicar` cria um novo rascunho baseado na proposta selecionada.
+- Cada proposta vinculada a Cliente/Lead pode exibir a ultima etapa registrada do andamento.
 
 Endpoint usado:
 
@@ -159,6 +176,86 @@ Filtros enviados:
 - `stationId`
 - `programId`
 - `status`
+
+## Propostas - Tela Completa de Andamento
+
+Rota:
+
+- `/proposals`
+
+Rota legada:
+
+- `/proposal-progress` redireciona para `/proposals`.
+
+Acesso:
+
+- ADMIN e COMERCIAL.
+
+Objetivo:
+
+- Acompanhar o andamento comercial de propostas por programa.
+- Dar ao COMERCIAL uma tela dedicada para registrar etapas e marcar uma proposta como aceita.
+- Consolidar listagem, produtos, timeline e acoes comerciais em uma unica tela de Propostas.
+
+Funcionamento:
+
+- O painel esquerdo lista os programas filtrados.
+- Ao clicar em um programa, o painel direito mostra apenas as propostas vinculadas a esse programa.
+- Cada card exibe cliente/lead, tipo de proposta, empresa, responsavel, investimento, produtos e timeline horizontal.
+- O botao `Registrar andamento` adiciona uma etapa manual.
+- O botao `Aceitar proposta` altera o status para `APPROVED`, exibido como `Aceita`.
+- Se a proposta aceita estiver vinculada a um Lead, o backend promove esse registro para Cliente.
+- O botao `Rejeitar` altera o status para `REJECTED`.
+- COMERCIAL so consegue agir sobre propostas proprias.
+- ADMIN consegue acompanhar e agir sobre todas as propostas.
+
+Endpoint usado:
+
+- `GET /api/proposals/progress-board`
+- `POST /api/proposals/:id/timeline`
+- `PATCH /api/proposals/:id/status`
+
+## Avisos de Recaptura
+
+Rota:
+
+- `/recall-reminders`
+
+Acesso:
+
+- ADMIN e COMERCIAL.
+
+Objetivo:
+
+- Avisar a equipe comercial quando uma proposta rejeitada completar 3, 6 ou 10 meses, para tentar uma nova abordagem.
+
+Funcionamento:
+
+- A sidebar exibe o item `Avisos de Recaptura` com badge de avisos vencidos.
+- Ao entrar no sistema, se houver avisos vencidos, aparece um dialog central com ate 5 avisos.
+- O dialog aparece no maximo uma vez por sessao; o badge continua visivel enquanto houver avisos ativos.
+- A tela `/recall-reminders` lista avisos com filtros por texto, empresa, marco, status e responsavel.
+- ADMIN visualiza avisos de todos os vendedores.
+- COMERCIAL visualiza apenas avisos das proprias propostas.
+- Cada aviso permite abrir a proposta, abrir Lead/Cliente, reagendar ou marcar como tratado.
+- `Lembrar` reagenda o aviso por 7, 15 ou 30 dias.
+- `Tratado` remove o aviso da lista ativa e grava historico de tratamento.
+
+Regras:
+
+- Proposta rejeitada cria avisos de 3, 6 e 10 meses.
+- Lead com proposta rejeitada continua Lead.
+- Cliente com proposta rejeitada continua Cliente.
+- Se a proposta rejeitada for aceita depois, os avisos pendentes sao cancelados.
+- Apenas proposta aceita (`APPROVED`) promove Lead para Cliente.
+
+Endpoints usados:
+
+- `GET /api/recall-reminders`
+- `GET /api/recall-reminders/count`
+- `PATCH /api/recall-reminders/:id/notify`
+- `PATCH /api/recall-reminders/:id/snooze`
+- `PATCH /api/recall-reminders/:id/done`
 
 ### 2. Criacao de Nova Proposta
 
@@ -199,6 +296,7 @@ Regras no backend:
 - `propMonth` e `propYear` continuam no banco por compatibilidade, mas nao sao mais preenchidos pela UI.
 - Se a proposta for criada com produtos, eles sao criados junto e podem guardar `productTemplateId` para rastrear origem no catalogo.
 - Uma versao inicial e gravada em `proposal_versions`.
+- Se a proposta for criada ja vinculada a um Lead, a API registra automaticamente a etapa `LEAD_CREATED` em `proposal_timelines`.
 
 Depois da criacao:
 
@@ -218,6 +316,11 @@ Exemplo:
 Layout atual:
 
 - Painel esquerdo: editor em acordeoes.
+- Painel esquerdo: possui acordeao `Andamento da Proposta` para registrar e consultar etapas comerciais.
+- Acordeao `Periodo`: possui datas de inicio/fim; o campo `Texto de Periodo Personalizado` nao aparece mais na UI.
+- Acordeao `Apresentacao`: descricao usa campo multilinha, aceita espacos e quebra de linha.
+- Acordeao `Produtos`: botao de remover produto fica vermelho e visivel no card.
+- Botao `PDF`: abre o fluxo de impressao do navegador usando o componente exclusivo `ProposalPrint`, sem sidebar/editor, em layout enxuto.
 - Painel direito: preview visual da proposta em formato A4.
 - Rodape fixo do painel esquerdo: status, botao salvar e botao PDF.
 
@@ -282,7 +385,7 @@ Funcionamento:
 Impacto no preview:
 
 - Aparece no badge superior da proposta: tipo e periodicidade.
-- Se o periodo tiver descricao ou datas, o preview usa essa informacao de periodo no lugar do texto generico.
+- Se o periodo tiver datas, o preview usa essa informacao no lugar do texto generico.
 
 #### Cliente
 
@@ -309,12 +412,11 @@ Campos editaveis:
 
 - Data inicial (`dateStart`)
 - Data final (`dateEnd`)
-- Texto personalizado de periodo (`periodDesc`)
 
 Impacto no preview:
 
-- Se `periodDesc` existir, ele tem prioridade.
-- Se nao existir, o preview tenta mostrar `dateStart` a `dateEnd`.
+- O campo `periodDesc` continua no banco por compatibilidade, mas nao aparece mais no editor.
+- O preview tenta mostrar `dateStart` a `dateEnd`.
 
 #### Produtos
 
@@ -441,7 +543,7 @@ Status disponiveis:
 
 - Rascunho (`DRAFT`)
 - Enviada (`SENT`)
-- Aprovada (`APPROVED`)
+- Aceita (`APPROVED`)
 - Rejeitada (`REJECTED`)
 
 Endpoint usado:
@@ -485,7 +587,7 @@ Renderizacao:
 Ponto importante:
 
 - O preview e visual, nao um PDF real gerado no servidor.
-- O botao `PDF` chama `window.print()` e usa CSS de impressao para imprimir somente a area da proposta.
+- O botao `PDF` renderiza `ProposalPrint` via portal, chama `window.print()` e usa CSS de impressao para imprimir somente `#proposal-print-root`.
 
 ### 9. Impressao / PDF
 
@@ -495,10 +597,18 @@ Local:
 
 Funcionamento atual:
 
-- Chama `window.print()`.
+- Renderiza `components/proposal/ProposalPrint.tsx` temporariamente em `document.body`.
+- Chama `window.print()` depois de dois frames para garantir que o portal esteja no DOM.
+- O atalho `Ctrl+P`/`Cmd+P` no editor usa o mesmo fluxo preparado do botao `PDF`.
 - A geracao depende do dialogo de impressao do navegador.
-- O CSS de impressao define `@page size: A4`, remove a escala do preview e oculta sidebar/editor.
-- A area `.print-area` e renderizada em 210mm de largura e minimo de 297mm de altura.
+- O CSS de impressao define `@page size: A4 portrait` e oculta toda a aplicacao exceto `#proposal-print-root`.
+- O PDF nao usa o `ProposalPreview` escalonado do editor.
+- Ate 4 produtos devem caber em uma unica pagina com investimento e contato.
+- Produtos sao paginados em grupos de ate 4 por pagina quando houver mais de 4 itens.
+- Cards de produto exibem borda lateral na cor da empresa selecionada.
+- Header aparece em todas as paginas.
+- Hero e Apresentacao aparecem apenas na primeira pagina.
+- Investimento e Contato aparecem apenas na ultima pagina.
 - A fonte do PDF e Montserrat, com fallback para Arial.
 
 Ponto de atencao:
@@ -606,7 +716,7 @@ Funcionalidades:
 
 Regra de conversao:
 
-- Quando uma proposta vinculada ao lead e marcada como `Aprovada`, o backend promove automaticamente o registro para Cliente (`Advertiser.status = CLIENT`).
+- Quando uma proposta vinculada ao lead e marcada como `Aceita`, o backend promove automaticamente o registro para Cliente (`Advertiser.status = CLIENT`).
 - A promocao nao depende apenas do frontend; ela acontece no endpoint de atualizacao de status da proposta.
 
 ### Usuarios
@@ -679,14 +789,15 @@ Acesso:
 
 Funcionalidades:
 
+- Visualizar programas no painel lateral.
+- Clicar em um programa para listar seus produtos no painel direito.
 - Criar produto.
 - Editar produto.
-- Excluir produto com confirmacao por toast.
+- Excluir produto com confirmacao por dialog.
 - Vincular produto a um programa.
 - Informar valor sugerido unico.
 - Selecionar duracao do produto.
 - Criar nova duracao dentro do formulario de produto.
-- Definir cor de destaque.
 - Buscar por nome, titulo ou descricao.
 - Filtrar por programa.
 - Filtrar por status: ativo, inativo ou todos.
@@ -702,13 +813,13 @@ Campos principais:
 - Descricao.
 - Detalhe.
 - Tags.
-- Cor.
 
 Observacao:
 
 - Esta tela substitui o conceito antigo de `Template de Produto`.
 - O campo tecnico `ProductTemplate.name` ainda existe no banco, mas e gerado pela API.
 - Quantidade nao faz parte do cadastro de Produto; ela e definida no item da proposta.
+- O campo de cor do produto nao e mais editado na UI; o destaque visual usa a cor da Empresa/Emissora do programa.
 
 ### Programas
 
@@ -786,6 +897,7 @@ O COMERCIAL possui acesso operacional reduzido.
 Menu visivel:
 
 - Propostas
+- Avisos de Recaptura
 - Clientes
 - Leads
 - Programas
@@ -797,6 +909,7 @@ Nao aparece o bloco `Administracao`.
 Rotas:
 
 - `/proposals`
+- `/recall-reminders`
 - `/proposals/new`
 - `/proposals/:id/edit`
 
@@ -806,7 +919,7 @@ Acesso:
 
 Funcionalidades:
 
-- Visualizar propostas por programas e produtos.
+- Visualizar propostas por programas.
 - Filtrar por texto, empresa, programa e status.
 - Criar rascunho de proposta pelo dialog `Nova Proposta`.
 - Editar proposta.
@@ -868,7 +981,7 @@ Funcionalidades:
 
 Regra:
 
-- Ao marcar uma proposta vinculada ao lead como `Aprovada`, o backend promove automaticamente esse lead para Cliente.
+- Ao marcar uma proposta vinculada ao lead como `Aceita`, o backend promove automaticamente esse lead para Cliente.
 
 ### Programas
 

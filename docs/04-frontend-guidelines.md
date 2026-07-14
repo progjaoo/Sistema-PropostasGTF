@@ -63,6 +63,24 @@ Padroes:
 - O preview deve usar `station.primaryColor` como cor principal, com fallback `#427EFF`.
 - O investimento sugerido e calculado no frontend a partir dos produtos de catalogo.
 - Estatisticas da apresentacao devem aceitar ate 4 itens editaveis.
+- A descricao da Apresentacao deve usar `Textarea`, preservar espacos/quebras durante a edicao e renderizar com `whitespace-pre-line`.
+- Botoes de remover produtos adicionados na proposta devem usar tratamento destrutivo vermelho e ficar sempre visiveis.
+
+## PDF e Impressao A4
+
+- O botao `PDF` do editor usa impressao nativa do navegador.
+- O preview de tela (`ProposalPreview`) nao deve ser a fonte do PDF, porque ele pode usar `scale`.
+- A impressao deve usar `components/proposal/ProposalPrint.tsx`, renderizado por portal em `document.body`.
+- O CSS de print deve tornar `#proposal-print-root` a unica area visivel.
+- O CSS de print deve forcar A4 (`@page size: A4 portrait`) e remover sidebar/editor.
+- O layout de print deve ser enxuto para que ate 4 produtos caibam em uma unica pagina com investimento e contato.
+- O atalho `Ctrl+P`/`Cmd+P` no editor deve preparar `ProposalPrint` antes de abrir a impressao.
+- Produtos devem ser paginados em grupos de 4 por pagina no print.
+- Header aparece em todas as paginas; Hero e Apresentacao apenas na primeira; Investimento e Contato apenas na ultima.
+- Cards de produto no PDF devem manter borda lateral na cor da empresa, usando variavel CSS ou regra com prioridade suficiente.
+- Fundos criticos precisam ser preservados com `print-color-adjust: exact` e, quando necessario, `backgroundColor` inline.
+- Blocos criticos devem evitar quebra interna: hero, cards de produto, investimento e rodape.
+- Texto truncado em tela pode ter regra propria no print, mas nao pode cortar informacoes essenciais como investimento, assinatura e contato.
 
 ## Clientes e Leads
 

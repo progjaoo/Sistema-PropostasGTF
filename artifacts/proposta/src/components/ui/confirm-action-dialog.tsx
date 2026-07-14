@@ -19,6 +19,7 @@ type ConfirmActionDialogProps = {
   cancelLabel?: string;
   onConfirm: () => void | Promise<void>;
   destructive?: boolean;
+  actionClassName?: string;
 };
 
 export function ConfirmActionDialog({
@@ -30,6 +31,7 @@ export function ConfirmActionDialog({
   cancelLabel = 'Não',
   onConfirm,
   destructive = true,
+  actionClassName,
 }: ConfirmActionDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -45,6 +47,7 @@ export function ConfirmActionDialog({
               'min-w-16',
               destructive &&
                 '!border-destructive !bg-destructive !text-destructive-foreground shadow-sm hover:!bg-destructive/90 focus-visible:!ring-destructive',
+              actionClassName,
             )}
             onClick={onConfirm}
           >

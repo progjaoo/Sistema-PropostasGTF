@@ -19,12 +19,27 @@ type AdvertiserRow = Prisma.AdvertiserGetPayload<{
             };
           };
         };
+        timeline: {
+          include: {
+            createdBy: { select: { id: true; name: true } };
+          };
+        };
       };
     };
   };
 }>;
 
 const visibleProposalStatuses = ["DRAFT", "SENT", "APPROVED", "REJECTED"] as const;
+
+const timelineStepLabels: Record<string, string> = {
+  LEAD_CREATED: "Lead criado",
+  IN_CONVERSATION: "Em conversa",
+  PROPOSAL_SENT: "Proposta enviada",
+  CLIENT_REVIEWING: "Cliente analisando",
+  NEGOTIATION: "Negociação",
+  APPROVED: "Aceita",
+  REJECTED: "Rejeitada",
+};
 
 function formatProgramNames(products: AdvertiserRow["proposals"][number]["products"]) {
   const names = products
@@ -53,6 +68,7 @@ function formatAdvertiser(a: AdvertiserRow, viewer: { userId?: string; role?: st
     active: a.active,
     proposals: a.proposals.map((p) => {
       const viewerCanEdit = viewer.role === "ADMIN" || p.createdById === viewer.userId;
+      const lastTimeline = p.timeline[0] ?? null;
       return {
         id: p.id,
         status: p.status,
@@ -65,6 +81,16 @@ function formatAdvertiser(a: AdvertiserRow, viewer: { userId?: string; role?: st
         programName: formatProgramNames(p.products),
         createdById: p.createdById,
         createdByName: p.createdBy?.name ?? "",
+        lastTimelineStep: lastTimeline
+          ? {
+              id: lastTimeline.id,
+              step: lastTimeline.step,
+              label: timelineStepLabels[lastTimeline.step] ?? lastTimeline.step,
+              note: lastTimeline.note ?? null,
+              createdByName: lastTimeline.createdBy?.name ?? null,
+              createdAt: lastTimeline.createdAt.toISOString(),
+            }
+          : null,
         viewerCanEdit,
         createdAt: p.createdAt.toISOString(),
         updatedAt: p.updatedAt.toISOString(),
@@ -111,6 +137,11 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
               },
             },
           },
+          timeline: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: { createdBy: { select: { id: true, name: true } } },
+          },
         },
         orderBy: { updatedAt: "desc" },
       },
@@ -139,6 +170,11 @@ router.post("/", requireAuth, async (req, res): Promise<void> => {
               },
             },
           },
+          timeline: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: { createdBy: { select: { id: true, name: true } } },
+          },
         },
       },
     },
@@ -160,6 +196,11 @@ router.get("/:id", requireAuth, async (req, res): Promise<void> => {
                 include: { programRef: { select: { name: true } } },
               },
             },
+          },
+          timeline: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: { createdBy: { select: { id: true, name: true } } },
           },
         },
         orderBy: { updatedAt: "desc" },
@@ -195,6 +236,11 @@ router.patch("/:id", requireAuth, async (req, res): Promise<void> => {
                 },
               },
             },
+            timeline: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              include: { createdBy: { select: { id: true, name: true } } },
+            },
           },
         },
       },
@@ -221,6 +267,11 @@ router.delete("/:id", requireAuth, async (req, res): Promise<void> => {
                   include: { programRef: { select: { name: true } } },
                 },
               },
+            },
+            timeline: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              include: { createdBy: { select: { id: true, name: true } } },
             },
           },
         },

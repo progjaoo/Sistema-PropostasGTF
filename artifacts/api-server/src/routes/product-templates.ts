@@ -6,6 +6,7 @@ import { z } from "zod/v4";
 const router = Router();
 
 const productBody = z.object({
+  stationId: z.string().optional().nullable(),
   programId: z.string().optional().nullable(),
   durationId: z.string().optional().nullable(),
   order: z.number().int().optional(),
@@ -23,7 +24,7 @@ const productBody = z.object({
 });
 
 type ProductWithProgram = ProductTemplate & {
-  programRef?: { id: string; name: string; slug: string } | null;
+  programRef?: { id: string; name: string; slug: string; stationId: string | null; station?: { id: string; name: string; primaryColor: string } | null } | null;
   duration?: { id: string; label: string; seconds: number | null } | null;
 };
 
@@ -33,6 +34,9 @@ function formatTemplate(t: ProductWithProgram) {
     stationId: t.stationId,
     programId: t.programId ?? null,
     programName: t.programRef?.name ?? t.program ?? null,
+    programStationId: t.programRef?.stationId ?? null,
+    programStationName: t.programRef?.station?.name ?? null,
+    programStationPrimaryColor: t.programRef?.station?.primaryColor ?? null,
     durationId: t.durationId ?? null,
     duration: t.duration
       ? {
@@ -156,7 +160,7 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
   const templates = await prisma.productTemplate.findMany({
     where,
     include: {
-      programRef: { select: { id: true, name: true, slug: true } },
+      programRef: { select: { id: true, name: true, slug: true, stationId: true, station: { select: { id: true, name: true, primaryColor: true } } } },
       duration: { select: { id: true, label: true, seconds: true } },
     },
     orderBy,
@@ -191,37 +195,49 @@ router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const station = await prisma.station.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!station) {
-    res.status(400).json({ error: "No station configured" });
-    return;
-  }
   if (!parsed.data.programId) {
     res.status(400).json({ error: "Program is required" });
     return;
   }
+  const program = await prisma.proposalCategory.findUnique({
+    where: { id: parsed.data.programId },
+    select: { id: true, name: true, stationId: true },
+  });
+  if (!program) {
+    res.status(400).json({ error: "Program not found" });
+    return;
+  }
+  if (parsed.data.stationId && parsed.data.stationId !== program.stationId) {
+    res.status(400).json({ error: "Produto e programa devem pertencer à mesma empresa" });
+    return;
+  }
+  const stationId = program.stationId ?? parsed.data.stationId ?? (await prisma.station.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } }))?.id;
+  if (!stationId) {
+    res.status(400).json({ error: "No station configured" });
+    return;
+  }
   const generatedName = await buildProductName({
-    stationId: station.id,
+    stationId,
     title: parsed.data.title,
     programId: parsed.data.programId,
     durationId: parsed.data.durationId,
     fallback: parsed.data.name,
   });
-  const programName = await getProgramName(parsed.data.programId);
+  const { stationId: _stationId, ...productData } = parsed.data;
   const t = await prisma.productTemplate.create({
     data: {
-      ...parsed.data,
-      stationId: station.id,
+      ...productData,
+      stationId,
       name: generatedName,
       qty: parsed.data.qty ?? "01",
-      program: parsed.data.program ?? programName,
+      program: parsed.data.program ?? program.name,
       suggestedValueMax: parsed.data.suggestedValueMax ?? null,
       tags: parsed.data.tags ?? [],
       color: parsed.data.color ?? "BLUE",
       active: parsed.data.active ?? true,
     },
     include: {
-      programRef: { select: { id: true, name: true, slug: true } },
+      programRef: { select: { id: true, name: true, slug: true, stationId: true, station: { select: { id: true, name: true, primaryColor: true } } } },
       duration: { select: { id: true, label: true, seconds: true } },
     },
   });
@@ -241,6 +257,22 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
       return;
     }
     const nextProgramId = parsed.data.programId === undefined ? existing.programId : parsed.data.programId;
+    if (!nextProgramId) {
+      res.status(400).json({ error: "Program is required" });
+      return;
+    }
+    const nextProgram = await prisma.proposalCategory.findUnique({
+      where: { id: nextProgramId },
+      select: { id: true, name: true, stationId: true },
+    });
+    if (!nextProgram) {
+      res.status(400).json({ error: "Program not found" });
+      return;
+    }
+    if (nextProgram.stationId && nextProgram.stationId !== existing.stationId) {
+      res.status(400).json({ error: "Produto não pode ser movido para programa de outra empresa" });
+      return;
+    }
     const nextDurationId = parsed.data.durationId === undefined ? existing.durationId : parsed.data.durationId;
     const nextTitle = parsed.data.title ?? existing.title;
     const shouldRegenerateName =
@@ -255,12 +287,11 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
           excludeId: existing.id,
         })
       : parsed.data.name?.trim();
-    const programName = parsed.data.programId !== undefined
-      ? await getProgramName(parsed.data.programId)
-      : undefined;
+    const programName = parsed.data.programId !== undefined ? nextProgram.name : undefined;
     const {
       name: _name,
       qty: _qty,
+      stationId: _stationId,
       suggestedValueMax: _suggestedValueMax,
       ...updateInput
     } = parsed.data;
@@ -275,7 +306,7 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
       where: { id: String(req.params["id"]) },
       data,
       include: {
-        programRef: { select: { id: true, name: true, slug: true } },
+        programRef: { select: { id: true, name: true, slug: true, stationId: true, station: { select: { id: true, name: true, primaryColor: true } } } },
         duration: { select: { id: true, label: true, seconds: true } },
       },
     });

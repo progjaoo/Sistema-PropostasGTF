@@ -47,6 +47,17 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
+Para alteracoes visuais de proposta/PDF, rode pelo menos:
+
+```bash
+cd /Users/joaomvalente/Projetos/Projetos-GTF/Sistema-Propostas
+pnpm run typecheck
+PORT=21709 BASE_PATH=/ pnpm --filter @workspace/proposta run build
+docker compose up -d --build
+```
+
+Depois abra uma proposta, clique em `PDF` e confirme no dialog de impressao se o papel esta em A4 e se os fundos da proposta aparecem. No Chrome, ative `Graficos de fundo` se essa opcao aparecer.
+
 Depois acesse novamente:
 
 ```text
@@ -97,6 +108,32 @@ pnpm seed
 ```bash
 docker compose ps
 docker compose logs -f api frontend
+```
+
+## Troubleshooting: Imagem Docker com node_modules corrompido
+
+Sintoma:
+
+```text
+Error: Invalid package config /app/node_modules/.pnpm/prisma...
+ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL
+```
+
+Esse erro pode aparecer depois de falha interna do Docker Desktop durante build/recreate. O codigo pode estar correto, mas a camada cacheada da imagem fica corrompida.
+
+Procedimento usado para recuperar:
+
+```bash
+cd /Users/joaomvalente/Projetos/Projetos-GTF/Sistema-Propostas
+docker compose build --no-cache
+docker compose up -d --force-recreate
+curl http://localhost:21709/api/healthz
+```
+
+Resultado esperado:
+
+```json
+{"status":"ok"}
 ```
 
 ## Troubleshooting: Postgres em Restarting
