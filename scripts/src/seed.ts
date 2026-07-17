@@ -1,6 +1,26 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@workspace/db";
 
+const RECALL_TEST_MILESTONES = [3, 6, 10] as const;
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date);
+  const originalDay = next.getDate();
+  next.setMonth(next.getMonth() + months);
+
+  if (next.getDate() !== originalDay) {
+    next.setDate(0);
+  }
+
+  return next;
+}
+
+function monthsAgo(months: number) {
+  const date = new Date();
+  date.setMonth(date.getMonth() - months);
+  return date;
+}
+
 async function seed() {
   console.log("Seeding database...");
 
@@ -50,7 +70,7 @@ async function seed() {
   });
 
   const comercialHash = await bcrypt.hash("Comercial@123", 12);
-  await prisma.user.upsert({
+  const commercialUser = await prisma.user.upsert({
     where: { email: "carlos@radio88fm.com.br" },
     update: {
       name: "Carlos Silva",
@@ -343,6 +363,188 @@ async function seed() {
     });
     console.log(`${data.name} OK`);
   }
+
+  const fallbackProduct = await prisma.productTemplate.findFirst({
+    where: { stationId, active: true },
+    orderBy: [{ order: "asc" }, { title: "asc" }],
+    include: {
+      duration: { select: { label: true } },
+      programRef: { select: { name: true } },
+    },
+  });
+
+  const recallTestScenarios = [
+    {
+      tradeName: "Lead Recaptura 3 Meses",
+      cnpj: "98.000.000/0001-03",
+      contactName: "Contato Recaptura 3",
+      contactPhone: "(11) 90000-0003",
+      contactEmail: "recaptura3@teste.local",
+      rejectedMonthsAgo: 4,
+      investValue: "R$ 3.000,00",
+    },
+    {
+      tradeName: "Lead Recaptura 6 Meses",
+      cnpj: "98.000.000/0001-06",
+      contactName: "Contato Recaptura 6",
+      contactPhone: "(11) 90000-0006",
+      contactEmail: "recaptura6@teste.local",
+      rejectedMonthsAgo: 7,
+      investValue: "R$ 6.000,00",
+    },
+    {
+      tradeName: "Lead Recaptura 10 Meses",
+      cnpj: "98.000.000/0001-10",
+      contactName: "Contato Recaptura 10",
+      contactPhone: "(11) 90000-0010",
+      contactEmail: "recaptura10@teste.local",
+      rejectedMonthsAgo: 11,
+      investValue: "R$ 10.000,00",
+    },
+  ];
+
+  let recallReminderCount = 0;
+  for (const scenario of recallTestScenarios) {
+    const rejectedAt = monthsAgo(scenario.rejectedMonthsAgo);
+    const advertiser = await prisma.advertiser.upsert({
+      where: { cnpj: scenario.cnpj },
+      update: {
+        tradeName: scenario.tradeName,
+        legalName: null,
+        contactName: scenario.contactName,
+        contactPhone: scenario.contactPhone,
+        contactEmail: scenario.contactEmail,
+        notes: "Lead local para teste de avisos de recaptura.",
+        status: "LEAD",
+        active: true,
+      },
+      create: {
+        tradeName: scenario.tradeName,
+        legalName: null,
+        cnpj: scenario.cnpj,
+        contactName: scenario.contactName,
+        contactPhone: scenario.contactPhone,
+        contactEmail: scenario.contactEmail,
+        notes: "Lead local para teste de avisos de recaptura.",
+        status: "LEAD",
+        active: true,
+      },
+    });
+
+    const proposalData = {
+      stationId,
+      advertiserId: advertiser.id,
+      createdById: commercialUser.id,
+      status: "REJECTED" as const,
+      proposalTypeId: proposalTypeIds["Pacote Promocional"],
+      periodicity: "MONTHLY" as const,
+      propType: "Pacote Promocional",
+      propMonth: String(rejectedAt.getMonth() + 1).padStart(2, "0"),
+      propYear: String(rejectedAt.getFullYear()),
+      campTag: "TESTE DE RECAPTURA",
+      clientLine1: scenario.tradeName,
+      clientLine2: "Lead rejeitado para teste de recaptura",
+      periodDesc: "Mensal",
+      showPeriod: true,
+      overlayOpacity: 70,
+      stats: [],
+      investDesc: "Proposta rejeitada usada para validar recaptura.",
+      investValue: scenario.investValue,
+      contactName: commercialUser.name,
+      contactRole: commercialUser.jobTitle,
+      contactPhone: commercialUser.contactPhone,
+      createdAt: rejectedAt,
+    };
+
+    const existingProposal = await prisma.proposal.findFirst({
+      where: {
+        stationId,
+        advertiserId: advertiser.id,
+        createdById: commercialUser.id,
+        campTag: "TESTE DE RECAPTURA",
+      },
+      select: { id: true },
+    });
+
+    const proposal = existingProposal
+      ? await prisma.proposal.update({
+          where: { id: existingProposal.id },
+          data: proposalData,
+        })
+      : await prisma.proposal.create({
+          data: proposalData,
+        });
+
+    await prisma.proposalProduct.deleteMany({ where: { proposalId: proposal.id } });
+    await prisma.proposalProduct.create({
+      data: {
+        proposalId: proposal.id,
+        productTemplateId: fallbackProduct?.id ?? null,
+        order: 0,
+        qty: "01",
+        title: fallbackProduct?.title ?? "PRODUTO TESTE RECAPTURA",
+        description: fallbackProduct?.description ?? "Produto de teste para validar aviso de recaptura.",
+        detail: fallbackProduct?.detail ?? null,
+        program: fallbackProduct?.programRef?.name ?? fallbackProduct?.program ?? "Programa de teste",
+        durationLabel: fallbackProduct?.duration?.label ?? null,
+        airTime: "09h as 12h",
+        seasonality: "MONTHLY",
+        tags: [],
+        color: "BLUE",
+      },
+    });
+
+    await prisma.proposalTimeline.deleteMany({
+      where: {
+        proposalId: proposal.id,
+        step: "REJECTED",
+        note: "Proposta rejeitada para teste de recaptura.",
+      },
+    });
+    await prisma.proposalTimeline.create({
+      data: {
+        proposalId: proposal.id,
+        step: "REJECTED",
+        note: "Proposta rejeitada para teste de recaptura.",
+        createdById: commercialUser.id,
+        createdAt: rejectedAt,
+      },
+    });
+
+    for (const milestoneMonths of RECALL_TEST_MILESTONES) {
+      await prisma.proposalRecallReminder.upsert({
+        where: {
+          proposalId_milestoneMonths: {
+            proposalId: proposal.id,
+            milestoneMonths,
+          },
+        },
+        update: {
+          advertiserId: advertiser.id,
+          assignedToId: commercialUser.id,
+          rejectedAt,
+          dueAt: addMonths(rejectedAt, milestoneMonths),
+          snoozedUntil: null,
+          status: "PENDING",
+          lastNotifiedAt: null,
+          handledAt: null,
+          handledById: null,
+          note: null,
+        },
+        create: {
+          proposalId: proposal.id,
+          advertiserId: advertiser.id,
+          assignedToId: commercialUser.id,
+          milestoneMonths,
+          rejectedAt,
+          dueAt: addMonths(rejectedAt, milestoneMonths),
+          status: "PENDING",
+        },
+      });
+      recallReminderCount += 1;
+    }
+  }
+  console.log(`Recall reminder test data OK: ${recallTestScenarios.length} leads, ${recallReminderCount} reminders`);
 
   console.log("\nSeed completed successfully!");
   console.log("Admin login: admin@radio88fm.com.br / Admin@123");

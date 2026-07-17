@@ -103,6 +103,14 @@ pnpm db:push
 pnpm seed
 ```
 
+O seed local tambem cria dados de teste para `Avisos de Recaptura`:
+
+- `Lead Recaptura 3 Meses`
+- `Lead Recaptura 6 Meses`
+- `Lead Recaptura 10 Meses`
+
+Esses leads ficam com propostas rejeitadas em datas antigas e avisos pendentes para testar o badge da sidebar, a tela `/recall-reminders` e o dialog exibido ao logar.
+
 ## Recuperacao de Senha em Desenvolvimento
 
 Por padrao local, use o provedor mock para nao depender de e-mail real:
