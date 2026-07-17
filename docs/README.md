@@ -21,6 +21,7 @@ Este diretorio centraliza as guidelines, padroes tecnicos e regras funcionais do
 8. [Regras de negocio principais](./08-regras-de-negocio.md)
 9. [Docker, ambientes e operacao](./09-docker-ambientes-operacao.md)
 10. [Qualidade, validacao e contribuicao](./10-qualidade-validacao-contribuicao.md)
+11. [MCPs do projeto](./mcps/README.md)
 
 ## Documentos Funcionais Existentes
 

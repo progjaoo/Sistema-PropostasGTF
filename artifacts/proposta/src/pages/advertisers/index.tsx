@@ -2,7 +2,7 @@ import React from 'react';
 import { useLocation } from 'wouter';
 import { useListAdvertisers, useDeleteAdvertiser, getListAdvertisersQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { ChevronDown, ChevronRight, Plus, Search, MoreHorizontal, Edit, Trash2, Users, Lock, UserPlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -79,10 +79,10 @@ export default function AdvertisersList({ mode = 'client' }: AdvertisersListProp
   const deleteMutation = useDeleteAdvertiser({
     mutation: {
       onSuccess: () => {
-        toast.success(`${copy.singular} excluído`);
+        feedback.deleted(`${copy.singular} excluído`);
         queryClient.invalidateQueries({ queryKey: [getListAdvertisersQueryKey()[0]] });
       },
-      onError: () => toast.error(`Erro ao excluir ${copy.singularLower}`)
+      onError: () => feedback.error(`Erro ao excluir ${copy.singularLower}`)
     }
   });
 

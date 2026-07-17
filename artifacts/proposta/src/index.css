@@ -2,6 +2,37 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
+.Toastify__toast {
+  border-radius: 10px;
+  font-family: var(--app-font-sans), system-ui, sans-serif;
+  font-weight: 600;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+}
+
+.Toastify__toast--success {
+  background: #059669;
+}
+
+.Toastify__toast--error {
+  background: #dc2626;
+}
+
+.Toastify__toast--warning {
+  background: #f59e0b;
+  color: #111827;
+}
+
+.Toastify__toast--info {
+  background: #2563eb;
+}
+
+.Toastify__progress-bar--success,
+.Toastify__progress-bar--error,
+.Toastify__progress-bar--warning,
+.Toastify__progress-bar--info {
+  background: rgba(255, 255, 255, 0.7);
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -282,6 +313,461 @@
   display: none;
 }
 
+#proposal-print-measure-root {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  width: 210mm;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+
+#proposal-print-measure-root .proposal-print-page,
+#proposal-print-root .proposal-print-page {
+  display: flex;
+  flex-direction: column;
+  width: 210mm;
+  height: 297mm;
+  min-height: 297mm;
+  max-height: 297mm;
+  padding: 10mm 14mm 8mm;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: #ffffff;
+  font-family: 'Montserrat', Arial, sans-serif;
+}
+
+#proposal-print-measure-root .proposal-print-page *,
+#proposal-print-root .proposal-print-page * {
+  font-family: 'Montserrat', Arial, sans-serif;
+}
+
+#proposal-print-measure-root .proposal-print-header,
+#proposal-print-root .proposal-print-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 14mm;
+  margin-bottom: 5mm;
+}
+
+#proposal-print-measure-root .proposal-print-logo,
+#proposal-print-root .proposal-print-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 13.5mm;
+  height: 13.5mm;
+  border-radius: 4mm;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 14pt;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+#proposal-print-measure-root .proposal-print-logo img,
+#proposal-print-root .proposal-print-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2mm;
+}
+
+#proposal-print-measure-root .proposal-print-station-name,
+#proposal-print-root .proposal-print-station-name {
+  color: #111111;
+  font-size: 16pt;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#proposal-print-measure-root .proposal-print-slogan,
+#proposal-print-root .proposal-print-slogan {
+  margin-top: 1.8mm;
+  color: #727272;
+  font-size: 8.5pt;
+  font-weight: 500;
+}
+
+#proposal-print-measure-root .proposal-print-hero,
+#proposal-print-root .proposal-print-hero {
+  min-height: 50mm;
+  margin-bottom: 5mm;
+  padding: 9mm 12mm;
+  border-radius: 16px;
+  color: #ffffff;
+  overflow: hidden;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+#proposal-print-measure-root .proposal-print-hero-type,
+#proposal-print-root .proposal-print-hero-type {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 8pt;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+}
+
+#proposal-print-measure-root .proposal-print-hero h1,
+#proposal-print-root .proposal-print-hero h1 {
+  max-width: 160mm;
+  max-height: 28mm;
+  margin: 4mm 0 0;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 34pt;
+  font-weight: 900;
+  line-height: 0.92;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+#proposal-print-measure-root .proposal-print-period-row,
+#proposal-print-root .proposal-print-period-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2.5mm;
+  margin-top: 6mm;
+}
+
+#proposal-print-measure-root .proposal-print-period-pill,
+#proposal-print-root .proposal-print-period-pill {
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 2mm 5mm;
+  color: #ffffff;
+  font-size: 8.5pt;
+  font-weight: 800;
+}
+
+#proposal-print-measure-root .proposal-print-period-note,
+#proposal-print-root .proposal-print-period-note {
+  max-width: 88mm;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 8pt;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+#proposal-print-measure-root .proposal-print-section-label,
+#proposal-print-root .proposal-print-section-label {
+  display: flex;
+  align-items: center;
+  gap: 2.5mm;
+  margin-bottom: 3mm;
+}
+
+#proposal-print-measure-root .proposal-print-section-label span,
+#proposal-print-root .proposal-print-section-label span {
+  display: block;
+  width: 1mm;
+  height: 3.5mm;
+  border-radius: 999px;
+}
+
+#proposal-print-measure-root .proposal-print-section-label strong,
+#proposal-print-root .proposal-print-section-label strong {
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  color: #111111;
+  font-size: 7.5pt;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
+
+#proposal-print-measure-root .proposal-print-section-label em,
+#proposal-print-root .proposal-print-section-label em {
+  color: #727272;
+  font-size: 6.5pt;
+  font-style: normal;
+  letter-spacing: 0.12em;
+}
+
+#proposal-print-measure-root .proposal-print-stats-section,
+#proposal-print-root .proposal-print-stats-section {
+  margin-bottom: 5mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+#proposal-print-measure-root .proposal-print-stats-grid,
+#proposal-print-root .proposal-print-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  min-height: 20mm;
+  border: 1px solid #E1E7F0;
+  border-radius: 12px;
+}
+
+#proposal-print-measure-root .proposal-print-stat-card,
+#proposal-print-root .proposal-print-stat-card {
+  border-right: 1px solid #E1E7F0;
+}
+
+#proposal-print-measure-root .proposal-print-stat-card:last-child,
+#proposal-print-root .proposal-print-stat-card:last-child {
+  border-right: 0;
+}
+
+#proposal-print-measure-root .proposal-print-stat-bar,
+#proposal-print-root .proposal-print-stat-bar {
+  height: 1.5mm;
+}
+
+#proposal-print-measure-root .proposal-print-stat-body,
+#proposal-print-root .proposal-print-stat-body {
+  padding: 3.2mm 4mm;
+}
+
+#proposal-print-measure-root .proposal-print-stat-value,
+#proposal-print-root .proposal-print-stat-value {
+  font-size: 20pt;
+  font-weight: 900;
+  line-height: 1;
+}
+
+#proposal-print-measure-root .proposal-print-stat-description,
+#proposal-print-root .proposal-print-stat-description {
+  margin-top: 2mm;
+  color: #555555;
+  font-size: 6.8pt;
+  font-weight: 800;
+  line-height: 1.18;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: pre-line;
+}
+
+#proposal-print-measure-root .proposal-print-products-section,
+#proposal-print-root .proposal-print-products-section {
+  margin-bottom: 5mm;
+}
+
+#proposal-print-measure-root .proposal-print-products-grid,
+#proposal-print-root .proposal-print-products-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4mm;
+}
+
+#proposal-print-measure-root .proposal-print-product-card,
+#proposal-print-root .proposal-print-product-card {
+  min-height: 37mm;
+  max-height: 39mm;
+  padding: 4mm 4.5mm 3.5mm 6mm;
+  border: 1px solid #DCE7F6;
+  border-left: 10px solid var(--proposal-primary);
+  border-radius: 16px;
+  overflow: hidden;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+#proposal-print-measure-root .proposal-print-product-top,
+#proposal-print-root .proposal-print-product-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 2.5mm;
+  margin-bottom: 2.2mm;
+}
+
+#proposal-print-measure-root .proposal-print-product-qty,
+#proposal-print-root .proposal-print-product-qty {
+  font-size: 24pt;
+  font-weight: 900;
+  line-height: 1;
+}
+
+#proposal-print-measure-root .proposal-print-product-qty-label,
+#proposal-print-root .proposal-print-product-qty-label {
+  padding-top: 1mm;
+  color: #727272;
+  font-size: 6.7pt;
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+#proposal-print-measure-root .proposal-print-product-title,
+#proposal-print-root .proposal-print-product-title {
+  color: #111111;
+  font-size: 9.5pt;
+  font-weight: 900;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+#proposal-print-measure-root .proposal-print-product-description,
+#proposal-print-root .proposal-print-product-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  margin: 1.6mm 0 0;
+  overflow: hidden;
+  color: #565656;
+  font-size: 7.8pt;
+  line-height: 1.18;
+}
+
+#proposal-print-measure-root .proposal-print-product-tags,
+#proposal-print-root .proposal-print-product-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.6mm;
+  margin-top: 2.5mm;
+}
+
+#proposal-print-measure-root .proposal-print-product-program,
+#proposal-print-root .proposal-print-product-program {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  background: #111111;
+  border-radius: 999px;
+  color: #ffffff;
+  padding: 1.2mm 3.2mm;
+  font-size: 6.3pt;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+#proposal-print-measure-root .proposal-print-product-meta,
+#proposal-print-root .proposal-print-product-meta {
+  margin-top: 1.3mm;
+  color: #565656;
+  font-size: 7.5pt;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+#proposal-print-measure-root .proposal-print-empty-products,
+#proposal-print-root .proposal-print-empty-products {
+  padding: 9mm 8mm;
+  border: 1px dashed #DCE7F6;
+  border-radius: 16px;
+  color: #727272;
+  font-size: 10pt;
+  font-weight: 600;
+  text-align: center;
+}
+
+#proposal-print-measure-root .proposal-print-spacer,
+#proposal-print-root .proposal-print-spacer {
+  min-height: 0;
+}
+
+#proposal-print-measure-root .proposal-print-investment,
+#proposal-print-root .proposal-print-investment {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 6mm;
+  min-height: 18mm;
+  margin-bottom: 5mm;
+  padding: 5mm 8mm;
+  border-radius: 16px;
+  color: #ffffff;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+#proposal-print-measure-root .proposal-print-investment-label,
+#proposal-print-root .proposal-print-investment-label {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 7.5pt;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+}
+
+#proposal-print-measure-root .proposal-print-investment-description,
+#proposal-print-root .proposal-print-investment-description {
+  max-width: 96mm;
+  margin-top: 2mm;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 8pt;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+#proposal-print-measure-root .proposal-print-investment-value,
+#proposal-print-root .proposal-print-investment-value {
+  color: #ffffff;
+  font-size: 27pt;
+  font-weight: 900;
+  line-height: 1;
+  text-align: right;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+#proposal-print-measure-root .proposal-print-footer,
+#proposal-print-root .proposal-print-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  min-height: 12mm;
+  padding-top: 4mm;
+  border-top: 1px solid #E1E7F0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+#proposal-print-measure-root .proposal-print-footer-name,
+#proposal-print-root .proposal-print-footer-name {
+  color: #111111;
+  font-size: 14pt;
+  font-weight: 900;
+  line-height: 1;
+}
+
+#proposal-print-measure-root .proposal-print-footer-role,
+#proposal-print-root .proposal-print-footer-role {
+  margin-top: 1.8mm;
+  color: #727272;
+  font-size: 7.5pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#proposal-print-measure-root .proposal-print-footer-contact,
+#proposal-print-root .proposal-print-footer-contact {
+  text-align: right;
+}
+
+#proposal-print-measure-root .proposal-print-footer-label,
+#proposal-print-root .proposal-print-footer-label {
+  color: #727272;
+  font-size: 6.8pt;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+#proposal-print-measure-root .proposal-print-footer-phone,
+#proposal-print-root .proposal-print-footer-phone {
+  margin-top: 1.8mm;
+  font-size: 11.5pt;
+  font-weight: 900;
+  line-height: 1;
+}
+
 @media print {
   * {
     -webkit-print-color-adjust: exact !important;
@@ -324,12 +810,21 @@
     display: flex !important;
     flex-direction: column !important;
     width: 210mm !important;
+    height: 297mm !important;
     min-height: 297mm !important;
+    max-height: 297mm !important;
     padding: 10mm 14mm 8mm !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     box-shadow: none !important;
+    page-break-after: always !important;
+    break-after: page !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  .proposal-print-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 
   .proposal-print-page,
@@ -454,11 +949,21 @@
   }
 
   .proposal-print-section-label strong {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 2mm !important;
     color: #111111 !important;
     font-size: 7.5pt !important;
     font-weight: 900 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.22em !important;
+  }
+
+  .proposal-print-section-label em {
+    color: #727272 !important;
+    font-size: 6.5pt !important;
+    font-style: normal !important;
+    letter-spacing: 0.12em !important;
   }
 
   .proposal-print-stats-section {

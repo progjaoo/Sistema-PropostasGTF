@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { prisma, type Prisma } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import { z } from "zod/v4";
@@ -7,6 +7,12 @@ import {
   cancelPendingRecallRemindersForProposal,
   createRecallRemindersForRejectedProposal,
 } from "../services/recall-reminders";
+import {
+  assertStationPermission,
+  getAccessibleStationIds,
+  respondToStationAccessError,
+} from "../services/station-access";
+import { getStationPresentationStats } from "../services/station-presentation";
 
 const router = Router();
 
@@ -39,6 +45,7 @@ const proposalInput = z.object({
   dateStart: z.string().optional().nullable(),
   dateEnd: z.string().optional().nullable(),
   periodDesc: z.string().optional().nullable(),
+  showPeriod: z.boolean().optional(),
   bannerBase64: z.string().optional().nullable(),
   overlayOpacity: z.number().int().optional(),
   stats: z.unknown().optional(),
@@ -182,16 +189,54 @@ function resolveProgramFromProduct(product: {
   };
 }
 
+async function validateProductTemplatesForStation(
+  products: Array<{ productTemplateId?: string | null }> | undefined,
+  stationId: string,
+): Promise<boolean> {
+  const templateIds = [...new Set((products ?? []).flatMap((product) => product.productTemplateId ? [product.productTemplateId] : []))];
+  if (templateIds.length === 0) return true;
+  const count = await prisma.productTemplate.count({ where: { id: { in: templateIds }, stationId, active: true } });
+  return count === templateIds.length;
+}
+
+async function authorizeProposalAccess(
+  req: Request,
+  res: Response,
+  proposal: { createdById: string | null; stationId: string },
+): Promise<boolean> {
+  if (req.userRole !== "ADMIN" && proposal.createdById !== req.userId) {
+    res.status(403).json({ error: "Forbidden" });
+    return false;
+  }
+
+  try {
+    await assertStationPermission(req.userId!, req.userRole, proposal.stationId, "canCreateProposals");
+    return true;
+  } catch (error) {
+    if (respondToStationAccessError(error, res)) return false;
+    throw error;
+  }
+}
+
 router.get("/program-board", requireAuth, async (req, res): Promise<void> => {
   const { search, stationId, programId, status } = req.query as Record<string, string | undefined>;
   const cleanSearch = search?.trim();
   const cleanStationId = stationId && stationId !== "all" ? stationId : undefined;
   const cleanProgramId = programId && programId !== "all" ? programId : undefined;
   const cleanStatus = status && status !== "all" ? status : undefined;
+  const [accessibleStationIds, catalogStationIds] = await Promise.all([
+    getAccessibleStationIds(req.userId!, req.userRole),
+    getAccessibleStationIds(req.userId!, req.userRole, "canViewCatalog"),
+  ]);
+  if (accessibleStationIds !== null && cleanStationId && !accessibleStationIds.includes(cleanStationId)) {
+    res.status(403).json({ error: "Você não possui acesso a esta empresa" });
+    return;
+  }
 
   const proposalWhere: Prisma.ProposalWhereInput = {};
   if (req.userRole !== "ADMIN") {
     proposalWhere.createdById = req.userId!;
+    proposalWhere.stationId = { in: accessibleStationIds ?? [] };
   }
   if (cleanStationId) {
     proposalWhere.stationId = cleanStationId;
@@ -225,6 +270,7 @@ router.get("/program-board", requireAuth, async (req, res): Promise<void> => {
     prisma.proposalCategory.findMany({
       where: {
         active: true,
+        ...(catalogStationIds === null ? {} : { stationId: { in: catalogStationIds } }),
         ...(cleanStationId ? { stationId: cleanStationId } : {}),
         ...(cleanProgramId ? { id: cleanProgramId } : {}),
       },
@@ -388,10 +434,19 @@ router.get("/progress-board", requireAuth, async (req, res): Promise<void> => {
   const cleanStationId = stationId && stationId !== "all" ? stationId : undefined;
   const cleanProgramId = programId && programId !== "all" ? programId : undefined;
   const cleanStatus = status && status !== "all" ? status : undefined;
+  const [accessibleStationIds, catalogStationIds] = await Promise.all([
+    getAccessibleStationIds(req.userId!, req.userRole),
+    getAccessibleStationIds(req.userId!, req.userRole, "canViewCatalog"),
+  ]);
+  if (accessibleStationIds !== null && cleanStationId && !accessibleStationIds.includes(cleanStationId)) {
+    res.status(403).json({ error: "Você não possui acesso a esta empresa" });
+    return;
+  }
 
   const proposalWhere: Prisma.ProposalWhereInput = {};
   if (req.userRole !== "ADMIN") {
     proposalWhere.createdById = req.userId!;
+    proposalWhere.stationId = { in: accessibleStationIds ?? [] };
   }
   if (cleanStationId) {
     proposalWhere.stationId = cleanStationId;
@@ -424,6 +479,7 @@ router.get("/progress-board", requireAuth, async (req, res): Promise<void> => {
     prisma.proposalCategory.findMany({
       where: {
         active: true,
+        ...(catalogStationIds === null ? {} : { stationId: { in: catalogStationIds } }),
         ...(cleanStationId ? { stationId: cleanStationId } : {}),
         ...(cleanProgramId ? { id: cleanProgramId } : {}),
       },
@@ -601,6 +657,12 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
   const where: Prisma.ProposalWhereInput = {};
   if (req.userRole !== "ADMIN") {
     where.createdById = req.userId!;
+    const accessibleStationIds = await getAccessibleStationIds(req.userId!, req.userRole);
+    if (cleanStationId && !(accessibleStationIds ?? []).includes(cleanStationId)) {
+      res.status(403).json({ error: "Você não possui acesso a esta empresa" });
+      return;
+    }
+    where.stationId = { in: accessibleStationIds ?? [] };
   }
   if (cleanStatus) where.status = cleanStatus as Prisma.EnumProposalStatusFilter["equals"];
   if (advertiserId) where.advertiserId = advertiserId;
@@ -653,18 +715,31 @@ router.post("/", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  if (!parsed.data.stationId) {
+    res.status(400).json({ error: "Empresa é obrigatória" });
+    return;
+  }
+  try {
+    await assertStationPermission(req.userId!, req.userRole, parsed.data.stationId, "canCreateProposals");
+  } catch (error) {
+    if (respondToStationAccessError(error, res)) return;
+    throw error;
+  }
   const proposalType = parsed.data.proposalTypeId
     ? await prisma.proposalType.findUnique({ where: { id: parsed.data.proposalTypeId } })
     : null;
-  const station = parsed.data.stationId
-    ? await prisma.station.findUnique({ where: { id: parsed.data.stationId } })
-    : await prisma.station.findFirst({ orderBy: { createdAt: "asc" } });
+  const station = await prisma.station.findFirst({ where: { id: parsed.data.stationId, active: true } });
   if (!station) {
-    res.status(400).json({ error: "No station found" });
+    res.status(400).json({ error: "Empresa não encontrada ou inativa" });
+    return;
+  }
+  if (!(await validateProductTemplatesForStation(parsed.data.products, station.id))) {
+    res.status(400).json({ error: "Todos os produtos do catálogo devem pertencer à empresa da proposta" });
     return;
   }
   const { products, ...rest } = parsed.data;
   const proposal = await prisma.$transaction(async (tx) => {
+    const presentationStats = await getStationPresentationStats(tx, station.id);
     const created = await tx.proposal.create({
       data: {
         ...rest,
@@ -675,7 +750,11 @@ router.post("/", requireAuth, async (req, res): Promise<void> => {
         propMonth: rest.propMonth ?? "",
         propYear: rest.propYear ?? "",
         periodicity: rest.periodicity ?? "MONTHLY",
-        stats: rest.stats ?? [],
+        showPeriod: rest.showPeriod ?? true,
+        periodDesc: null,
+        stats: req.userRole === "ADMIN" && rest.stats !== undefined && rest.stats !== null
+          ? rest.stats as Prisma.InputJsonValue
+          : presentationStats,
         products: products?.length
           ? {
               create: products.map((p, i) => ({
@@ -729,16 +808,13 @@ router.post("/", requireAuth, async (req, res): Promise<void> => {
 router.get("/:id/timeline", requireAuth, async (req, res): Promise<void> => {
   const proposal = await prisma.proposal.findUnique({
     where: { id: String(req.params["id"]) },
-    select: { id: true, createdById: true },
+    select: { id: true, createdById: true, stationId: true },
   });
   if (!proposal) {
     res.status(404).json({ error: "Proposal not found" });
     return;
   }
-  if (req.userRole !== "ADMIN" && proposal.createdById !== req.userId) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+  if (!(await authorizeProposalAccess(req, res, proposal))) return;
 
   const entries = await prisma.proposalTimeline.findMany({
     where: { proposalId: proposal.id },
@@ -757,16 +833,13 @@ router.post("/:id/timeline", requireAuth, async (req, res): Promise<void> => {
 
   const proposal = await prisma.proposal.findUnique({
     where: { id: String(req.params["id"]) },
-    select: { id: true, createdById: true },
+    select: { id: true, createdById: true, stationId: true },
   });
   if (!proposal) {
     res.status(404).json({ error: "Proposal not found" });
     return;
   }
-  if (req.userRole !== "ADMIN" && proposal.createdById !== req.userId) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+  if (!(await authorizeProposalAccess(req, res, proposal))) return;
 
   const entry = await prisma.$transaction((tx) =>
     addTimelineEntry(tx, {
@@ -793,6 +866,12 @@ router.get("/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
+  try {
+    await assertStationPermission(req.userId!, req.userRole, full.stationId, "canCreateProposals");
+  } catch (error) {
+    if (respondToStationAccessError(error, res)) return;
+    throw error;
+  }
   res.json(full);
 });
 
@@ -812,13 +891,43 @@ router.patch("/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
   const { products, ...rest } = parsed.data;
+  const nextStationId = rest.stationId ?? existing.stationId;
+  try {
+    await assertStationPermission(req.userId!, req.userRole, nextStationId, "canCreateProposals");
+  } catch (error) {
+    if (respondToStationAccessError(error, res)) return;
+    throw error;
+  }
+  const nextStation = await prisma.station.findFirst({ where: { id: nextStationId, active: true }, select: { id: true } });
+  if (!nextStation) {
+    res.status(400).json({ error: "Empresa não encontrada ou inativa" });
+    return;
+  }
+  const productsToValidate = products ?? (nextStationId !== existing.stationId
+    ? await prisma.proposalProduct.findMany({
+        where: { proposalId: existing.id, productTemplateId: { not: null } },
+        select: { productTemplateId: true },
+      })
+    : undefined);
+  if (!(await validateProductTemplatesForStation(productsToValidate, nextStationId))) {
+    res.status(400).json({ error: "Todos os produtos do catálogo devem pertencer à empresa da proposta" });
+    return;
+  }
   const proposalType = rest.proposalTypeId
     ? await prisma.proposalType.findUnique({ where: { id: rest.proposalTypeId } })
     : null;
+  const { stats: payloadStats, ...safeRest } = rest;
   const data: Prisma.ProposalUncheckedUpdateInput = {
-    ...rest,
+    ...safeRest,
+    periodDesc: null,
     ...(proposalType ? { propType: proposalType.name } : {}),
   } as Prisma.ProposalUncheckedUpdateInput;
+
+  if (nextStationId !== existing.stationId) {
+    data.stats = await getStationPresentationStats(prisma, nextStationId);
+  } else if (req.userRole === "ADMIN" && payloadStats !== undefined) {
+    data.stats = payloadStats as Prisma.InputJsonValue;
+  }
 
   const proposal = await prisma.$transaction(async (tx) => {
     const updated = await tx.proposal.update({
@@ -878,10 +987,7 @@ router.delete("/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Proposal not found" });
     return;
   }
-  if (req.userRole !== "ADMIN" && existing.createdById !== req.userId) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+  if (!(await authorizeProposalAccess(req, res, existing))) return;
   await prisma.$transaction(async (tx) => {
     const updated = await tx.proposal.update({
       where: { id: String(req.params["id"]) },
@@ -910,10 +1016,7 @@ router.patch("/:id/status", requireAuth, async (req, res): Promise<void> => {
       res.status(404).json({ error: "Proposal not found" });
       return;
     }
-    if (req.userRole !== "ADMIN" && existing.createdById !== req.userId) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
+    if (!(await authorizeProposalAccess(req, res, existing))) return;
     const proposal = await prisma.$transaction(async (tx) => {
       const updated = await tx.proposal.update({
         where: { id: String(req.params["id"]) },
@@ -961,6 +1064,12 @@ router.post("/:id/duplicate", requireAuth, async (req, res): Promise<void> => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
+  try {
+    await assertStationPermission(req.userId!, req.userRole, existing.stationId, "canCreateProposals");
+  } catch (error) {
+    if (respondToStationAccessError(error, res)) return;
+    throw error;
+  }
   const products = await prisma.proposalProduct.findMany({
     where: { proposalId: existing.id },
     orderBy: { order: "asc" },
@@ -982,6 +1091,7 @@ router.post("/:id/duplicate", requireAuth, async (req, res): Promise<void> => {
       dateStart: existing.dateStart,
       dateEnd: existing.dateEnd,
       periodDesc: existing.periodDesc,
+      showPeriod: existing.showPeriod,
       bannerBase64: existing.bannerBase64,
       overlayOpacity: existing.overlayOpacity,
       stats: existing.stats ?? [],
@@ -1013,6 +1123,16 @@ router.post("/:id/duplicate", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/:id/versions", requireAuth, async (req, res): Promise<void> => {
+  const proposal = await prisma.proposal.findUnique({
+    where: { id: String(req.params["id"]) },
+    select: { createdById: true, stationId: true },
+  });
+  if (!proposal) {
+    res.status(404).json({ error: "Proposal not found" });
+    return;
+  }
+  if (!(await authorizeProposalAccess(req, res, proposal))) return;
+
   const versions = await prisma.proposalVersion.findMany({
     where: { proposalId: String(req.params["id"]) },
     orderBy: { createdAt: "desc" },
@@ -1027,6 +1147,16 @@ router.get("/:id/versions", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/:id/versions/:versionId", requireAuth, async (req, res): Promise<void> => {
+  const proposal = await prisma.proposal.findUnique({
+    where: { id: String(req.params["id"]) },
+    select: { createdById: true, stationId: true },
+  });
+  if (!proposal) {
+    res.status(404).json({ error: "Proposal not found" });
+    return;
+  }
+  if (!(await authorizeProposalAccess(req, res, proposal))) return;
+
   const v = await prisma.proposalVersion.findUnique({ where: { id: String(req.params["versionId"]) } });
   if (!v || v.proposalId !== String(req.params["id"])) {
     res.status(404).json({ error: "Version not found" });

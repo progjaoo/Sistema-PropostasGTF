@@ -1,18 +1,77 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { prisma } from "@workspace/db";
 import { z } from "zod/v4";
 import { signAccessToken, signRefreshToken, verifyRefreshToken, getRefreshExpiresAt } from "../lib/jwt";
 import { requireAuth } from "../middlewares/auth";
 import { LoginBody } from "@workspace/api-zod";
+import { sendPasswordResetEmail } from "../services/password-reset-email";
 
 const router = Router();
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_RESET_PUBLIC_MESSAGE = "Se o e-mail estiver cadastrado, enviaremos as instrucoes de recuperacao.";
+const PASSWORD_RESET_INVALID_MESSAGE = "Link de recuperacao invalido, expirado ou ja utilizado.";
+const forgotPasswordRateWindowMs = 60 * 60 * 1000;
+const forgotPasswordRateMax = 5;
+const resetPasswordRateWindowMs = 15 * 60 * 1000;
+const resetPasswordRateMax = 10;
+const forgotPasswordAttempts = new Map<string, { count: number; resetAt: number }>();
+const resetPasswordAttempts = new Map<string, { count: number; resetAt: number }>();
 
 const registerCommercialBody = z.object({
   name: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(PASSWORD_MIN_LENGTH).max(128),
 });
+
+const forgotPasswordBody = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordBody = z.object({
+  token: z.string().min(20).max(256),
+  newPassword: z.string().min(PASSWORD_MIN_LENGTH).max(128),
+  confirmPassword: z.string().min(PASSWORD_MIN_LENGTH).max(128),
+}).refine((value) => value.newPassword === value.confirmPassword, {
+  message: "As senhas nao conferem",
+  path: ["confirmPassword"],
+});
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function sha256(value: string) {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function makeRateLimitKey(prefix: string, value: string) {
+  return `${prefix}:${sha256(value).slice(0, 32)}`;
+}
+
+function consumeRateLimit(store: Map<string, { count: number; resetAt: number }>, key: string, max: number, windowMs: number) {
+  const now = Date.now();
+  const current = store.get(key);
+  if (!current || current.resetAt <= now) {
+    store.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (current.count >= max) return false;
+  current.count += 1;
+  return true;
+}
+
+function getPasswordResetTtlMinutes() {
+  const raw = Number(process.env["PASSWORD_RESET_TTL_MINUTES"] ?? "30");
+  return Number.isFinite(raw) && raw > 0 ? raw : 30;
+}
+
+function buildResetUrl(token: string) {
+  const rawBaseUrl = process.env["APP_PUBLIC_URL"] || "http://localhost:21709";
+  const baseUrl = rawBaseUrl.replace(/\/$/, "");
+  return `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+}
 
 function formatAuthUser(user: {
   id: string;
@@ -46,7 +105,8 @@ router.post("/login", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { email, password } = parsed.data;
+  const { password } = parsed.data;
+  const email = normalizeEmail(parsed.data.email);
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !user.active) {
     res.status(401).json({ error: "Credenciais invalidas ou conta inativa" });
@@ -85,7 +145,8 @@ router.post("/register-commercial", async (req, res): Promise<void> => {
     return;
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  const email = normalizeEmail(parsed.data.email);
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     res.status(409).json({ error: "E-mail ja cadastrado" });
     return;
@@ -95,14 +156,114 @@ router.post("/register-commercial", async (req, res): Promise<void> => {
   const user = await prisma.user.create({
     data: {
       name: parsed.data.name,
-      email: parsed.data.email,
+      email,
       passwordHash,
       role: "COMERCIAL",
-      active: true,
+      active: false,
     },
   });
 
   res.status(201).json(formatAuthUser(user));
+});
+
+router.post("/forgot-password", async (req, res): Promise<void> => {
+  const parsed = forgotPasswordBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const email = normalizeEmail(parsed.data.email);
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const emailKey = makeRateLimitKey("forgot-email", email);
+  const ipKey = makeRateLimitKey("forgot-ip", ip);
+  const allowedByEmail = consumeRateLimit(forgotPasswordAttempts, emailKey, forgotPasswordRateMax, forgotPasswordRateWindowMs);
+  const allowedByIp = consumeRateLimit(forgotPasswordAttempts, ipKey, forgotPasswordRateMax * 5, forgotPasswordRateWindowMs);
+  if (!allowedByEmail || !allowedByIp) {
+    res.status(429).json({ error: "Muitas solicitacoes. Tente novamente mais tarde." });
+    return;
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (user?.active) {
+    const token = crypto.randomBytes(32).toString("base64url");
+    const tokenHash = sha256(token);
+    const ttlMinutes = getPasswordResetTtlMinutes();
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date() } },
+        data: { usedAt: new Date() },
+      });
+      await tx.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+        },
+      });
+    });
+
+    try {
+      await sendPasswordResetEmail({
+        to: user.email,
+        userName: user.name,
+        resetUrl: buildResetUrl(token),
+        ttlMinutes,
+      });
+    } catch (error) {
+      req.log?.error({ err: error, userId: user.id }, "Failed to send password reset email");
+    }
+  }
+
+  res.status(202).json({ message: PASSWORD_RESET_PUBLIC_MESSAGE });
+});
+
+router.post("/reset-password", async (req, res): Promise<void> => {
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const ipKey = makeRateLimitKey("reset-ip", ip);
+  if (!consumeRateLimit(resetPasswordAttempts, ipKey, resetPasswordRateMax, resetPasswordRateWindowMs)) {
+    res.status(429).json({ error: "Muitas tentativas. Tente novamente mais tarde." });
+    return;
+  }
+
+  const parsed = resetPasswordBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const tokenHash = sha256(parsed.data.token);
+  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
+  const now = new Date();
+
+  const result = await prisma.$transaction(async (tx) => {
+    const resetToken = await tx.passwordResetToken.findUnique({
+      where: { tokenHash },
+      select: { id: true, userId: true, expiresAt: true, usedAt: true },
+    });
+    if (!resetToken || resetToken.usedAt || resetToken.expiresAt <= now) {
+      return { ok: false as const };
+    }
+    await tx.user.update({
+      where: { id: resetToken.userId },
+      data: { passwordHash },
+    });
+    await tx.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { usedAt: now },
+    });
+    await tx.refreshToken.deleteMany({ where: { userId: resetToken.userId } });
+    return { ok: true as const };
+  });
+
+  if (!result.ok) {
+    res.status(400).json({ error: PASSWORD_RESET_INVALID_MESSAGE });
+    return;
+  }
+
+  res.json({ message: "Senha redefinida com sucesso" });
 });
 
 router.post("/refresh", async (req, res): Promise<void> => {

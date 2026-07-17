@@ -9,6 +9,11 @@
 export interface StationInput {
   name: string;
   slogan?: string;
-  primaryColor?: string;
+  primaryColor: string;
   logoBase64?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  address?: string;
+  city?: string;
+  active?: boolean;
 }

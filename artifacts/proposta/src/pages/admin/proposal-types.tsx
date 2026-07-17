@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { Edit, FileCog, Plus, Search, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -94,11 +94,15 @@ export default function AdminProposalTypes() {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.error || 'Erro ao salvar tipo de proposta');
       }
-      toast.success(editing ? 'Tipo de proposta atualizado' : 'Tipo de proposta criado');
+      if (editing) {
+        feedback.updated('Tipo de proposta atualizado');
+      } else {
+        feedback.created('Tipo de proposta criado');
+      }
       invalidate();
       setIsOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao salvar tipo de proposta');
+      feedback.error(error instanceof Error ? error.message : 'Erro ao salvar tipo de proposta');
     }
   };
 
@@ -110,10 +114,14 @@ export default function AdminProposalTypes() {
         body: JSON.stringify({ active: !proposalType.active }),
       });
       if (!response.ok) throw new Error();
-      toast.success(proposalType.active ? 'Tipo desativado' : 'Tipo ativado');
+      if (proposalType.active) {
+        feedback.deleted('Tipo desativado');
+      } else {
+        feedback.updated('Tipo ativado');
+      }
       invalidate();
     } catch {
-      toast.error('Erro ao atualizar status do tipo');
+      feedback.error('Erro ao atualizar status do tipo');
     }
   };
 
@@ -124,10 +132,10 @@ export default function AdminProposalTypes() {
         headers: buildHeaders(token),
       });
       if (!response.ok) throw new Error();
-      toast.success('Tipo de proposta desativado');
+      feedback.deleted('Tipo de proposta desativado');
       invalidate();
     } catch {
-      toast.error('Erro ao desativar tipo de proposta');
+      feedback.error('Erro ao desativar tipo de proposta');
     }
   };
 

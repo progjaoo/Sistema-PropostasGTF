@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma, type Prisma, type ProductTemplate } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { z } from "zod/v4";
+import { getAccessibleStationIds } from "../services/station-access";
 
 const router = Router();
 
@@ -24,6 +25,7 @@ const productBody = z.object({
 });
 
 type ProductWithProgram = ProductTemplate & {
+  station?: { id: string; name: string; primaryColor: string } | null;
   programRef?: { id: string; name: string; slug: string; stationId: string | null; station?: { id: string; name: string; primaryColor: string } | null } | null;
   duration?: { id: string; label: string; seconds: number | null } | null;
 };
@@ -32,6 +34,11 @@ function formatTemplate(t: ProductWithProgram) {
   return {
     id: t.id,
     stationId: t.stationId,
+    station: t.station
+      ? { id: t.station.id, name: t.station.name, primaryColor: t.station.primaryColor }
+      : null,
+    stationName: t.station?.name ?? null,
+    stationPrimaryColor: t.station?.primaryColor ?? "#427EFF",
     programId: t.programId ?? null,
     programName: t.programRef?.name ?? t.program ?? null,
     programStationId: t.programRef?.stationId ?? null,
@@ -123,7 +130,8 @@ async function getProgramName(programId?: string | null) {
 }
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const { programId, search, active, sort, minValue, maxValue } = req.query as {
+  const { stationId, programId, search, active, sort, minValue, maxValue } = req.query as {
+    stationId?: string;
     programId?: string;
     search?: string;
     active?: string;
@@ -132,6 +140,17 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
     maxValue?: string;
   };
   const where: Prisma.ProductTemplateWhereInput = {};
+  const accessibleIds = await getAccessibleStationIds(req.userId!, req.userRole, "canViewCatalog");
+  if (accessibleIds !== null) {
+    if (stationId && stationId !== "all" && !accessibleIds.includes(stationId)) {
+      res.status(403).json({ error: "Você não possui acesso ao catálogo desta empresa" });
+      return;
+    }
+    where.stationId = { in: accessibleIds };
+  }
+  if (stationId && stationId !== "all") {
+    where.stationId = stationId;
+  }
   if (programId) {
     where.programId = programId === "none" ? null : programId;
   }
@@ -160,6 +179,7 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
   const templates = await prisma.productTemplate.findMany({
     where,
     include: {
+      station: { select: { id: true, name: true, primaryColor: true } },
       programRef: { select: { id: true, name: true, slug: true, stationId: true, station: { select: { id: true, name: true, primaryColor: true } } } },
       duration: { select: { id: true, label: true, seconds: true } },
     },
@@ -195,27 +215,33 @@ router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  if (!parsed.data.programId) {
-    res.status(400).json({ error: "Program is required" });
+  if (!parsed.data.stationId) {
+    res.status(400).json({ error: "Empresa é obrigatória" });
     return;
   }
-  const program = await prisma.proposalCategory.findUnique({
-    where: { id: parsed.data.programId },
-    select: { id: true, name: true, stationId: true },
+  const station = await prisma.station.findFirst({
+    where: { id: parsed.data.stationId, active: true },
+    select: { id: true },
   });
-  if (!program) {
-    res.status(400).json({ error: "Program not found" });
+  if (!station) {
+    res.status(400).json({ error: "Empresa não encontrada ou inativa" });
     return;
   }
-  if (parsed.data.stationId && parsed.data.stationId !== program.stationId) {
+  const program = parsed.data.programId
+    ? await prisma.proposalCategory.findUnique({
+        where: { id: parsed.data.programId },
+        select: { id: true, name: true, stationId: true },
+      })
+    : null;
+  if (parsed.data.programId && !program) {
+    res.status(400).json({ error: "Programa não encontrado" });
+    return;
+  }
+  if (program && parsed.data.stationId !== program.stationId) {
     res.status(400).json({ error: "Produto e programa devem pertencer à mesma empresa" });
     return;
   }
-  const stationId = program.stationId ?? parsed.data.stationId ?? (await prisma.station.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } }))?.id;
-  if (!stationId) {
-    res.status(400).json({ error: "No station configured" });
-    return;
-  }
+  const stationId = parsed.data.stationId;
   const generatedName = await buildProductName({
     stationId,
     title: parsed.data.title,
@@ -230,13 +256,14 @@ router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
       stationId,
       name: generatedName,
       qty: parsed.data.qty ?? "01",
-      program: parsed.data.program ?? program.name,
+      program: parsed.data.program ?? program?.name ?? null,
       suggestedValueMax: parsed.data.suggestedValueMax ?? null,
       tags: parsed.data.tags ?? [],
       color: parsed.data.color ?? "BLUE",
       active: parsed.data.active ?? true,
     },
     include: {
+      station: { select: { id: true, name: true, primaryColor: true } },
       programRef: { select: { id: true, name: true, slug: true, stationId: true, station: { select: { id: true, name: true, primaryColor: true } } } },
       duration: { select: { id: true, label: true, seconds: true } },
     },
@@ -256,20 +283,24 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
       res.status(404).json({ error: "Product not found" });
       return;
     }
+    const nextStationId = parsed.data.stationId ?? existing.stationId;
+    const station = await prisma.station.findFirst({ where: { id: nextStationId, active: true }, select: { id: true } });
+    if (!station) {
+      res.status(400).json({ error: "Empresa não encontrada ou inativa" });
+      return;
+    }
     const nextProgramId = parsed.data.programId === undefined ? existing.programId : parsed.data.programId;
-    if (!nextProgramId) {
-      res.status(400).json({ error: "Program is required" });
+    const nextProgram = nextProgramId
+      ? await prisma.proposalCategory.findUnique({
+          where: { id: nextProgramId },
+          select: { id: true, name: true, stationId: true },
+        })
+      : null;
+    if (nextProgramId && !nextProgram) {
+      res.status(400).json({ error: "Programa não encontrado" });
       return;
     }
-    const nextProgram = await prisma.proposalCategory.findUnique({
-      where: { id: nextProgramId },
-      select: { id: true, name: true, stationId: true },
-    });
-    if (!nextProgram) {
-      res.status(400).json({ error: "Program not found" });
-      return;
-    }
-    if (nextProgram.stationId && nextProgram.stationId !== existing.stationId) {
+    if (nextProgram && nextProgram.stationId !== nextStationId) {
       res.status(400).json({ error: "Produto não pode ser movido para programa de outra empresa" });
       return;
     }
@@ -280,14 +311,14 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
       (parsed.data.title !== undefined || parsed.data.programId !== undefined || parsed.data.durationId !== undefined);
     const generatedName = shouldRegenerateName
       ? await buildProductName({
-          stationId: existing.stationId,
+          stationId: nextStationId,
           title: nextTitle,
           programId: nextProgramId,
           durationId: nextDurationId,
           excludeId: existing.id,
         })
       : parsed.data.name?.trim();
-    const programName = parsed.data.programId !== undefined ? nextProgram.name : undefined;
+    const programName = parsed.data.programId !== undefined ? nextProgram?.name ?? null : undefined;
     const {
       name: _name,
       qty: _qty,
@@ -297,6 +328,7 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
     } = parsed.data;
     const data: Prisma.ProductTemplateUncheckedUpdateInput = {
       ...updateInput,
+      ...(parsed.data.stationId === undefined ? {} : { stationId: nextStationId }),
       ...(generatedName ? { name: generatedName } : {}),
       ...(parsed.data.qty === undefined ? {} : { qty: parsed.data.qty ?? "01" }),
       ...(programName !== undefined ? { program: parsed.data.program ?? programName } : {}),
@@ -306,6 +338,7 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
       where: { id: String(req.params["id"]) },
       data,
       include: {
+        station: { select: { id: true, name: true, primaryColor: true } },
         programRef: { select: { id: true, name: true, slug: true, stationId: true, station: { select: { id: true, name: true, primaryColor: true } } } },
         duration: { select: { id: true, label: true, seconds: true } },
       },

@@ -22,7 +22,7 @@ import {
   UserRound,
   XCircle,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 
 import { ProposalProgressTimeline } from '@/components/proposal/ProposalProgressTimeline';
 import { Badge } from '@/components/ui/badge';
@@ -226,12 +226,16 @@ export default function ProposalProgress() {
       return payload;
     },
     onSuccess: (_, variables) => {
-      toast.success(variables.nextStatus === 'APPROVED' ? 'Proposta aprovada' : 'Proposta rejeitada');
+      if (variables.nextStatus === 'APPROVED') {
+        feedback.updated('Proposta aprovada');
+      } else {
+        feedback.destructive('Proposta rejeitada');
+      }
       invalidateProgress();
       setAcceptTarget(null);
       setRejectTarget(null);
     },
-    onError: (error: any) => toast.error(error.message || 'Erro ao atualizar status da proposta'),
+    onError: (error: any) => feedback.error(error.message || 'Erro ao atualizar status da proposta'),
   });
 
   const addStepMutation = useMutation({
@@ -250,13 +254,13 @@ export default function ProposalProgress() {
       return payload;
     },
     onSuccess: () => {
-      toast.success('Andamento registrado');
+      feedback.created('Andamento registrado');
       invalidateProgress();
       setManualNote('');
       setManualStep('IN_CONVERSATION');
       setStepTarget(null);
     },
-    onError: (error: any) => toast.error(error.message || 'Erro ao registrar andamento'),
+    onError: (error: any) => feedback.error(error.message || 'Erro ao registrar andamento'),
   });
 
   const programs = boardQuery.data?.programs || [];
@@ -424,42 +428,12 @@ export default function ProposalProgress() {
 
                     return (
                       <div key={proposal.id} className="rounded-lg border bg-background p-4 shadow-sm">
-                        <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
-                          <div className="min-w-0">
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                          <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="line-clamp-2 text-xl font-bold leading-tight">{proposal.advertiserName}</h3>
                               {proposal.advertiserStatus === 'LEAD' && <Badge variant="outline">Lead</Badge>}
                               {getStatusBadge(proposal.status)}
-                            </div>
-                            <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-4">
-                              <div className="rounded-md bg-muted/30 px-3 py-2">
-                                <span className="flex items-center gap-1 font-medium text-foreground">
-                                  <FileText className="h-3.5 w-3.5" />
-                                  Proposta
-                                </span>
-                                <p className="mt-1 truncate">{proposal.proposalTypeName || 'Proposta Comercial'}</p>
-                              </div>
-                              <div className="rounded-md bg-muted/30 px-3 py-2">
-                                <span className="flex items-center gap-1 font-medium text-foreground">
-                                  <Building2 className="h-3.5 w-3.5" />
-                                  Empresa
-                                </span>
-                                <p className="mt-1 truncate">{proposal.stationName || 'Empresa não informada'}</p>
-                              </div>
-                              <div className="rounded-md bg-muted/30 px-3 py-2">
-                                <span className="flex items-center gap-1 font-medium text-foreground">
-                                  <UserRound className="h-3.5 w-3.5" />
-                                  Responsável
-                                </span>
-                                <p className="mt-1 truncate">{proposal.createdByName || 'Não informado'}</p>
-                              </div>
-                              <div className="rounded-md bg-muted/30 px-3 py-2">
-                                <span className="flex items-center gap-1 font-medium text-foreground">
-                                  <Clock3 className="h-3.5 w-3.5" />
-                                  Atualização
-                                </span>
-                                <p className="mt-1 truncate">{formatDate(proposal.updatedAt)}</p>
-                              </div>
                             </div>
                           </div>
 
@@ -489,6 +463,45 @@ export default function ProposalProgress() {
                                   Rejeitar
                                 </Button>
                             )}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                            <span className="flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground">
+                              <FileText className="h-3.5 w-3.5 shrink-0" />
+                              Proposta
+                            </span>
+                            <p className="mt-1 truncate" title={proposal.proposalTypeName || 'Proposta Comercial'}>
+                              {proposal.proposalTypeName || 'Proposta Comercial'}
+                            </p>
+                          </div>
+                          <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                            <span className="flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground">
+                              <Building2 className="h-3.5 w-3.5 shrink-0" />
+                              Empresa
+                            </span>
+                            <p className="mt-1 truncate" title={proposal.stationName || 'Empresa não informada'}>
+                              {proposal.stationName || 'Empresa não informada'}
+                            </p>
+                          </div>
+                          <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                            <span className="flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground">
+                              <UserRound className="h-3.5 w-3.5 shrink-0" />
+                              Responsável
+                            </span>
+                            <p className="mt-1 truncate" title={proposal.createdByName || 'Não informado'}>
+                              {proposal.createdByName || 'Não informado'}
+                            </p>
+                          </div>
+                          <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
+                            <span className="flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground">
+                              <Clock3 className="h-3.5 w-3.5 shrink-0" />
+                              Atualização
+                            </span>
+                            <p className="mt-1 truncate" title={formatDate(proposal.updatedAt)}>
+                              {formatDate(proposal.updatedAt)}
+                            </p>
                           </div>
                         </div>
 

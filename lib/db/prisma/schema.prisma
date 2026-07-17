@@ -80,23 +80,25 @@ enum ProposalRecallReminderStatus {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  name          String
-  email         String         @unique
-  passwordHash  String         @map("password_hash")
-  role          UserRole       @default(COMERCIAL)
-  active        Boolean        @default(true)
-  jobTitle      String?        @map("job_title")
-  contactPhone  String?        @map("contact_phone")
-  contactEmail  String?        @map("contact_email")
-  avatarBase64  String?        @map("avatar_base64") @db.Text
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  proposals     Proposal[]
-  proposalTimelines ProposalTimeline[]
+  id                      String                   @id @default(cuid())
+  name                    String
+  email                   String                   @unique
+  passwordHash            String                   @map("password_hash")
+  role                    UserRole                 @default(COMERCIAL)
+  active                  Boolean                  @default(true)
+  jobTitle                String?                  @map("job_title")
+  contactPhone            String?                  @map("contact_phone")
+  contactEmail            String?                  @map("contact_email")
+  avatarBase64            String?                  @map("avatar_base64") @db.Text
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  proposals               Proposal[]
+  proposalTimelines       ProposalTimeline[]
   assignedRecallReminders ProposalRecallReminder[] @relation("ProposalRecallReminderAssignedTo")
   handledRecallReminders  ProposalRecallReminder[] @relation("ProposalRecallReminderHandledBy")
-  refreshTokens RefreshToken[]
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
+  stationAccesses         UserStationAccess[]
 
   @@map("users")
 }
@@ -113,48 +115,83 @@ model RefreshToken {
 }
 
 model Station {
-  id                String             @id @default(cuid())
-  name              String
-  slogan            String?
-  primaryColor      String             @default("#427EFF") @map("primary_color")
-  logoBase64        String?            @map("logo_base64") @db.Text
-  cnpj              String?
-  tradeName         String?            @map("trade_name")
-  legalName         String?            @map("legal_name")
-  contactName       String?            @map("contact_name")
-  contactPhone      String?            @map("contact_phone")
-  contactEmail      String?            @map("contact_email")
-  address           String?
-  city              String?
-  state             String?
-  website           String?
-  notes             String?            @db.Text
-  active            Boolean            @default(true)
-  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  proposals         Proposal[]
-  productTemplates  ProductTemplate[]
-  proposalTemplates ProposalTemplate[]
+  id                 String              @id @default(cuid())
+  name               String
+  slogan             String?
+  primaryColor       String              @default("#427EFF") @map("primary_color")
+  logoBase64         String?             @map("logo_base64") @db.Text
+  cnpj               String?
+  tradeName          String?             @map("trade_name")
+  legalName          String?             @map("legal_name")
+  contactName        String?             @map("contact_name")
+  contactPhone       String?             @map("contact_phone")
+  contactEmail       String?             @map("contact_email")
+  address            String?
+  city               String?
+  state              String?
+  website            String?
+  notes              String?             @db.Text
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  proposals          Proposal[]
+  productTemplates   ProductTemplate[]
+  proposalTemplates  ProposalTemplate[]
   proposalCategories ProposalCategory[]
+  presentationItems  StationPresentationItem[]
+  userAccesses       UserStationAccess[]
 
   @@map("stations")
 }
 
+model StationPresentationItem {
+  id          String   @id @default(cuid())
+  stationId   String   @map("station_id")
+  station     Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  highlight   String
+  description String   @db.Text
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([stationId, order])
+  @@index([stationId, active])
+  @@map("station_presentation_items")
+}
+
+model UserStationAccess {
+  id                 String   @id @default(cuid())
+  userId             String   @map("user_id")
+  stationId          String   @map("station_id")
+  canCreateProposals Boolean  @default(true) @map("can_create_proposals")
+  canViewCatalog     Boolean  @default(true) @map("can_view_catalog")
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  station            Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, stationId])
+  @@index([stationId, active])
+  @@map("user_station_accesses")
+}
+
 model Advertiser {
-  id           String           @id @default(cuid())
-  tradeName    String           @map("trade_name")
-  legalName    String?          @map("legal_name")
-  cnpj         String?          @unique
-  logoBase64   String?          @map("logo_base64") @db.Text
-  contactName  String?          @map("contact_name")
-  contactPhone String?          @map("contact_phone")
-  contactEmail String?          @map("contact_email")
-  notes        String?          @db.Text
-  status       AdvertiserStatus @default(CLIENT)
-  active       Boolean          @default(true)
-  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-  proposals    Proposal[]
+  id              String                   @id @default(cuid())
+  tradeName       String                   @map("trade_name")
+  legalName       String?                  @map("legal_name")
+  cnpj            String?                  @unique
+  logoBase64      String?                  @map("logo_base64") @db.Text
+  contactName     String?                  @map("contact_name")
+  contactPhone    String?                  @map("contact_phone")
+  contactEmail    String?                  @map("contact_email")
+  notes           String?                  @db.Text
+  status          AdvertiserStatus         @default(CLIENT)
+  active          Boolean                  @default(true)
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  proposals       Proposal[]
   recallReminders ProposalRecallReminder[]
 
   @@map("advertisers")
@@ -271,63 +308,77 @@ model ProposalTemplateProduct {
 }
 
 model Proposal {
-  id             String              @id @default(cuid())
-  stationId      String              @map("station_id")
-  station        Station             @relation(fields: [stationId], references: [id])
-  advertiserId   String?             @map("advertiser_id")
-  advertiser     Advertiser?         @relation(fields: [advertiserId], references: [id])
-  createdById    String              @map("created_by_id")
-  createdBy      User                @relation(fields: [createdById], references: [id])
-  status         ProposalStatus      @default(DRAFT)
-  fromTemplateId String?             @map("from_template_id")
-  fromTemplate   ProposalTemplate?   @relation(fields: [fromTemplateId], references: [id])
-  proposalTypeId String?             @map("proposal_type_id")
-  proposalType   ProposalType?       @relation(fields: [proposalTypeId], references: [id], onDelete: SetNull)
-  periodicity    ProposalPeriodicity @default(MONTHLY)
-  propType       String              @default("Proposta Comercial") @map("prop_type")
-  propMonth      String              @default("") @map("prop_month")
-  propYear       String              @default("") @map("prop_year")
-  campTag        String?             @map("camp_tag")
-  clientLine1    String?             @map("client_line1")
-  clientLine2    String?             @map("client_line2")
-  dateStart      String?             @map("date_start")
-  dateEnd        String?             @map("date_end")
-  periodDesc     String?             @map("period_desc")
-  bannerBase64   String?             @map("banner_base64") @db.Text
-  overlayOpacity Int                 @default(70) @map("overlay_opacity")
-  stats          Json                @default("[]")
-  investDesc     String?             @map("invest_desc")
-  investValue    String?             @map("invest_value")
-  contactName    String?             @map("contact_name")
-  contactRole    String?             @map("contact_role")
-  contactPhone   String?             @map("contact_phone")
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  products       ProposalProduct[]
-  versions       ProposalVersion[]
-  timeline       ProposalTimeline[]
+  id              String                   @id @default(cuid())
+  stationId       String                   @map("station_id")
+  station         Station                  @relation(fields: [stationId], references: [id])
+  advertiserId    String?                  @map("advertiser_id")
+  advertiser      Advertiser?              @relation(fields: [advertiserId], references: [id])
+  createdById     String                   @map("created_by_id")
+  createdBy       User                     @relation(fields: [createdById], references: [id])
+  status          ProposalStatus           @default(DRAFT)
+  fromTemplateId  String?                  @map("from_template_id")
+  fromTemplate    ProposalTemplate?        @relation(fields: [fromTemplateId], references: [id])
+  proposalTypeId  String?                  @map("proposal_type_id")
+  proposalType    ProposalType?            @relation(fields: [proposalTypeId], references: [id], onDelete: SetNull)
+  periodicity     ProposalPeriodicity      @default(MONTHLY)
+  propType        String                   @default("Proposta Comercial") @map("prop_type")
+  propMonth       String                   @default("") @map("prop_month")
+  propYear        String                   @default("") @map("prop_year")
+  campTag         String?                  @map("camp_tag")
+  clientLine1     String?                  @map("client_line1")
+  clientLine2     String?                  @map("client_line2")
+  dateStart       String?                  @map("date_start")
+  dateEnd         String?                  @map("date_end")
+  periodDesc      String?                  @map("period_desc")
+  showPeriod      Boolean                  @default(true) @map("show_period")
+  bannerBase64    String?                  @map("banner_base64") @db.Text
+  overlayOpacity  Int                      @default(70) @map("overlay_opacity")
+  stats           Json                     @default("[]")
+  investDesc      String?                  @map("invest_desc")
+  investValue     String?                  @map("invest_value")
+  contactName     String?                  @map("contact_name")
+  contactRole     String?                  @map("contact_role")
+  contactPhone    String?                  @map("contact_phone")
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  products        ProposalProduct[]
+  versions        ProposalVersion[]
+  timeline        ProposalTimeline[]
   recallReminders ProposalRecallReminder[]
 
   @@map("proposals")
 }
 
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
 model ProposalProduct {
-  id                String           @id @default(cuid())
-  proposalId        String           @map("proposal_id")
-  proposal          Proposal         @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  productTemplateId String?          @map("product_template_id")
-  productTemplate   ProductTemplate? @relation(fields: [productTemplateId], references: [id], onDelete: SetNull)
-  order             Int              @default(0)
-  qty               String           @default("01")
+  id                String                      @id @default(cuid())
+  proposalId        String                      @map("proposal_id")
+  proposal          Proposal                    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  productTemplateId String?                     @map("product_template_id")
+  productTemplate   ProductTemplate?            @relation(fields: [productTemplateId], references: [id], onDelete: SetNull)
+  order             Int                         @default(0)
+  qty               String                      @default("01")
   title             String
-  description       String?          @db.Text
+  description       String?                     @db.Text
   detail            String?
   program           String?
-  durationLabel     String?          @map("duration_label")
-  airTime           String?          @map("air_time")
+  durationLabel     String?                     @map("duration_label")
+  airTime           String?                     @map("air_time")
   seasonality       ProposalProductSeasonality?
-  tags              String[]         @default([])
-  color             ProductColor     @default(BLUE)
+  tags              String[]                    @default([])
+  color             ProductColor                @default(BLUE)
 
   @@map("proposal_products")
 }

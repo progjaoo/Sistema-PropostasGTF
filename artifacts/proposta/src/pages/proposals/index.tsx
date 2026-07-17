@@ -14,7 +14,7 @@ import {
 } from '@workspace/api-client-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import {
   Building2,
   CalendarClock,
@@ -229,11 +229,11 @@ export default function ProposalsList() {
   const rejectMutation = useDeleteProposal({
     mutation: {
       onSuccess: () => {
-        toast.success('Proposta marcada como rejeitada');
+        feedback.destructive('Proposta marcada como rejeitada');
         queryClient.invalidateQueries({ queryKey: ['proposal-program-board'] });
         queryClient.invalidateQueries({ queryKey: [getListProposalsQueryKey()[0]] });
       },
-      onError: () => toast.error('Erro ao rejeitar proposta'),
+      onError: () => feedback.error('Erro ao rejeitar proposta'),
     },
   });
 
@@ -252,14 +252,14 @@ export default function ProposalsList() {
       return payload;
     },
     onSuccess: () => {
-      toast.success('Proposta aprovada');
+      feedback.updated('Proposta aprovada');
       queryClient.invalidateQueries({ queryKey: ['proposal-program-board'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-progress-board'] });
       queryClient.invalidateQueries({ queryKey: [getListProposalsQueryKey()[0]] });
       setApproveTarget(null);
       setTimelineTarget(null);
     },
-    onError: (error: any) => toast.error(error.message || 'Erro ao aprovar proposta'),
+    onError: (error: any) => feedback.error(error.message || 'Erro ao aprovar proposta'),
   });
 
   const duplicateMutation = useMutation({
@@ -273,11 +273,11 @@ export default function ProposalsList() {
       return payload;
     },
     onSuccess: (proposal) => {
-      toast.success('Proposta duplicada');
+      feedback.created('Proposta duplicada');
       queryClient.invalidateQueries({ queryKey: ['proposal-program-board'] });
       setLocation(`/proposals/${proposal.id}/edit`);
     },
-    onError: (error: any) => toast.error(error.message || 'Erro ao duplicar proposta'),
+    onError: (error: any) => feedback.error(error.message || 'Erro ao duplicar proposta'),
   });
 
   const programs = boardQuery.data?.programs || [];
@@ -301,7 +301,7 @@ export default function ProposalsList() {
 
   const createDraft = async () => {
     if (!newStationId) {
-      toast.error('Selecione a empresa da proposta');
+      feedback.error('Selecione a empresa da proposta');
       return;
     }
 
@@ -317,12 +317,12 @@ export default function ProposalsList() {
           propYear: '',
         },
       } as any);
-      toast.success('Rascunho criado');
+      feedback.created('Rascunho criado');
       setCreateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['proposal-program-board'] });
       setLocation(`/proposals/${proposal.id}/edit`);
     } catch {
-      toast.error('Erro ao criar proposta');
+      feedback.error('Erro ao criar proposta');
     }
   };
 

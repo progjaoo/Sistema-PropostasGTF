@@ -5,6 +5,7 @@
  * Sistema de Gerenciamento e Criação de Propostas Comerciais
  * OpenAPI spec version: 0.1.0
  */
+import type { AdvertiserInputStatus } from './advertiserInputStatus';
 
 export interface AdvertiserInput {
   tradeName: string;
@@ -16,5 +17,5 @@ export interface AdvertiserInput {
   contactPhone?: string;
   contactEmail?: string;
   notes?: string;
-  status?: 'LEAD' | 'CLIENT';
+  status?: AdvertiserInputStatus;
 }

@@ -7,6 +7,7 @@
  */
 
 export interface ProposalCategoryInput {
+  stationId: string;
   name: string;
   slug: string;
   description?: string;

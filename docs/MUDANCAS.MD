@@ -1,4 +1,22 @@
 
+## Implementado - Plano 018 Dashboard sem Total e Arquivadas
+
+- Dashboard: removido o card `Total` dos indicadores clicaveis.
+- Dashboard: removido o card `Arquivadas`, pois o sistema ainda nao possui fluxo operacional de arquivamento.
+- Dashboard: mantidos apenas os cards `Rascunhos`, `Enviadas`, `Aceitas` e `Rejeitadas`.
+- Dashboard: a listagem inicial passa a abrir em `Rascunhos`.
+- Dashboard: grid dos indicadores ajustada para quatro cards em telas largas.
+- Documentacao: `paginas-por-perfil.md` atualizado com o comportamento atual.
+
+## Implementado - Plano 017 Corrigir Fluxo Nova Proposta
+
+- Propostas: `/proposals/new` deixou de redirecionar silenciosamente para `/proposals`.
+- Propostas: criada tela funcional de `Nova Proposta` com selecao de Empresa e Tipo de Proposta.
+- Propostas: a Empresa prioriza `Radio 88 FM` como primeira opcao quando cadastrada e ativa.
+- Propostas: ao criar o rascunho, o sistema chama `POST /api/proposals`, invalida as listas/boards e abre `/proposals/:id/edit`.
+- Propostas: mantidos os botoes existentes do Dashboard e da tela `/proposals`, agora apontando para um fluxo funcional.
+- Documentacao: `paginas-por-perfil.md` atualizado com o fluxo atual de criacao.
+
 ## Implementado - Plano 014 Propostas como Tela Completa de Andamento
 
 - Sidebar: removido o item redundante `Andamento de Propostas`.
@@ -133,6 +151,17 @@
 - API: `GET /api/proposals` passou a aceitar filtros de `stationId`, `proposalTypeId`, `createdById`, `dateFrom`, `dateTo`, `sortBy` e `sortDir`.
 - API: resumo de proposta passou a retornar empresa, tipo, responsavel e investimento para a Dashboard.
 
+## Implementado - Plano 016 Proposta Multipagina com Paginacao Dinamica
+
+- PDF/print: `ProposalPrint` deixou de usar paginacao fixa por 4 produtos.
+- PDF/print: criado fluxo de medicao offscreen em A4 antes da impressao.
+- PDF/print: criado algoritmo puro de paginacao por altura real dos cards e espaco reservado por pagina.
+- PDF/print: criada estrutura de paginas prontas com pagina inicial, paginas intermediarias e pagina final.
+- PDF/print: investimento e rodape continuam aparecendo somente na ultima pagina.
+- PDF/print: botao `PDF` e `Ctrl+P`/`Cmd+P` agora chamam `window.print()` somente depois que a medicao e a paginacao terminam.
+- PDF/print: CSS da folha A4 passou a usar altura fixa, `overflow: hidden` e quebra controlada por pagina.
+- Arquitetura: secoes visuais do print foram separadas em componentes reutilizaveis dentro de `components/proposal/print`.
+
 ## Backlog / Pendencias Futuras
 
 NA SIDEBAR COLOCAR ABAIXO DE ANUNCIANTES (QUE SERA CLIENTES O NOME, NÃO MAIS ANUNCIANTES) CRIAR LEADS (Que será a tela daqueles que ainda não Clientes)
@@ -156,13 +185,43 @@ CRIAR PROPOSTA - (atualmlente tem uma tela que ao clicar em propostas, cai em um
     - PRODUTO: REMOVER BOTAO INSERIR NA PROPOSTA/ADICIONAR PRODUTO NO CATALOGO, AO ABRIR O SELECT DE PRODUTOS, PESQUISA, CLICOU NO PRODUTO ELE VAI PRA PROPOSTA - Botão Criar Produto Novo em vez de Adicionar Produto Avulso - Botão excluir produto sempre visivel e deve ser vermelho - retirar campo tags
     - TIPOGRAFIA DA PÁGINA DO PDF DE PROPOSTAS DEVE SER MONTESSERRAT - A FOLHA EM TAMANHO A4 para impressão e um bom PDF
     - AJUSTAR PARA QUE AO CLICAR NO BOTÃO PDF A IMPRESSÃO FIQUE CORRETA, COMPLETA E NÃO COMO ESTÁ AGORA
-
-TELA DE PROGRAMAS -> CRIAR PROGRAMA -> 
 ______________________________________
+### PEDIDOS LEO - 15 JULHO 2026
+- TAREFA 1: No cadastro de EMPRESAS:
+    - retirar RAZAO SOCIAL, CNPJ NÃO DEVE SER OBRIGATÓRIO, SITE, DADOS COMPLEMENTARES, UF. Obrigatório apenas Nome - Cor da Proposta
+    - Colocar um componente color picker no cor padrão da proposta da empresa
+    - Contato da empresa deixar apenas TELEFONE e EMAIL
+- TAREFA 2: No cadastro de Produto:
+    - Deve ter a empresa para vincular esse produto
+    - Nem sempre um produto, será um programa, então no accordeão de Produto na Criaçãoi de Proposta, quando crio um produto NOVO, o nome PROGRAMA deve ser NOME DO PRODUTO.
+- TAREFA 3: GESTÃO DE USUÁRIOS MAIS ROBUSTA:
+    - O Admin deve ter como CRIAR/ATUALIZAR/DELETAR USUÁRIOS, deve ter uma tela para gerência desses usuários para que ele posssa fazer a Gestão de Acessos desses, exemplo: Criei um login comercial para o Lucas Silva, ele pode crir propostas apnas para a empresa X e não pode criar para empresa Y, ele deve poder gerir a possibilidade de vendas e acessos desses usários comerciais. Criar um planejamento para uma gestão de acessos completa.
 
-APÓS
-DASHBOARD: 
+- TAREFA 4: DENTRO DA CRIAÇÃO DE PROPOSTA:
+    - No acorddeao retirar os dados da empresa ali no empresa dentro do accordeão, precisa ser mais intuitivo então pode retirar os dados da empresa.
+    - No accordeao no criar novo lead, no modal obrigatório para esse cadastro apenas NOME - NOME DO CONTATO - TELEFONE o resto não precisa ser obrigatório, não precisa ter CNPJ no cadastro do novo lead.
+    - No accodeão de PERÍODO, precisa ter a opção "Não exibir Período" e ele marcando esse check não deve exibir PERÍODO no pdf da PROPOSTA.
+- TAREFA 5: APRESENTAÇÃO:
+    - No accordeão de APRESENTAÇÃO, o login COMERCIAL não deve ter acesso a isso, a APRESENTAÇÃO deve ser criada pelo ADMIN e já ser setado na proposta por empresa, cada empresa tem a apresentação dela, vamos estruturar para que apenas o ADMIN crie apresentações PADRÃO para cada empresa e quando o comercial for criar proposta, ele ao escolher a empresa já vir a APRESENTAÇÃO que foi criado para essa empresa pelo ADMIN do sistema no PDF da proposta.
 
-PERMITIR COMERCIAL TRANSITAR CLIENTES:
+- TAREFA 6: LOGIN:
+    - Criar recuperação de senha casa o usário esqueça a senha, na tela de Login colocar um Esqueceu a Senha? Ele insere o email cadastrado e ai será enviado um link para ele trocar de senha, pense em um plano, irei utilizar o RESEND para essa recuperação de senha através do EMAIL.
+    https://resend.com/docs/introduction DOCUMENTAÇÃO DO RESEND
+    API key deve ser configurada somente pela variavel de ambiente `RESEND_API_KEY` e nunca registrada na documentacao.
 
-SISTEMA DE AVISO RECORRENTE: 
+## Implementado - Plano 019 Empresas, Produtos e Gestao de Acessos
+
+- Empresas: formulario simplificado para Nome, Cor da proposta, Logo, Slogan, Endereco, Cidade, Telefone, E-mail e Status.
+- Empresas: criado `ColorPickerField` sincronizado com hexadecimal e normalizacao para `#RRGGBB` uppercase.
+- Produtos: Empresa passou a ser obrigatoria e Programa opcional; a API valida que ambos pertencem ao mesmo escopo.
+- Produtos: listagem e formulario agora filtram Programas por Empresa e aceitam `Sem programa`.
+- Propostas: item avulso usa o rotulo `Nome do Produto`; o catalogo e filtrado pela Empresa da proposta.
+- Banco: criada a tabela `user_station_accesses` com permissoes para criar propostas e visualizar catalogo.
+- Banco: migration e seed fazem backfill dos COMERCIAIS ativos para as Empresas ativas existentes.
+- Usuarios: tela administrativa ganhou CRUD, filtros, status pendente, reset de senha e matriz de acesso por Empresa.
+- Seguranca: COMERCIAL opera em `default-deny`; API retorna `403` para Empresa ou catalogo sem permissao e preserva a regra de propriedade da proposta.
+- Cadastro publico: novas contas COMERCIAIS ficam inativas ate aprovacao do ADMIN.
+- Validacao: Prisma generate, codegen, typecheck, builds de frontend/API, Docker Compose, healthcheck e matriz HTTP ADMIN/COMERCIAL executados.
+
+
+

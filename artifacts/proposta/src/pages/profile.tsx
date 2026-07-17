@@ -1,6 +1,6 @@
 import React from 'react';
 import { Save, UserCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,7 +51,7 @@ export default function ProfileSettings() {
           avatarBase64: payload.avatarBase64 || '',
         });
       })
-      .catch((error) => toast.error(error.message || 'Erro ao carregar perfil'))
+      .catch((error) => feedback.error(error.message || 'Erro ao carregar perfil'))
       .finally(() => {
         if (active) setLoading(false);
       });
@@ -78,7 +78,7 @@ export default function ProfileSettings() {
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.jobTitle.trim() || !form.contactPhone.trim()) {
-      toast.error('Preencha nome, cargo e telefone de contato');
+      feedback.error('Preencha nome, cargo e telefone de contato');
       return;
     }
 
@@ -111,9 +111,9 @@ export default function ProfileSettings() {
         contactEmail: payload.contactEmail || '',
         avatarBase64: payload.avatarBase64 || '',
       });
-      toast.success('Perfil atualizado');
+      feedback.updated('Perfil atualizado');
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao salvar perfil');
+      feedback.error(error.message || 'Erro ao salvar perfil');
     } finally {
       setSaving(false);
     }

@@ -7,7 +7,7 @@
 - Manter componentes reutilizaveis em `components`.
 - Reaproveitar componentes shadcn/ui antes de criar novos.
 - Usar Lucide React para icones.
-- Usar Sonner para feedback nao bloqueante.
+- Usar React Toastify via `src/lib/feedback.ts` para feedback nao bloqueante.
 - Usar AlertDialog/ConfirmActionDialog para confirmacoes destrutivas ou criticas.
 
 ## Rotas
@@ -44,7 +44,12 @@ Padroes:
 
 - Confirmacoes de exclusao, logout e acoes destrutivas devem usar AlertDialog/shadcn.
 - Toasts devem ser usados para sucesso/erro informativo, sem pedir decisao do usuario.
-- Acoes destrutivas devem usar cor visual de perigo/warning.
+- Toasts devem passar pelo wrapper `feedback`, evitando import direto de `react-toastify` nas paginas.
+- Acoes de criar/cadastrar/adicionar devem usar `feedback.created(...)` e aparecer em verde.
+- Acoes de atualizar/salvar/reagendar/tratar devem usar `feedback.updated(...)` e aparecer em verde.
+- Acoes de excluir/desativar/rejeitar devem usar `feedback.deleted(...)` ou `feedback.destructive(...)` e aparecer em vermelho.
+- `feedback.warning(...)` fica reservado para avisos nao destrutivos.
+- `feedback.info(...)` fica reservado para informacoes neutras.
 
 ## Layout
 

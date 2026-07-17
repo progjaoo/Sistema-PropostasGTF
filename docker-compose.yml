@@ -22,6 +22,8 @@ services:
     build:
       context: .
     container_name: sistema-propostas-api
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy

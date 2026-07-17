@@ -12,7 +12,6 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Archive,
   ArrowRight,
   Building2,
   CheckCircle,
@@ -38,7 +37,7 @@ import {
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 
-type DashboardStatus = 'all' | 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED' | 'ARCHIVED';
+type DashboardStatus = 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED';
 
 type ProposalTypeOption = {
   id: string;
@@ -53,13 +52,6 @@ const STATUS_CONFIG: Record<DashboardStatus, {
   color: string;
   bg: string;
 }> = {
-  all: {
-    title: 'Total',
-    listTitle: 'Todas as propostas',
-    icon: FileText,
-    color: 'text-blue-600',
-    bg: 'bg-blue-100',
-  },
   DRAFT: {
     title: 'Rascunhos',
     listTitle: 'Propostas Rascunho',
@@ -88,16 +80,9 @@ const STATUS_CONFIG: Record<DashboardStatus, {
     color: 'text-error',
     bg: 'bg-error/10',
   },
-  ARCHIVED: {
-    title: 'Arquivadas',
-    listTitle: 'Propostas Arquivadas',
-    icon: Archive,
-    color: 'text-neutral-600',
-    bg: 'bg-neutral-200',
-  },
 };
 
-const STATUS_ORDER: DashboardStatus[] = ['all', 'DRAFT', 'SENT', 'APPROVED', 'REJECTED', 'ARCHIVED'];
+const STATUS_ORDER: DashboardStatus[] = ['DRAFT', 'SENT', 'APPROVED', 'REJECTED'];
 
 function buildHeaders(token: string | null) {
   return token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -137,18 +122,16 @@ function getProposalType(proposal: ProposalSummary) {
 
 function getStatValue(status: DashboardStatus, stats?: DashboardStats) {
   if (!stats) return 0;
-  if (status === 'all') return stats.total;
   if (status === 'DRAFT') return stats.draft;
   if (status === 'SENT') return stats.sent;
   if (status === 'APPROVED') return stats.approved;
-  if (status === 'REJECTED') return stats.rejected;
-  return stats.archived;
+  return stats.rejected;
 }
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const token = useAuthStore((state) => state.accessToken);
-  const [selectedStatus, setSelectedStatus] = React.useState<DashboardStatus>('all');
+  const [selectedStatus, setSelectedStatus] = React.useState<DashboardStatus>('DRAFT');
   const [search, setSearch] = React.useState('');
   const deferredSearch = React.useDeferredValue(search);
   const [stationId, setStationId] = React.useState('all');
@@ -179,14 +162,14 @@ export default function Dashboard() {
   const proposalParams = React.useMemo(() => ({
     page,
     limit,
-    status: selectedStatus === 'all' ? undefined : selectedStatus,
+    status: selectedStatus,
     search: deferredSearch.trim() || undefined,
     stationId: stationId === 'all' ? undefined : stationId,
     createdById: createdById === 'all' ? undefined : createdById,
     proposalTypeId: proposalTypeId === 'all' ? undefined : proposalTypeId,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
-    sortBy: 'updatedAt',
+    sortBy: 'updatedAt' as const,
     sortDir,
   }), [createdById, dateFrom, dateTo, deferredSearch, page, proposalTypeId, selectedStatus, sortDir, stationId]);
 
@@ -227,7 +210,7 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {STATUS_ORDER.map((status) => {
           const config = STATUS_CONFIG[status];
           const Icon = config.icon;

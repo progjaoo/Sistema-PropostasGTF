@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useGetAdvertiser, useUpdateAdvertiser } from '@workspace/api-client-react';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -72,10 +72,10 @@ export default function AdvertiserEdit({ params, mode = 'client' }: { params: { 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
       await updateMutation.mutateAsync({ id: params.id, data: values });
-      toast.success(`${entityLabel} atualizado com sucesso!`);
+      feedback.updated(`${entityLabel} atualizado com sucesso!`);
       setLocation(backPath);
     } catch (error) {
-      toast.error(`Erro ao atualizar ${entityLabel.toLowerCase()}`);
+      feedback.error(`Erro ao atualizar ${entityLabel.toLowerCase()}`);
     }
   };
 

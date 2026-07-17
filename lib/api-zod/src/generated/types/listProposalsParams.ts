@@ -5,11 +5,20 @@
  * Sistema de Gerenciamento e Criação de Propostas Comerciais
  * OpenAPI spec version: 0.1.0
  */
+import type { ListProposalsSortBy } from './listProposalsSortBy';
+import type { ListProposalsSortDir } from './listProposalsSortDir';
 
 export type ListProposalsParams = {
 page?: number;
 limit?: number;
 status?: string;
 advertiserId?: string;
+stationId?: string;
+proposalTypeId?: string;
+createdById?: string;
+dateFrom?: string;
+dateTo?: string;
+sortBy?: ListProposalsSortBy;
+sortDir?: ListProposalsSortDir;
 search?: string;
 };

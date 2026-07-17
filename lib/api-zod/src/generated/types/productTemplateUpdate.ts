@@ -8,6 +8,9 @@
 import type { ProductTemplateUpdateColor } from './productTemplateUpdateColor';
 
 export interface ProductTemplateUpdate {
+  stationId?: string;
+  /** @nullable */
+  programId?: string | null;
   name?: string;
   qty?: string;
   title?: string;

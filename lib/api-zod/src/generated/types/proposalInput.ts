@@ -20,6 +20,7 @@ export interface ProposalInput {
   dateStart?: string;
   dateEnd?: string;
   periodDesc?: string;
+  showPeriod?: boolean;
   bannerBase64?: string;
   overlayOpacity?: number;
   stats?: StatBlock[];

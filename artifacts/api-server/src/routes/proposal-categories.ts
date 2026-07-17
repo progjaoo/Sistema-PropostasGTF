@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma, type Prisma } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { z } from "zod/v4";
+import { getAccessibleStationIds } from "../services/station-access";
 
 const router = Router();
 
@@ -164,7 +165,13 @@ async function syncProgramProducts(programId: string, stationId: string, product
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
   const { search, active, sort, stationId } = req.query as { search?: string; active?: string; sort?: string; stationId?: string };
-  res.json(await getCategories({ search, active, sort, stationId }));
+  const accessibleIds = await getAccessibleStationIds(req.userId!, req.userRole, "canViewCatalog");
+  if (accessibleIds !== null && stationId && stationId !== "all" && !accessibleIds.includes(stationId)) {
+    res.status(403).json({ error: "Você não possui acesso ao catálogo desta empresa" });
+    return;
+  }
+  const categories = await getCategories({ search, active, sort, stationId });
+  res.json(accessibleIds === null ? categories : categories.filter((category) => category.stationId && accessibleIds.includes(category.stationId)));
 });
 
 router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {

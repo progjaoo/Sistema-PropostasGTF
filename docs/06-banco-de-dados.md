@@ -10,8 +10,11 @@
 ## Modelos Principais
 
 - `User`
+- `UserStationAccess`
+- `PasswordResetToken`
 - `RefreshToken`
 - `Station`
+- `StationPresentationItem`
 - `Advertiser`
 - `ProductTemplate`
 - `ProductDuration`
@@ -47,6 +50,9 @@
 ## Relacionamentos Importantes
 
 - `Proposal.stationId` define a empresa/emissora da proposta.
+- `UserStationAccess` relaciona um usuario COMERCIAL a uma Empresa, com permissoes independentes para criar propostas e visualizar o catalogo.
+- A chave unica `userId + stationId` impede acessos duplicados para a mesma Empresa.
+- ADMIN nao depende de registros em `UserStationAccess`; seu acesso global vem do perfil.
 - `Proposal.createdById` define o dono/vendedor da proposta.
 - `Proposal.advertiserId` define o cliente/lead vinculado.
 - `Proposal.products` define o plano de produtos da proposta.
@@ -60,6 +66,10 @@
 - `ProposalProduct.seasonality` guarda a sazonalidade do item (`MONTHLY`, `SEMIANNUAL`, `ANNUAL`).
 - `Advertiser.status` separa Leads (`LEAD`) de Clientes (`CLIENT`) sem duplicar tabela.
 - `Station.primaryColor` define a cor padrao usada no preview da proposta.
+- `StationPresentationItem` guarda ate quatro itens de apresentacao padrao por Empresa.
+- `Proposal.showPeriod` controla se o periodo aparece no preview/PDF sem apagar datas salvas.
+- `Proposal.stats` e snapshot da apresentacao no momento da criacao/troca de Empresa.
+- `PasswordResetToken` guarda apenas hash SHA-256 do token de recuperacao, com expiracao e uso unico.
 - `Proposal.timeline` registra as etapas comerciais da negociacao.
 - `ProposalTimeline.createdById` registra quem adicionou uma etapa manual ou automatica.
 - `Proposal.recallReminders` registra avisos recorrentes de recaptura quando a proposta e rejeitada.
@@ -92,4 +102,6 @@ pnpm seed
 
 - Depois de alterar `schema.prisma`, rode `pnpm db:generate`.
 - Em ambiente local/Docker, o compose executa `db push` e `seed` na subida da API.
-- Antes de producao, avaliar migracoes formais se o deploy passar a exigir historico de migrations.
+- A migration `20260715120000_user_station_accesses` cria a matriz de acesso e faz backfill dos COMERCIAIS ativos para as Empresas ativas existentes.
+- O seed faz o backfill apenas para COMERCIAIS ativos que ainda nao possuem nenhum vinculo, sem ampliar matrizes que ja tenham sido revisadas pelo ADMIN.
+- Em producao, use a migration formal e revise os acessos legados no painel administrativo apos o deploy.

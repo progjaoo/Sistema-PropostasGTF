@@ -27,6 +27,7 @@ Pagina publica para entrada no sistema.
 Funcionalidades:
 
 - Login com e-mail e senha.
+- Link `Esqueceu a senha?` para iniciar recuperacao por e-mail.
 - Cadastro publico de usuario COMERCIAL pela aba `Criar acesso`.
 - Feedback visual por toast em login, erro de login, cadastro criado e erro de cadastro.
 
@@ -35,6 +36,27 @@ Regras:
 - Usuario ADMIN nao se cadastra pela tela publica.
 - Todo cadastro publico entra como `COMERCIAL`.
 - A sessao fica armazenada em `sessionStorage`.
+
+### `/forgot-password`
+
+Pagina publica para solicitar recuperacao de senha.
+
+Funcionalidades:
+
+- Usuario informa o e-mail cadastrado.
+- A API responde sempre com mensagem generica, sem revelar se a conta existe.
+- Quando a conta ativa existe, o backend gera token de uso unico e envia o link por Resend.
+
+### `/reset-password`
+
+Pagina publica acessada pelo link enviado por e-mail.
+
+Funcionalidades:
+
+- Ler token da URL.
+- Informar nova senha e confirmacao.
+- Mostrar/ocultar senha.
+- Ao concluir, revoga sessoes antigas e direciona o usuario de volta ao login.
 
 Credenciais seed:
 
@@ -85,12 +107,12 @@ Acesso:
 Funcionalidades:
 
 - Visao consolidada das propostas.
-- Indicadores por status: total, rascunhos, enviadas, aceitas, rejeitadas e arquivadas.
+- Indicadores por status operacional: rascunhos, enviadas, aceitas e rejeitadas.
 - Cards de status clicaveis: ao selecionar um card, a lista abaixo mostra somente as propostas daquele status.
+- Ao abrir a Dashboard, o filtro inicial e `Rascunhos`.
 - Lista operacional de propostas com cliente, tipo, empresa, responsavel, atualizacao, status e investimento.
 - Filtros internos da lista: busca textual, empresa, responsavel, tipo de proposta, periodo e ordenacao.
 - Paginacao server-side usando `GET /api/proposals`.
-- Botao `Total` remove o filtro de status e lista todas as propostas.
 - Cada proposta listada pode ser aberta diretamente no editor.
 
 ### Propostas
@@ -119,8 +141,12 @@ Funcionalidades:
 - A rota `/proposal-progress` ficou como rota legada e redireciona para `/proposals`.
 - Consultar avisos de recaptura na tela `/recall-reminders`.
 - Marcar proposta como `Aceita`; quando a proposta vinculada a Lead e aceita, o Lead vira Cliente automaticamente.
-- Gerar PDF pela impressao nativa do navegador, preservando layout A4, fundos e rodape de contato.
+- Gerar PDF pela impressao nativa do navegador, com paginas A4 controladas pelo sistema, fundos preservados e rodape de contato na ultima pagina.
 - Rejeitar proposta com confirmacao por dialog.
+- O acordeao Empresa mostra apenas seletor, nome e cor da Empresa.
+- O modal rapido `Novo Lead` exige apenas Nome, Nome do Contato e Telefone.
+- O acordeao Periodo possui a opcao `Nao exibir periodo na proposta`.
+- O acordeao Apresentacao e somente leitura e usa o snapshot definido pela Empresa.
 
 Status atuais:
 
@@ -265,12 +291,12 @@ Rota:
 
 Funcionamento atual:
 
-- `/proposals/new` foi mantida apenas como compatibilidade.
-- Ao acessar diretamente, a rota redireciona para `/proposals`.
-- A criacao de proposta acontece pelo botao `Nova Proposta` na tela `/proposals`.
-- O dialog de criacao permite selecionar a Empresa da proposta e o tipo inicial.
+- `/proposals/new` e a rota unica de criacao de rascunho.
+- Os botoes `Nova Proposta` do Dashboard e da tela `/proposals` apontam para essa rota.
+- A tela de criacao permite selecionar a Empresa da proposta e o tipo inicial.
 - A lista de Empresas prioriza `Radio 88 FM` como primeira opcao, quando ela estiver cadastrada e ativa.
 - A periodicidade inicial e `MONTHLY`.
+- Ao confirmar, o sistema cria a proposta como `Rascunho` e abre diretamente `/proposals/:id/edit`.
 
 Dados enviados na criacao:
 
@@ -320,7 +346,7 @@ Layout atual:
 - Acordeao `Periodo`: possui datas de inicio/fim; o campo `Texto de Periodo Personalizado` nao aparece mais na UI.
 - Acordeao `Apresentacao`: descricao usa campo multilinha, aceita espacos e quebra de linha.
 - Acordeao `Produtos`: botao de remover produto fica vermelho e visivel no card.
-- Botao `PDF`: abre o fluxo de impressao do navegador usando o componente exclusivo `ProposalPrint`, sem sidebar/editor, em layout enxuto.
+- Botao `PDF`: abre o fluxo de impressao do navegador usando o componente exclusivo `ProposalPrint`, sem sidebar/editor, em layout multipagina A4.
 - Painel direito: preview visual da proposta em formato A4.
 - Rodape fixo do painel esquerdo: status, botao salvar e botao PDF.
 
@@ -598,11 +624,15 @@ Local:
 Funcionamento atual:
 
 - Renderiza `components/proposal/ProposalPrint.tsx` temporariamente em `document.body`.
-- Chama `window.print()` depois de dois frames para garantir que o portal esteja no DOM.
+- Mede os cards e calcula as paginas antes de chamar `window.print()`, evitando depender da quebra automatica do navegador.
 - O atalho `Ctrl+P`/`Cmd+P` no editor usa o mesmo fluxo preparado do botao `PDF`.
 - A geracao depende do dialogo de impressao do navegador.
 - O CSS de impressao define `@page size: A4 portrait` e oculta toda a aplicacao exceto `#proposal-print-root`.
 - O PDF nao usa o `ProposalPreview` escalonado do editor.
+- Produtos sao distribuidos por altura real medida, e nao por um numero fixo de cards.
+- Hero e Apresentacao aparecem apenas na primeira pagina.
+- Paginas intermediarias usam cabecalho compacto e continuacao do Plano de Acoes.
+- Investimento e rodape aparecem juntos somente na ultima pagina.
 - Ate 4 produtos devem caber em uma unica pagina com investimento e contato.
 - Produtos sao paginados em grupos de ate 4 por pagina quando houver mais de 4 itens.
 - Cards de produto exibem borda lateral na cor da empresa selecionada.
@@ -731,14 +761,20 @@ Funcionalidades:
 
 - Listar usuarios.
 - Criar usuarios ADMIN ou COMERCIAL.
+- Editar nome, e-mail, perfil e status.
+- Desativar usuarios preservando historico.
 - Definir senha temporaria.
-- Visualizar perfil, data de criacao e status.
-- Toast de sucesso/erro ao criar usuario.
+- Redefinir senha e encerrar sessoes anteriores.
+- Buscar por nome/e-mail e filtrar por perfil, status e Empresa.
+- Definir por Empresa as permissoes `Criar proposta` e `Ver catalogo`.
+- Identificar contas inativas ou pendentes de aprovacao.
 
 Uso esperado:
 
 - Criar acessos administrativos.
 - Criar acessos comerciais quando o ADMIN quiser controlar diretamente os usuarios.
+- Aprovar solicitacoes publicas somente depois de atribuir os acessos por Empresa.
+- Um COMERCIAL ativo precisa de ao menos uma Empresa com permissao de criacao.
 
 ### Empresas
 
@@ -756,23 +792,17 @@ Funcionalidades:
 - Upload de foto/logo em base64.
 - Listar empresas cadastradas.
 - Definir cor padrao da proposta (`primaryColor`), com default `#427EFF`.
+- Selecionar a cor por color picker e editar o hexadecimal sincronizado.
 
 Campos principais:
 
 - Nome principal.
-- Nome fantasia.
-- Razao social.
-- CNPJ.
 - Slogan.
 - Cor padrao da proposta.
-- Contato.
 - Telefone.
 - E-mail.
 - Endereco.
 - Cidade.
-- UF.
-- Site.
-- Dados complementares.
 - Logo/foto em base64.
 
 Observacao:
@@ -795,24 +825,27 @@ Funcionalidades:
 - Editar produto.
 - Excluir produto com confirmacao por dialog.
 - Vincular produto a um programa.
+- Vincular produto obrigatoriamente a uma Empresa.
+- Salvar produto sem Programa.
 - Informar valor sugerido unico.
 - Selecionar duracao do produto.
 - Criar nova duracao dentro do formulario de produto.
 - Buscar por nome, titulo ou descricao.
 - Filtrar por programa.
+- Filtrar por Empresa.
 - Filtrar por status: ativo, inativo ou todos.
 - Filtrar por valor sugerido minimo e maximo.
 - Ordenar por ordem cadastrada, nome, data ou valor sugerido.
 
 Campos principais:
 
-- Programa.
+- Empresa.
+- Programa opcional.
 - Nome do Produto.
 - Duracao.
 - Valor sugerido.
 - Descricao.
 - Detalhe.
-- Tags.
 
 Observacao:
 
@@ -820,6 +853,8 @@ Observacao:
 - O campo tecnico `ProductTemplate.name` ainda existe no banco, mas e gerado pela API.
 - Quantidade nao faz parte do cadastro de Produto; ela e definida no item da proposta.
 - O campo de cor do produto nao e mais editado na UI; o destaque visual usa a cor da Empresa/Emissora do programa.
+- Ao trocar a Empresa no formulario, um Programa incompativel e limpo.
+- A API rejeita Produto e Programa de Empresas diferentes.
 
 ### Programas
 
@@ -921,17 +956,20 @@ Funcionalidades:
 
 - Visualizar propostas por programas.
 - Filtrar por texto, empresa, programa e status.
-- Criar rascunho de proposta pelo dialog `Nova Proposta`.
+- Criar rascunho de proposta pela tela `Nova Proposta`, escolhendo Empresa e Tipo de Proposta antes de abrir o editor.
 - Editar proposta.
 - Alterar status.
 - Vincular cliente ou lead.
 - Consultar dados comerciais da proposta.
 - Rejeitar proposta com confirmacao.
+- Escolher somente Empresas com permissao `Criar propostas`.
+- Consultar no editor apenas o catalogo autorizado da Empresa selecionada.
 
 Regras:
 
 - O COMERCIAL nao acessa dashboard.
 - O COMERCIAL nao acessa cadastros administrativos.
+- Tentativas diretas contra Empresa sem permissao retornam `403`.
 
 ### Clientes
 
@@ -1024,7 +1062,16 @@ Estado atual:
 
 ## Alertas e Feedbacks
 
-O sistema usa `sonner` para toasts.
+O sistema usa React Toastify para toasts informativos, sempre via wrapper `src/lib/feedback.ts`.
+
+Padrao visual:
+
+- criar/cadastrar/adicionar: verde;
+- atualizar/salvar/reagendar/tratar: verde;
+- excluir/desativar/rejeitar: vermelho;
+- erro: vermelho;
+- aviso/warning: amarelo/laranja;
+- informativo: azul/neutro.
 
 Fluxos com alertas/toasts:
 

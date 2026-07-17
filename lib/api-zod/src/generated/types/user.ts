@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UserRole } from './userRole';
+import type { UserStationAccess } from './userStationAccess';
 
 export interface User {
   id: string;
@@ -14,4 +15,6 @@ export interface User {
   role: UserRole;
   active: boolean;
   createdAt: string;
+  updatedAt?: string;
+  stationAccesses?: UserStationAccess[];
 }

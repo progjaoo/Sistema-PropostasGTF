@@ -103,6 +103,27 @@ pnpm db:push
 pnpm seed
 ```
 
+## Recuperacao de Senha em Desenvolvimento
+
+Por padrao local, use o provedor mock para nao depender de e-mail real:
+
+```env
+APP_PUBLIC_URL=http://localhost:21709
+EMAIL_PROVIDER=mock
+PASSWORD_RESET_TTL_MINUTES=30
+```
+
+Para testar envio real pelo Resend em desenvolvimento, use uma chave nova e restrita somente no `.env` local:
+
+```env
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_xxxxxxxxx
+RESEND_FROM_EMAIL=GTF Propostas <nao-responda@subdominio-verificado>
+APP_PUBLIC_URL=http://localhost:21709
+```
+
+Nunca registre a chave real em docs, commits ou prints.
+
 ## Logs e Status
 
 ```bash

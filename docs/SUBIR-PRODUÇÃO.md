@@ -82,6 +82,12 @@ JWT_REFRESH_SECRET=gere-outro-segredo-grande
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 
+APP_PUBLIC_URL=https://propostas.seudominio.com.br
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_xxxxxxxxx
+RESEND_FROM_EMAIL=GTF Propostas <nao-responda@subdominio-verificado>
+PASSWORD_RESET_TTL_MINUTES=30
+
 BASE_PATH=/
 API_PROXY_TARGET=http://api:8080
 ```
@@ -93,6 +99,8 @@ openssl rand -hex 32
 ```
 
 Nao use os segredos de desenvolvimento do `docker-compose.yml` em producao.
+
+Para recuperacao de senha, crie uma chave nova no Resend e configure SPF/DKIM do dominio ou subdominio usado em `RESEND_FROM_EMAIL`. A chave exposta durante o levantamento do projeto deve ser revogada antes do deploy. Nunca coloque a chave em arquivos versionados, docs ou prints.
 
 ## 5. Docker Compose de producao
 

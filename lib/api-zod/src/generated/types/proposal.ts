@@ -41,6 +41,7 @@ export interface Proposal {
   dateEnd?: string | null;
   /** @nullable */
   periodDesc?: string | null;
+  showPeriod?: boolean;
   /** @nullable */
   bannerBase64?: string | null;
   overlayOpacity: number;

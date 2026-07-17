@@ -9,7 +9,7 @@ import {
   getListProposalTemplatesQueryKey 
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { Plus, Edit, Trash2, FileText, LayoutTemplate } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,7 @@ export default function AdminProposalTemplates() {
   const deleteMutation = useDeleteProposalTemplate({
     mutation: {
       onSuccess: () => {
-        toast.success('Template excluído');
+        feedback.deleted('Template excluído');
         queryClient.invalidateQueries({ queryKey: [getListProposalTemplatesQueryKey()[0]] });
       }
     }
@@ -77,15 +77,15 @@ export default function AdminProposalTemplates() {
     try {
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, data: values });
-        toast.success('Template atualizado');
+        feedback.updated('Template atualizado');
       } else {
         await createMutation.mutateAsync({ data: values });
-        toast.success('Template criado');
+        feedback.created('Template criado');
       }
       queryClient.invalidateQueries({ queryKey: [getListProposalTemplatesQueryKey()[0]] });
       setIsOpen(false);
     } catch (e) {
-      toast.error('Erro ao salvar template');
+      feedback.error('Erro ao salvar template');
     }
   };
 

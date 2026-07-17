@@ -5,6 +5,7 @@
  * Sistema de Gerenciamento e Criação de Propostas Comerciais
  * OpenAPI spec version: 0.1.0
  */
+import type { StationPresentationItem } from './stationPresentationItem';
 
 export interface Station {
   id: string;
@@ -14,5 +15,19 @@ export interface Station {
   primaryColor: string;
   /** @nullable */
   logoBase64?: string | null;
+  /** @nullable */
+  contactPhone?: string | null;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  active: boolean;
+  /** Permissão calculada para o usuário autenticado criar propostas nesta empresa. */
+  viewerCanCreateProposals?: boolean;
+  /** Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa. */
+  viewerCanViewCatalog?: boolean;
+  presentationItems?: StationPresentationItem[];
   createdAt: string;
 }

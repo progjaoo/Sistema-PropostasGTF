@@ -7,6 +7,12 @@
 - Na criacao e edicao de proposta, o usuario deve poder escolher a empresa.
 - `Radio 88 FM` deve aparecer como primeira opcao quando cadastrada e ativa.
 - Toda empresa possui `primaryColor`, com default `#427EFF`, usado no preview da proposta.
+- No cadastro administrativo, Nome e Cor da proposta sao obrigatorios.
+- Logo, slogan, endereco, cidade, telefone e e-mail sao opcionais.
+- Razao social, nome fantasia duplicado, CNPJ, nome do contato, UF, site e observacoes permanecem apenas como campos legados na API/banco e nao aparecem no formulario.
+- ADMIN pode configurar ate 4 itens de Apresentacao padrao por Empresa.
+- Cada item de Apresentacao possui destaque e descricao.
+- A Apresentacao padrao da Empresa alimenta novas propostas como snapshot.
 
 ## Programas
 
@@ -25,10 +31,13 @@
 - Produtos possuem um valor sugerido unico, usado como referencia comercial.
 - Produtos podem ter duracao/tempo de reproducao.
 - Duracoes sao reutilizaveis e podem ser criadas pelo ADMIN durante o cadastro de produto.
-- Produtos devem ser vinculados a programas no cadastro.
+- Todo Produto pertence obrigatoriamente a uma Empresa.
+- O Programa e opcional; quando informado, deve pertencer a mesma Empresa do Produto.
+- Produto sem Programa aparece como `Sem programa` e pode ser usado normalmente em propostas da sua Empresa.
 - O cadastro ADMIN de Produto nao usa mais quantidade; quantidade pertence ao item da proposta.
 - O campo tecnico `ProductTemplate.name` continua existindo, mas e gerado pela API.
 - Somente ADMIN cria/edita produtos.
+- O campo de cor do Produto permanece apenas por compatibilidade; a proposta usa a cor da Empresa.
 
 ## Clientes e Leads
 
@@ -53,6 +62,8 @@ Regras:
 
 - COMERCIAL so visualiza e edita propostas criadas por ele.
 - ADMIN visualiza e edita todas.
+- COMERCIAL so opera propostas em Empresas com `canCreateProposals` ativo.
+- O catalogo usado no editor e filtrado pela Empresa da proposta e pela permissao `canViewCatalog`.
 - O contato exibido na proposta vem do perfil do vendedor (`createdBy`).
 - A empresa da proposta vem de `stationId`.
 - O cliente/lead vem de `advertiserId`.
@@ -62,8 +73,11 @@ Regras:
 - Horario e sazonalidade nao pertencem ao produto de catalogo.
 - Duracao aparece na proposta quando o produto/item possui essa informacao.
 - O preview usa a cor primaria da empresa selecionada.
-- A apresentacao da proposta possui ate 4 itens editaveis, cada um com destaque e descricao.
-- A descricao dos itens de Apresentacao aceita texto livre e quebra de linha.
+- A apresentacao da proposta vem da Empresa e fica somente leitura no editor.
+- Ao trocar a Empresa da proposta, a API substitui o snapshot da Apresentacao pelo padrao da nova Empresa.
+- Alterar a Apresentacao padrao da Empresa nao altera propostas antigas ja criadas.
+- A opcao `Nao exibir periodo na proposta` oculta periodo no preview/PDF sem apagar datas salvas.
+- O campo legado `periodDesc` nao volta para a UI.
 
 ## Andamento da Proposta
 

@@ -5,6 +5,7 @@
  * Sistema de Gerenciamento e Criação de Propostas Comerciais
  * OpenAPI spec version: 0.1.0
  */
+import type { UserStationAccessInput } from './userStationAccessInput';
 import type { UserUpdateRole } from './userUpdateRole';
 
 export interface UserUpdate {
@@ -12,4 +13,5 @@ export interface UserUpdate {
   email?: string;
   role?: UserUpdateRole;
   active?: boolean;
+  stationAccesses?: UserStationAccessInput[];
 }

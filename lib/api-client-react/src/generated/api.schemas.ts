@@ -18,6 +18,16 @@ export interface LoginInput {
   password: string;
 }
 
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface PublicResetPasswordInput {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 
@@ -26,6 +36,15 @@ export const UserRole = {
   COMERCIAL: 'COMERCIAL',
 } as const;
 
+export interface UserStationAccess {
+  id?: string;
+  stationId: string;
+  stationName?: string;
+  canCreateProposals: boolean;
+  canViewCatalog: boolean;
+  active: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -33,11 +52,20 @@ export interface User {
   role: UserRole;
   active: boolean;
   createdAt: string;
+  updatedAt?: string;
+  stationAccesses?: UserStationAccess[];
 }
 
 export interface AuthResponse {
   accessToken: string;
   user: User;
+}
+
+export interface UserStationAccessInput {
+  stationId: string;
+  canCreateProposals: boolean;
+  canViewCatalog: boolean;
+  active: boolean;
 }
 
 export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
@@ -53,6 +81,8 @@ export interface UserInput {
   email: string;
   password: string;
   role: UserInputRole;
+  active?: boolean;
+  stationAccesses?: UserStationAccessInput[];
 }
 
 export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
@@ -68,10 +98,19 @@ export interface UserUpdate {
   email?: string;
   role?: UserUpdateRole;
   active?: boolean;
+  stationAccesses?: UserStationAccessInput[];
 }
 
 export interface ResetPasswordInput {
   newPassword: string;
+}
+
+export interface StationPresentationItem {
+  id?: string;
+  highlight: string;
+  description: string;
+  order: number;
+  active?: boolean;
 }
 
 export interface Station {
@@ -82,14 +121,50 @@ export interface Station {
   primaryColor: string;
   /** @nullable */
   logoBase64?: string | null;
+  /** @nullable */
+  contactPhone?: string | null;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  active: boolean;
+  /** Permissão calculada para o usuário autenticado criar propostas nesta empresa. */
+  viewerCanCreateProposals?: boolean;
+  /** Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa. */
+  viewerCanViewCatalog?: boolean;
+  presentationItems?: StationPresentationItem[];
   createdAt: string;
+}
+
+export interface StationPresentationInput {
+  /** @maxItems 4 */
+  items: StationPresentationItem[];
+}
+
+export interface StatBlock {
+  num: string;
+  suf: string;
+  desc: string;
+}
+
+export interface StationPresentationResponse {
+  stationId: string;
+  items: StationPresentationItem[];
+  stats: StatBlock[];
 }
 
 export interface StationInput {
   name: string;
   slogan?: string;
-  primaryColor?: string;
+  primaryColor: string;
   logoBase64?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  address?: string;
+  city?: string;
+  active?: boolean;
 }
 
 export interface StationUpdate {
@@ -97,6 +172,11 @@ export interface StationUpdate {
   slogan?: string;
   primaryColor?: string;
   logoBase64?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  address?: string;
+  city?: string;
+  active?: boolean;
 }
 
 export interface Advertiser {
@@ -118,10 +198,17 @@ export interface Advertiser {
   contactEmail?: string | null;
   /** @nullable */
   notes?: string | null;
-  status: 'LEAD' | 'CLIENT';
   active: boolean;
   createdAt: string;
 }
+
+export type AdvertiserInputStatus = typeof AdvertiserInputStatus[keyof typeof AdvertiserInputStatus];
+
+
+export const AdvertiserInputStatus = {
+  LEAD: 'LEAD',
+  CLIENT: 'CLIENT',
+} as const;
 
 export interface AdvertiserInput {
   tradeName: string;
@@ -133,8 +220,16 @@ export interface AdvertiserInput {
   contactPhone?: string;
   contactEmail?: string;
   notes?: string;
-  status?: 'LEAD' | 'CLIENT';
+  status?: AdvertiserInputStatus;
 }
+
+export type AdvertiserUpdateStatus = typeof AdvertiserUpdateStatus[keyof typeof AdvertiserUpdateStatus];
+
+
+export const AdvertiserUpdateStatus = {
+  LEAD: 'LEAD',
+  CLIENT: 'CLIENT',
+} as const;
 
 export interface AdvertiserUpdate {
   tradeName?: string;
@@ -146,8 +241,8 @@ export interface AdvertiserUpdate {
   contactPhone?: string;
   contactEmail?: string;
   notes?: string;
-  status?: 'LEAD' | 'CLIENT';
   active?: boolean;
+  status?: AdvertiserUpdateStatus;
 }
 
 export type ProductTemplateColor = typeof ProductTemplateColor[keyof typeof ProductTemplateColor];
@@ -164,6 +259,12 @@ export const ProductTemplateColor = {
 export interface ProductTemplate {
   id: string;
   stationId: string;
+  /** @nullable */
+  stationName?: string | null;
+  /** @nullable */
+  stationPrimaryColor?: string | null;
+  /** @nullable */
+  programId?: string | null;
   name: string;
   qty: string;
   title: string;
@@ -190,7 +291,10 @@ export const ProductTemplateInputColor = {
 } as const;
 
 export interface ProductTemplateInput {
-  name: string;
+  stationId: string;
+  /** @nullable */
+  programId?: string | null;
+  name?: string;
   qty?: string;
   title: string;
   description?: string;
@@ -212,6 +316,9 @@ export const ProductTemplateUpdateColor = {
 } as const;
 
 export interface ProductTemplateUpdate {
+  stationId?: string;
+  /** @nullable */
+  programId?: string | null;
   name?: string;
   qty?: string;
   title?: string;
@@ -237,6 +344,7 @@ export interface ProposalCategory {
 }
 
 export interface ProposalCategoryInput {
+  stationId: string;
   name: string;
   slug: string;
   description?: string;
@@ -246,6 +354,7 @@ export interface ProposalCategoryInput {
 }
 
 export interface ProposalCategoryUpdate {
+  stationId?: string;
   name?: string;
   slug?: string;
   description?: string;
@@ -278,12 +387,6 @@ export interface ProposalTemplateProduct {
   program?: string | null;
   tags?: string[];
   color: ProposalTemplateProductColor;
-}
-
-export interface StatBlock {
-  num: string;
-  suf: string;
-  desc: string;
 }
 
 export interface ProposalTemplate {
@@ -425,6 +528,7 @@ export interface Proposal {
   dateEnd?: string | null;
   /** @nullable */
   periodDesc?: string | null;
+  showPeriod?: boolean;
   /** @nullable */
   bannerBase64?: string | null;
   overlayOpacity: number;
@@ -527,6 +631,7 @@ export interface ProposalInput {
   dateStart?: string;
   dateEnd?: string;
   periodDesc?: string;
+  showPeriod?: boolean;
   bannerBase64?: string;
   overlayOpacity?: number;
   stats?: StatBlock[];
@@ -549,6 +654,7 @@ export interface ProposalUpdate {
   dateStart?: string;
   dateEnd?: string;
   periodDesc?: string;
+  showPeriod?: boolean;
   bannerBase64?: string;
   overlayOpacity?: number;
   stats?: StatBlock[];
@@ -605,7 +711,16 @@ export interface TemplateUsageStat {
 export type ListAdvertisersParams = {
 search?: string;
 active?: boolean;
-status?: 'LEAD' | 'CLIENT';
+};
+
+export type ListProductTemplatesParams = {
+stationId?: string;
+programId?: string;
+search?: string;
+active?: string;
+sort?: string;
+minValue?: string;
+maxValue?: string;
 };
 
 export type ListProposalTemplatesParams = {
@@ -622,7 +737,24 @@ proposalTypeId?: string;
 createdById?: string;
 dateFrom?: string;
 dateTo?: string;
-sortBy?: string;
-sortDir?: string;
+sortBy?: ListProposalsSortBy;
+sortDir?: ListProposalsSortDir;
 search?: string;
 };
+
+export type ListProposalsSortBy = typeof ListProposalsSortBy[keyof typeof ListProposalsSortBy];
+
+
+export const ListProposalsSortBy = {
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+} as const;
+
+export type ListProposalsSortDir = typeof ListProposalsSortDir[keyof typeof ListProposalsSortDir];
+
+
+export const ListProposalsSortDir = {
+  asc: 'asc',
+  desc: 'desc',
+} as const;
+

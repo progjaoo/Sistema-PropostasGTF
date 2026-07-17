@@ -17,6 +17,7 @@ interface ProposalPreviewProps {
     } | null;
     proposalTypeName?: string | null;
     periodicity?: string | null;
+    showPeriod?: boolean | null;
   };
   scale?: number;
 }
@@ -128,6 +129,7 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
   const clientName = getClientName(proposal);
   const periodRange = formatPeriod(proposal);
   const periodNote = proposal.periodDesc || '';
+  const showPeriod = proposal.showPeriod !== false;
   const products = (proposal.products || []) as any[];
   const seller = (proposal as any).createdBy;
   const sellerContactName = seller?.name || proposal.contactName || 'Contato do vendedor';
@@ -178,16 +180,18 @@ export function ProposalPreview({ proposal, scale = 1 }: ProposalPreviewProps) {
           <h1 className="mt-5 max-w-[620px] text-[58px] font-black uppercase leading-[0.93] tracking-tight">
             {clientName}
           </h1>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <div className="rounded-full border border-white/85 px-5 py-2 text-[13px] font-bold">
-              Período: {periodRange}
-            </div>
-            {periodNote && (
-              <div className="max-w-[360px] text-[13px] font-medium text-white/80">
-                {periodNote}
+          {showPeriod && (
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <div className="rounded-full border border-white/85 px-5 py-2 text-[13px] font-bold">
+                Período: {periodRange}
               </div>
-            )}
-          </div>
+              {periodNote && (
+                <div className="max-w-[360px] text-[13px] font-medium text-white/80">
+                  {periodNote}
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {stats.length > 0 && (

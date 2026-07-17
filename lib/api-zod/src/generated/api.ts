@@ -32,7 +32,16 @@ export const LoginResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 })
 })
 
@@ -48,7 +57,16 @@ export const RefreshTokenResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 })
 })
 
@@ -68,7 +86,42 @@ export const GetMeResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
+})
+
+
+/**
+ * @summary Request password reset email
+ */
+export const ForgotPasswordBody = zod.object({
+  "email": zod.string()
+})
+
+export const ForgotPasswordResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Reset password with a one-time token
+ */
+export const ResetPasswordPublicBody = zod.object({
+  "token": zod.string(),
+  "newPassword": zod.string(),
+  "confirmPassword": zod.string()
+})
+
+export const ResetPasswordPublicResponse = zod.object({
+  "message": zod.string()
 })
 
 
@@ -81,7 +134,16 @@ export const ListUsersResponseItem = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
 
@@ -93,7 +155,14 @@ export const CreateUserBody = zod.object({
   "name": zod.string(),
   "email": zod.string(),
   "password": zod.string(),
-  "role": zod.enum(['ADMIN', 'COMERCIAL'])
+  "role": zod.enum(['ADMIN', 'COMERCIAL']),
+  "active": zod.boolean().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "stationId": zod.string(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 })
 
 export const CreateUserResponse = zod.object({
@@ -102,7 +171,42 @@ export const CreateUserResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
+})
+
+
+/**
+ * @summary Get user and station accesses (Admin only)
+ */
+export const GetUserParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetUserResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'COMERCIAL']),
+  "active": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 })
 
 
@@ -117,7 +221,13 @@ export const UpdateUserBody = zod.object({
   "name": zod.string().optional(),
   "email": zod.string().optional(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']).optional(),
-  "active": zod.boolean().optional()
+  "active": zod.boolean().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "stationId": zod.string(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 })
 
 export const UpdateUserResponse = zod.object({
@@ -126,7 +236,16 @@ export const UpdateUserResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 })
 
 
@@ -143,7 +262,16 @@ export const DeleteUserResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 })
 
 
@@ -172,6 +300,20 @@ export const ListStationsResponseItem = zod.object({
   "slogan": zod.string().nullish(),
   "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 })
 export const ListStationsResponse = zod.array(ListStationsResponseItem)
@@ -183,8 +325,13 @@ export const ListStationsResponse = zod.array(ListStationsResponseItem)
 export const CreateStationBody = zod.object({
   "name": zod.string(),
   "slogan": zod.string().optional(),
-  "primaryColor": zod.string().optional(),
-  "logoBase64": zod.string().optional()
+  "primaryColor": zod.string(),
+  "logoBase64": zod.string().optional(),
+  "contactPhone": zod.string().optional(),
+  "contactEmail": zod.string().optional(),
+  "address": zod.string().optional(),
+  "city": zod.string().optional(),
+  "active": zod.boolean().optional()
 })
 
 export const CreateStationResponse = zod.object({
@@ -193,6 +340,20 @@ export const CreateStationResponse = zod.object({
   "slogan": zod.string().nullish(),
   "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 })
 
@@ -208,7 +369,12 @@ export const UpdateStationBody = zod.object({
   "name": zod.string().optional(),
   "slogan": zod.string().optional(),
   "primaryColor": zod.string().optional(),
-  "logoBase64": zod.string().optional()
+  "logoBase64": zod.string().optional(),
+  "contactPhone": zod.string().optional(),
+  "contactEmail": zod.string().optional(),
+  "address": zod.string().optional(),
+  "city": zod.string().optional(),
+  "active": zod.boolean().optional()
 })
 
 export const UpdateStationResponse = zod.object({
@@ -217,7 +383,83 @@ export const UpdateStationResponse = zod.object({
   "slogan": zod.string().nullish(),
   "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Get station default presentation
+ */
+export const GetStationPresentationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetStationPresentationResponse = zod.object({
+  "stationId": zod.string(),
+  "items": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})),
+  "stats": zod.array(zod.object({
+  "num": zod.string(),
+  "suf": zod.string(),
+  "desc": zod.string()
+}))
+})
+
+
+/**
+ * @summary Replace station default presentation (Admin only)
+ */
+export const UpdateStationPresentationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateStationPresentationBodyItemsMax = 4;
+
+
+
+export const UpdateStationPresentationBody = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).max(updateStationPresentationBodyItemsMax)
+})
+
+export const UpdateStationPresentationResponse = zod.object({
+  "stationId": zod.string(),
+  "items": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})),
+  "stats": zod.array(zod.object({
+  "num": zod.string(),
+  "suf": zod.string(),
+  "desc": zod.string()
+}))
 })
 
 
@@ -226,8 +468,7 @@ export const UpdateStationResponse = zod.object({
  */
 export const ListAdvertisersQueryParams = zod.object({
   "search": zod.coerce.string().optional(),
-  "active": zod.coerce.boolean().optional(),
-  "status": zod.enum(['LEAD', 'CLIENT']).optional()
+  "active": zod.coerce.boolean().optional()
 })
 
 export const ListAdvertisersResponseItem = zod.object({
@@ -241,7 +482,6 @@ export const ListAdvertisersResponseItem = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -275,7 +515,6 @@ export const CreateAdvertiserResponse = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -299,7 +538,6 @@ export const GetAdvertiserResponse = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -322,8 +560,8 @@ export const UpdateAdvertiserBody = zod.object({
   "contactPhone": zod.string().optional(),
   "contactEmail": zod.string().optional(),
   "notes": zod.string().optional(),
-  "status": zod.enum(['LEAD', 'CLIENT']).optional(),
-  "active": zod.boolean().optional()
+  "active": zod.boolean().optional(),
+  "status": zod.enum(['LEAD', 'CLIENT']).optional()
 })
 
 export const UpdateAdvertiserResponse = zod.object({
@@ -337,7 +575,6 @@ export const UpdateAdvertiserResponse = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -361,7 +598,6 @@ export const DeleteAdvertiserResponse = zod.object({
   "contactPhone": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['LEAD', 'CLIENT']),
   "active": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -370,9 +606,22 @@ export const DeleteAdvertiserResponse = zod.object({
 /**
  * @summary List product templates
  */
+export const ListProductTemplatesQueryParams = zod.object({
+  "stationId": zod.coerce.string().optional(),
+  "programId": zod.coerce.string().optional(),
+  "search": zod.coerce.string().optional(),
+  "active": zod.coerce.string().optional(),
+  "sort": zod.coerce.string().optional(),
+  "minValue": zod.coerce.string().optional(),
+  "maxValue": zod.coerce.string().optional()
+})
+
 export const ListProductTemplatesResponseItem = zod.object({
   "id": zod.string(),
   "stationId": zod.string(),
+  "stationName": zod.string().nullish(),
+  "stationPrimaryColor": zod.string().nullish(),
+  "programId": zod.string().nullish(),
   "name": zod.string(),
   "qty": zod.string(),
   "title": zod.string(),
@@ -390,7 +639,9 @@ export const ListProductTemplatesResponse = zod.array(ListProductTemplatesRespon
  * @summary Create product template (Admin only)
  */
 export const CreateProductTemplateBody = zod.object({
-  "name": zod.string(),
+  "stationId": zod.string(),
+  "programId": zod.string().nullish(),
+  "name": zod.string().optional(),
   "qty": zod.string().optional(),
   "title": zod.string(),
   "description": zod.string().optional(),
@@ -403,6 +654,9 @@ export const CreateProductTemplateBody = zod.object({
 export const CreateProductTemplateResponse = zod.object({
   "id": zod.string(),
   "stationId": zod.string(),
+  "stationName": zod.string().nullish(),
+  "stationPrimaryColor": zod.string().nullish(),
+  "programId": zod.string().nullish(),
   "name": zod.string(),
   "qty": zod.string(),
   "title": zod.string(),
@@ -423,6 +677,8 @@ export const UpdateProductTemplateParams = zod.object({
 })
 
 export const UpdateProductTemplateBody = zod.object({
+  "stationId": zod.string().optional(),
+  "programId": zod.string().nullish(),
   "name": zod.string().optional(),
   "qty": zod.string().optional(),
   "title": zod.string().optional(),
@@ -436,6 +692,9 @@ export const UpdateProductTemplateBody = zod.object({
 export const UpdateProductTemplateResponse = zod.object({
   "id": zod.string(),
   "stationId": zod.string(),
+  "stationName": zod.string().nullish(),
+  "stationPrimaryColor": zod.string().nullish(),
+  "programId": zod.string().nullish(),
   "name": zod.string(),
   "qty": zod.string(),
   "title": zod.string(),
@@ -481,6 +740,7 @@ export const ListProposalCategoriesResponse = zod.array(ListProposalCategoriesRe
  * @summary Create proposal category (Admin only)
  */
 export const CreateProposalCategoryBody = zod.object({
+  "stationId": zod.string(),
   "name": zod.string(),
   "slug": zod.string(),
   "description": zod.string().optional(),
@@ -510,6 +770,7 @@ export const UpdateProposalCategoryParams = zod.object({
 })
 
 export const UpdateProposalCategoryBody = zod.object({
+  "stationId": zod.string().optional(),
   "name": zod.string().optional(),
   "slug": zod.string().optional(),
   "description": zod.string().optional(),
@@ -824,7 +1085,22 @@ export const UseProposalTemplateResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 }).optional(),
   "advertiserId": zod.string().nullish(),
@@ -849,7 +1125,16 @@ export const UseProposalTemplateResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 }).optional(),
   "status": zod.enum(['DRAFT', 'SENT', 'APPROVED', 'REJECTED', 'ARCHIVED']),
   "fromTemplateId": zod.string().nullish(),
@@ -863,6 +1148,7 @@ export const UseProposalTemplateResponse = zod.object({
   "dateStart": zod.string().nullish(),
   "dateEnd": zod.string().nullish(),
   "periodDesc": zod.string().nullish(),
+  "showPeriod": zod.boolean().optional(),
   "bannerBase64": zod.string().nullish(),
   "overlayOpacity": zod.number(),
   "stats": zod.array(zod.object({
@@ -899,6 +1185,13 @@ export const ListProposalsQueryParams = zod.object({
   "limit": zod.coerce.number().optional(),
   "status": zod.coerce.string().optional(),
   "advertiserId": zod.coerce.string().optional(),
+  "stationId": zod.coerce.string().optional(),
+  "proposalTypeId": zod.coerce.string().optional(),
+  "createdById": zod.coerce.string().optional(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional(),
+  "sortBy": zod.enum(['createdAt', 'updatedAt']).optional(),
+  "sortDir": zod.enum(['asc', 'desc']).optional(),
   "search": zod.coerce.string().optional()
 })
 
@@ -912,8 +1205,15 @@ export const ListProposalsResponse = zod.object({
   "campTag": zod.string().nullish(),
   "clientLine1": zod.string().nullish(),
   "advertiserName": zod.string().nullish(),
+  "advertiserTradeName": zod.string().nullish(),
+  "stationId": zod.string().optional(),
+  "stationName": zod.string().nullish(),
   "fromTemplateName": zod.string().nullish(),
+  "proposalTypeId": zod.string().nullish(),
+  "proposalTypeName": zod.string().nullish(),
+  "createdById": zod.string().optional(),
   "createdByName": zod.string().optional(),
+  "investValue": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })),
@@ -938,6 +1238,7 @@ export const CreateProposalBody = zod.object({
   "dateStart": zod.string().optional(),
   "dateEnd": zod.string().optional(),
   "periodDesc": zod.string().optional(),
+  "showPeriod": zod.boolean().optional(),
   "bannerBase64": zod.string().optional(),
   "overlayOpacity": zod.number().optional(),
   "stats": zod.array(zod.object({
@@ -969,7 +1270,22 @@ export const CreateProposalResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 }).optional(),
   "advertiserId": zod.string().nullish(),
@@ -994,7 +1310,16 @@ export const CreateProposalResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 }).optional(),
   "status": zod.enum(['DRAFT', 'SENT', 'APPROVED', 'REJECTED', 'ARCHIVED']),
   "fromTemplateId": zod.string().nullish(),
@@ -1008,6 +1333,7 @@ export const CreateProposalResponse = zod.object({
   "dateStart": zod.string().nullish(),
   "dateEnd": zod.string().nullish(),
   "periodDesc": zod.string().nullish(),
+  "showPeriod": zod.boolean().optional(),
   "bannerBase64": zod.string().nullish(),
   "overlayOpacity": zod.number(),
   "stats": zod.array(zod.object({
@@ -1050,7 +1376,22 @@ export const GetProposalResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 }).optional(),
   "advertiserId": zod.string().nullish(),
@@ -1075,7 +1416,16 @@ export const GetProposalResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 }).optional(),
   "status": zod.enum(['DRAFT', 'SENT', 'APPROVED', 'REJECTED', 'ARCHIVED']),
   "fromTemplateId": zod.string().nullish(),
@@ -1089,6 +1439,7 @@ export const GetProposalResponse = zod.object({
   "dateStart": zod.string().nullish(),
   "dateEnd": zod.string().nullish(),
   "periodDesc": zod.string().nullish(),
+  "showPeriod": zod.boolean().optional(),
   "bannerBase64": zod.string().nullish(),
   "overlayOpacity": zod.number(),
   "stats": zod.array(zod.object({
@@ -1135,6 +1486,7 @@ export const UpdateProposalBody = zod.object({
   "dateStart": zod.string().optional(),
   "dateEnd": zod.string().optional(),
   "periodDesc": zod.string().optional(),
+  "showPeriod": zod.boolean().optional(),
   "bannerBase64": zod.string().optional(),
   "overlayOpacity": zod.number().optional(),
   "stats": zod.array(zod.object({
@@ -1166,7 +1518,22 @@ export const UpdateProposalResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 }).optional(),
   "advertiserId": zod.string().nullish(),
@@ -1191,7 +1558,16 @@ export const UpdateProposalResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 }).optional(),
   "status": zod.enum(['DRAFT', 'SENT', 'APPROVED', 'REJECTED', 'ARCHIVED']),
   "fromTemplateId": zod.string().nullish(),
@@ -1205,6 +1581,7 @@ export const UpdateProposalResponse = zod.object({
   "dateStart": zod.string().nullish(),
   "dateEnd": zod.string().nullish(),
   "periodDesc": zod.string().nullish(),
+  "showPeriod": zod.boolean().optional(),
   "bannerBase64": zod.string().nullish(),
   "overlayOpacity": zod.number(),
   "stats": zod.array(zod.object({
@@ -1263,7 +1640,22 @@ export const UpdateProposalStatusResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 }).optional(),
   "advertiserId": zod.string().nullish(),
@@ -1288,7 +1680,16 @@ export const UpdateProposalStatusResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 }).optional(),
   "status": zod.enum(['DRAFT', 'SENT', 'APPROVED', 'REJECTED', 'ARCHIVED']),
   "fromTemplateId": zod.string().nullish(),
@@ -1302,6 +1703,7 @@ export const UpdateProposalStatusResponse = zod.object({
   "dateStart": zod.string().nullish(),
   "dateEnd": zod.string().nullish(),
   "periodDesc": zod.string().nullish(),
+  "showPeriod": zod.boolean().optional(),
   "bannerBase64": zod.string().nullish(),
   "overlayOpacity": zod.number(),
   "stats": zod.array(zod.object({
@@ -1344,7 +1746,22 @@ export const DuplicateProposalResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
   "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 }).optional(),
   "advertiserId": zod.string().nullish(),
@@ -1369,7 +1786,16 @@ export const DuplicateProposalResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['ADMIN', 'COMERCIAL']),
   "active": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
 }).optional(),
   "status": zod.enum(['DRAFT', 'SENT', 'APPROVED', 'REJECTED', 'ARCHIVED']),
   "fromTemplateId": zod.string().nullish(),
@@ -1383,6 +1809,7 @@ export const DuplicateProposalResponse = zod.object({
   "dateStart": zod.string().nullish(),
   "dateEnd": zod.string().nullish(),
   "periodDesc": zod.string().nullish(),
+  "showPeriod": zod.boolean().optional(),
   "bannerBase64": zod.string().nullish(),
   "overlayOpacity": zod.number(),
   "stats": zod.array(zod.object({
@@ -1474,8 +1901,15 @@ export const GetRecentProposalsResponseItem = zod.object({
   "campTag": zod.string().nullish(),
   "clientLine1": zod.string().nullish(),
   "advertiserName": zod.string().nullish(),
+  "advertiserTradeName": zod.string().nullish(),
+  "stationId": zod.string().optional(),
+  "stationName": zod.string().nullish(),
   "fromTemplateName": zod.string().nullish(),
+  "proposalTypeId": zod.string().nullish(),
+  "proposalTypeName": zod.string().nullish(),
+  "createdById": zod.string().optional(),
   "createdByName": zod.string().optional(),
+  "investValue": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -1492,3 +1926,5 @@ export const GetTemplateUsageResponseItem = zod.object({
   "usageCount": zod.number()
 })
 export const GetTemplateUsageResponse = zod.array(GetTemplateUsageResponseItem)
+
+

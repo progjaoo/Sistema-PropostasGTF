@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useAuthStore } from '@/store/auth';
 import { useLogout } from '@workspace/api-client-react';
 import { BellRing, Building2, FileCog, FileText, Users, LogOut, Radio, Package, Layers, UserCircle, UserPlus } from 'lucide-react';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { cn } from '@/lib/utils';
 import { RecallReminderProvider, useRecallReminderCount } from '@/components/notifications/RecallReminderProvider';
 import {
@@ -44,9 +44,9 @@ export function AppLayout({ children }: AppLayoutProps) {
   const handleLogout = async () => {
     try {
       await logout.mutateAsync();
-      toast.success('Sessão encerrada com sucesso');
+      feedback.success('Sessão encerrada com sucesso');
     } catch (e) {
-      toast.error('Sessão local encerrada. Não foi possível confirmar o logout no servidor.');
+      feedback.error('Sessão local encerrada. Não foi possível confirmar o logout no servidor.');
     } finally {
       clearAuth();
       setLocation('/login');
@@ -97,9 +97,16 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Sidebar */}
       <div className="w-64 border-r bg-card flex flex-col hidden md:flex">
         <div className="p-6">
-          <div className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
-            <Radio className="w-6 h-6" />
-            <span>Genesis</span>
+          <div className="flex flex-col gap-1">
+            <img
+              src="/brand/gtf-logo-horizontal.png"
+              alt="GTF"
+              className="h-5 w-fit max-w-[150px] object-contain"
+            />
+            <div className="leading-tight">
+{/*               <p className="text-sm font-bold tracking-tight text-foreground">GTF Propostas</p>
+ */}              <p className="text-[20px] font-large text-muted-foreground">Sistema Comercial GTF</p>
+            </div>
           </div>
         </div>
 

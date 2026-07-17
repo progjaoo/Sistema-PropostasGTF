@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocation } from 'wouter';
 import { useCreateAdvertiser } from '@workspace/api-client-react';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -58,10 +58,10 @@ export default function AdvertiserNew({ mode = 'client' }: AdvertiserNewProps) {
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
       await createMutation.mutateAsync({ data: { ...values, status: isLead ? 'LEAD' : 'CLIENT' } });
-      toast.success(`${entityLabel} criado com sucesso!`);
+      feedback.created(`${entityLabel} criado com sucesso!`);
       setLocation(backPath);
     } catch (error) {
-      toast.error(`Erro ao criar ${entityLabel.toLowerCase()}`);
+      feedback.error(`Erro ao criar ${entityLabel.toLowerCase()}`);
     }
   };
 

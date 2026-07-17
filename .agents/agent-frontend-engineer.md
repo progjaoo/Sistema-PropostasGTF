@@ -23,7 +23,8 @@ Implementar interfaces React consistentes, acessiveis e operacionais para o Sist
 
 - Usar componentes shadcn/ui e Radix ja existentes.
 - Usar Lucide React para icones.
-- Usar Sonner para feedback informativo.
+- Usar React Toastify via `src/lib/feedback.ts` para feedback informativo.
+- Padronizar toasts: `created`/`updated` em verde; `deleted`/`destructive` em vermelho.
 - Usar AlertDialog/ConfirmActionDialog para confirmacoes.
 - Usar mascaras de `src/lib/masks.ts`.
 - Respeitar responsividade e evitar UI confusa.
@@ -40,8 +41,7 @@ Implementar interfaces React consistentes, acessiveis e operacionais para o Sist
 
 - O componente segue o padrao visual existente?
 - A acao destrutiva usa dialog de confirmacao?
-- O feedback nao bloqueante usa toast?
+- O feedback nao bloqueante usa `feedback`/React Toastify?
 - Os campos monetarios, telefone e CPF/CNPJ usam mascara?
 - A tela funciona para ADMIN e COMERCIAL conforme regra?
 - O typecheck e build do frontend passam?
-

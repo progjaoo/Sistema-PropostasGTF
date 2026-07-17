@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'wouter';
 import {
   getListAdvertisersQueryKey,
+  getListProductTemplatesQueryKey,
   getListProposalsQueryKey,
   useCreateAdvertiser,
   useGetProposal,
@@ -12,7 +13,7 @@ import {
   useUpdateProposalStatus,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { AlertTriangle, ArrowLeft, Plus, Printer, Save, Search, Trash2 } from 'lucide-react';
 
 import { ProposalPreview } from '@/components/proposal/ProposalPreview';
@@ -20,6 +21,7 @@ import { ProposalPrint } from '@/components/proposal/ProposalPrint';
 import { ProposalTimeline } from '@/components/proposal/ProposalTimeline';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmActionDialog } from '@/components/ui/confirm-action-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -32,15 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { formatCpfCnpj, formatCurrencyBRL, formatPhoneBR, normalizeEmailInput } from '@/lib/masks';
-
-const COLORS = [
-  { value: 'BLUE', label: 'Azul', class: 'bg-blue-500' },
-  { value: 'YELLOW', label: 'Amarelo', class: 'bg-yellow-500' },
-  { value: 'RED', label: 'Vermelho', class: 'bg-red-500' },
-  { value: 'GREEN', label: 'Verde', class: 'bg-green-500' },
-  { value: 'DARK', label: 'Escuro', class: 'bg-gray-800' },
-];
+import { formatCurrencyBRL, formatPhoneBR, normalizeEmailInput } from '@/lib/masks';
 
 const PERIODICITY_LABELS: Record<string, string> = {
   MONTHLY: 'Mensal',
@@ -183,7 +177,7 @@ function cleanProposalPayload(data: any) {
     clientLine2: null,
     bannerBase64: null,
     overlayOpacity: 70,
-    stats: normalizeStatsForPayload(data.stats),
+    showPeriod: data.showPeriod !== false,
     investDesc: data.investDesc || null,
     contactName: data.createdBy?.name ?? null,
     contactRole: data.createdBy?.jobTitle ?? null,
@@ -209,6 +203,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const token = useAuthStore((state) => state.accessToken);
+  const currentUser = useAuthStore((state) => state.user);
   const [saveStatus, setSaveStatus] = useState<string>('Salvo');
   const [localData, setLocalData] = useState<any>(null);
   const [proposalTypes, setProposalTypes] = useState<ProposalType[]>([]);
@@ -226,7 +221,15 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
 
   const { data: proposal, isLoading } = useGetProposal(params.id);
   const { data: advertisers } = useListAdvertisers({ active: true, search: advertiserSearch || undefined } as any);
-  const { data: products } = useListProductTemplates();
+  const { data: products } = useListProductTemplates(
+    { stationId: localData?.stationId || undefined },
+    {
+      query: {
+        queryKey: getListProductTemplatesQueryKey({ stationId: localData?.stationId || undefined }),
+        enabled: Boolean(localData?.stationId),
+      },
+    },
+  );
   const { data: stations } = useListStations();
   const updateMutation = useUpdateProposal();
   const updateStatusMutation = useUpdateProposalStatus();
@@ -238,7 +241,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
     })
       .then((response) => response.json())
       .then((payload) => setProposalTypes(Array.isArray(payload) ? payload : []))
-      .catch(() => toast.error('Erro ao carregar tipos de proposta'));
+      .catch(() => feedback.error('Erro ao carregar tipos de proposta'));
   }, [token]);
 
   useEffect(() => {
@@ -246,6 +249,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
       setLocalData({
         ...proposal,
         periodicity: (proposal as any).periodicity || 'MONTHLY',
+        showPeriod: (proposal as any).showPeriod !== false,
         proposalTypeId: (proposal as any).proposalTypeId || '',
       });
       initialized.current = true;
@@ -269,7 +273,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
           },
           onError: () => {
             setSaveStatus('Erro ao salvar');
-            toast.error('Erro ao salvar automaticamente');
+            feedback.error('Erro ao salvar automaticamente');
           },
         },
       );
@@ -297,13 +301,12 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const startProposalPrint = useCallback((intent: Exclude<PrintIntent, null>) => {
     if (!localData) return;
     setPrintIntent(intent);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.print();
-        window.setTimeout(() => setPrintIntent(null), 3000);
-      });
-    });
   }, [localData]);
+
+  const handleProposalPrintReady = useCallback(() => {
+    window.print();
+    window.setTimeout(() => setPrintIntent(null), 3000);
+  }, []);
 
   useEffect(() => {
     const handleAfterPrint = () => setPrintIntent(null);
@@ -351,8 +354,12 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   }, [catalogProductSearch, groupedProducts]);
 
   const stationOptions = useMemo(() => {
-    return sortStations(((stations as any[]) || []).filter((item) => item.active !== false));
-  }, [stations]);
+    return sortStations(
+      ((stations as any[]) || []).filter(
+        (item) => item.active !== false && (currentUser?.role === 'ADMIN' || item.viewerCanCreateProposals !== false),
+      ),
+    );
+  }, [currentUser?.role, stations]);
 
   const investmentSuggestion = useMemo(() => {
     const items = (localData?.products || []) as any[];
@@ -403,12 +410,12 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
           dirtyRef.current = false;
           setSaveStatus(`Salvo às ${new Date().toLocaleTimeString()}`);
           setLocalData((prev: any) => ({ ...prev, ...saved }));
-          toast.success('Proposta salva');
+          feedback.updated('Proposta salva');
           queryClient.invalidateQueries({ queryKey: [getListProposalsQueryKey()[0]] });
         },
         onError: () => {
           setSaveStatus('Erro ao salvar');
-          toast.error('Erro ao salvar proposta');
+          feedback.error('Erro ao salvar proposta');
         },
       },
     );
@@ -417,7 +424,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const createProposalType = async () => {
     const name = newTypeName.trim();
     if (!name) {
-      toast.error('Informe o nome do tipo de proposta');
+      feedback.error('Informe o nome do tipo de proposta');
       return;
     }
 
@@ -437,9 +444,9 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
       handleChange('propType', payload.name);
       setNewTypeName('');
       setTypeDialogOpen(false);
-      toast.success('Tipo de proposta criado');
+      feedback.created('Tipo de proposta criado');
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar tipo de proposta');
+      feedback.error(error.message || 'Erro ao criar tipo de proposta');
     }
   };
 
@@ -455,29 +462,53 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   };
 
   const createAdvertiser = async () => {
+    const phoneDigits = advertiserDraft.contactPhone.replace(/\D/g, '');
+    if (!advertiserDraft.tradeName.trim()) {
+      feedback.error('Informe o nome do lead');
+      return;
+    }
+    if (!advertiserDraft.contactName.trim()) {
+      feedback.error('Informe o nome do contato');
+      return;
+    }
+    if (phoneDigits.length < 10) {
+      feedback.error('Informe um telefone válido');
+      return;
+    }
+
     try {
-      const advertiser = await createAdvertiserMutation.mutateAsync({ data: { ...advertiserDraft, status: 'LEAD' } as any });
-      toast.success('Lead salvo');
+      const advertiser = await createAdvertiserMutation.mutateAsync({
+        data: {
+          tradeName: advertiserDraft.tradeName.trim(),
+          contactName: advertiserDraft.contactName.trim(),
+          contactPhone: advertiserDraft.contactPhone,
+          contactEmail: advertiserDraft.contactEmail || undefined,
+          notes: advertiserDraft.notes || undefined,
+          status: 'LEAD',
+        } as any,
+      });
+      feedback.created('Lead salvo');
       queryClient.invalidateQueries({ queryKey: [getListAdvertisersQueryKey()[0]] });
       setAdvertiserDraft(emptyAdvertiser);
       setAdvertiserDialogOpen(false);
       selectAdvertiser(advertiser as any);
     } catch {
-      toast.error('Erro ao salvar cliente');
+      feedback.error('Erro ao salvar lead');
     }
   };
 
   const handleStationChange = (nextStationId: string) => {
     const selectedStation = stationOptions.find((item) => item.id === nextStationId);
-    const hasProducts = (localData?.products || []).length > 0;
+    const catalogProducts = (localData?.products || []).filter((product: any) => product.productTemplateId);
     markDirty();
     setLocalData((prev: any) => ({
       ...prev,
       stationId: nextStationId,
       station: selectedStation || prev.station,
+      products: (prev.products || []).filter((product: any) => !product.productTemplateId),
     }));
-    if (hasProducts) {
-      toast.warning('Revise os produtos da proposta após trocar a empresa.');
+    if (catalogProducts.length > 0) {
+      feedback.warning('Produtos do catálogo anterior foram removidos porque pertencem a outra empresa.');
     }
   };
 
@@ -508,7 +539,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const addCatalogProduct = (productId: string) => {
     const product = ((products as any[]) || []).find((item) => item.id === productId);
     if (!product) {
-      toast.error('Selecione um produto do catálogo');
+      feedback.error('Selecione um produto do catálogo');
       return;
     }
     markDirty();
@@ -536,7 +567,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
       ],
     }));
     setCatalogProductSearch('');
-    toast.success('Produto do catálogo adicionado');
+    feedback.created('Produto do catálogo adicionado');
   };
 
   const updateProduct = (index: number, field: string, value: any) => {
@@ -560,7 +591,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const addStatItem = () => {
     const currentStats = normalizeStatsForPayload(localData?.stats, true);
     if (currentStats.length >= 4) {
-      toast.error('A apresentação permite no máximo 4 itens');
+      feedback.error('A apresentação permite no máximo 4 itens');
       return;
     }
     handleChange('stats', [...currentStats, { num: '', suf: '', desc: '' }]);
@@ -586,12 +617,16 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
       { id: params.id, data: { status } },
       {
         onSuccess: (saved: any) => {
-          toast.success(`Status atualizado para ${STATUS_LABELS[status] || status}`);
+          if (status === 'REJECTED') {
+            feedback.destructive(`Status atualizado para ${STATUS_LABELS[status] || status}`);
+          } else {
+            feedback.updated(`Status atualizado para ${STATUS_LABELS[status] || status}`);
+          }
           setLocalData((prev: any) => ({ ...prev, ...saved, status }));
           queryClient.invalidateQueries({ queryKey: [getListProposalsQueryKey()[0]] });
           queryClient.invalidateQueries({ queryKey: [getListAdvertisersQueryKey()[0]] });
         },
-        onError: () => toast.error('Erro ao atualizar status'),
+        onError: () => feedback.error('Erro ao atualizar status'),
       },
     );
   };
@@ -613,7 +648,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
 
   return (
     <div className="flex h-[calc(100vh-6rem)] -m-6 border-t border-border overflow-hidden bg-background">
-      {printIntent && <ProposalPrint proposal={proposalPrintData} />}
+      {printIntent && <ProposalPrint proposal={proposalPrintData} onReady={handleProposalPrintReady} />}
       <ConfirmActionDialog
         open={leaveDialogOpen}
         onOpenChange={setLeaveDialogOpen}
@@ -676,9 +711,8 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
           <DialogHeader><DialogTitle>Novo lead</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input placeholder="Nome *" value={advertiserDraft.tradeName} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, tradeName: e.target.value }))} />
-            <Input inputMode="numeric" placeholder="CPF/CNPJ" value={advertiserDraft.cnpj} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, cnpj: formatCpfCnpj(e.target.value) }))} />
-            <Input placeholder="Nome do contato" value={advertiserDraft.contactName} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactName: e.target.value }))} />
-            <Input inputMode="tel" placeholder="(31) 99999-9999" value={advertiserDraft.contactPhone} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactPhone: formatPhoneBR(e.target.value) }))} />
+            <Input placeholder="Nome do contato *" value={advertiserDraft.contactName} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactName: e.target.value }))} />
+            <Input inputMode="tel" placeholder="Telefone *" value={advertiserDraft.contactPhone} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactPhone: formatPhoneBR(e.target.value) }))} />
             <Input type="email" placeholder="contato@cliente.com.br" value={advertiserDraft.contactEmail} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactEmail: normalizeEmailInput(e.target.value) }))} />
             <Textarea className="md:col-span-2" rows={3} placeholder="Informação interna" value={advertiserDraft.notes} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, notes: e.target.value }))} />
           </div>
@@ -725,11 +759,12 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <div className="font-medium text-sm">{station?.name || 'Empresa não selecionada'}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{station?.slogan || 'Sem slogan cadastrado'}</div>
-                  {station?.contactPhone && <div className="text-xs text-muted-foreground mt-1">{station.contactPhone}</div>}
-                  {station?.contactEmail && <div className="text-xs text-muted-foreground">{station.contactEmail}</div>}
+                <div className="flex items-center gap-3 rounded-lg border bg-muted/40 p-3">
+                  <span className="h-8 w-8 rounded-md border" style={{ backgroundColor: station?.primaryColor || '#427EFF' }} />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{station?.name || 'Empresa não selecionada'}</div>
+                    <div className="text-xs text-muted-foreground">{station?.primaryColor || '#427EFF'}</div>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -805,14 +840,27 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
             <AccordionItem value="periodo">
               <AccordionTrigger className="text-sm font-semibold hover:no-underline">Período</AccordionTrigger>
               <AccordionContent className="space-y-4 pt-2">
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border bg-muted/30 p-3">
+                  <Checkbox
+                    checked={localData.showPeriod === false}
+                    onCheckedChange={(checked) => handleChange('showPeriod', checked ? false : true)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium">Não exibir período na proposta</span>
+                    <span className="block text-xs text-muted-foreground">
+                      As datas continuam salvas, mas não aparecem no preview nem no PDF.
+                    </span>
+                  </span>
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-2">
                     <label className="text-xs font-medium">Início</label>
-                    <Input type="date" value={localData.dateStart || ''} onChange={(e) => handleChange('dateStart', e.target.value)} />
+                    <Input type="date" disabled={localData.showPeriod === false} value={localData.dateStart || ''} onChange={(e) => handleChange('dateStart', e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-medium">Fim</label>
-                    <Input type="date" value={localData.dateEnd || ''} onChange={(e) => handleChange('dateEnd', e.target.value)} />
+                    <Input type="date" disabled={localData.showPeriod === false} value={localData.dateEnd || ''} onChange={(e) => handleChange('dateEnd', e.target.value)} />
                   </div>
                 </div>
               </AccordionContent>
@@ -821,10 +869,13 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
             <AccordionItem value="estatisticas">
               <AccordionTrigger className="text-sm font-semibold hover:no-underline">Apresentação</AccordionTrigger>
               <AccordionContent className="space-y-4 pt-2">
+                <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+                  Apresentação definida pela Empresa. O conteúdo abaixo é aplicado automaticamente e preservado como snapshot da proposta.
+                </div>
                 <div className="space-y-3">
                   {proposalStats.length > 0 ? (
                     proposalStats.map((stat, index) => (
-                      <div key={index} className="grid grid-cols-[1fr_1.6fr_auto] items-start gap-2 rounded-lg border bg-muted/20 p-3">
+                      <div key={index} className="grid grid-cols-[1fr_1.6fr] items-start gap-2 rounded-lg border bg-muted/20 p-3">
                         <div className="space-y-1">
                           <label className="text-[10px] font-medium uppercase text-muted-foreground">Destaque</label>
                           <Input
@@ -832,7 +883,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                             value={stat.num}
                             maxLength={12}
                             placeholder="Ex: 350 mil"
-                            onChange={(event) => updateStatItem(index, 'num', event.target.value)}
+                            readOnly
                           />
                         </div>
                         <div className="space-y-1">
@@ -842,37 +893,17 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                             value={stat.desc}
                             maxLength={140}
                             placeholder="Ex: ouvintes por dia, com quebra de linha se necessário"
-                            onChange={(event) => updateStatItem(index, 'desc', event.target.value)}
+                            readOnly
                           />
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-error hover:bg-error/10"
-                          onClick={() => removeStatItem(index)}
-                          aria-label="Remover item de apresentação"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     ))
                   ) : (
                     <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                      Nenhum item de apresentação cadastrado.
+                      Nenhum item de apresentação cadastrado para esta empresa.
                     </div>
                   )}
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full border-dashed"
-                  onClick={addStatItem}
-                  disabled={proposalStats.length >= 4}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar item ({proposalStats.length}/4)
-                </Button>
               </AccordionContent>
             </AccordionItem>
 
@@ -917,47 +948,36 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                 </div>
 
                 {localData.products?.map((prod: any, i: number) => (
-                  <div key={prod.id || i} className="p-3 border border-border rounded-lg bg-card shadow-sm space-y-3 relative">
-                    <div className="absolute top-3 right-3">
+                  <div key={prod.id || i} className="p-3 border border-border rounded-lg bg-card shadow-sm space-y-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                      <div className="grid min-w-0 flex-1 grid-cols-4 gap-2">
+                        <div className="col-span-1 space-y-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Qtd</label>
+                          <Input className="h-8 text-sm" value={prod.qty || ''} onChange={(e) => updateProduct(i, 'qty', e.target.value)} />
+                        </div>
+                        <div className="col-span-3 min-w-0 space-y-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Nome do Produto</label>
+                          <Input className="h-8 text-sm font-medium" value={prod.title || ''} onChange={(e) => updateProduct(i, 'title', e.target.value)} />
+                          {getSuggestedRangeText(prod) && (
+                            <div className="text-[10px] font-medium text-primary">
+                              {getSuggestedRangeText(prod)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       <Button
                         type="button"
                         variant="destructive"
                         size="icon"
-                        className="h-8 w-8 shadow-sm"
+                        className="h-8 w-8 shrink-0 shadow-sm"
                         onClick={() => removeProduct(i)}
                         aria-label="Remover produto"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                    <div className="flex gap-1 pr-8">
-                      {COLORS.map((color) => (
-                        <button
-                          key={color.value}
-                          type="button"
-                          className={`w-4 h-4 rounded-full ${color.class} ${prod.color === color.value ? 'ring-2 ring-offset-1 ring-primary' : 'opacity-50'}`}
-                          onClick={() => updateProduct(i, 'color', color.value)}
-                          title={color.label}
-                        />
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      <div className="col-span-1 space-y-1">
-                        <label className="text-[10px] font-medium text-muted-foreground">Qtd</label>
-                        <Input className="h-8 text-sm" value={prod.qty || ''} onChange={(e) => updateProduct(i, 'qty', e.target.value)} />
-                      </div>
-                      <div className="col-span-3 space-y-1">
-                        <label className="text-[10px] font-medium text-muted-foreground">Título</label>
-                        <Input className="h-8 text-sm font-medium" value={prod.title || ''} onChange={(e) => updateProduct(i, 'title', e.target.value)} />
-                        {getSuggestedRangeText(prod) && (
-                          <div className="text-[10px] font-medium text-primary">
-                            {getSuggestedRangeText(prod)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Programa</label>
+                      <label className="text-[10px] font-medium text-muted-foreground">Descrição</label>
                       <Input className="h-8 text-sm" value={prod.program || ''} onChange={(e) => updateProduct(i, 'program', e.target.value)} />
                     </div>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -998,7 +1018,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Descrição</label>
+                      <label className="text-[10px] font-medium text-muted-foreground">Informação</label>
                       <Textarea className="min-h-[60px] text-sm resize-none" value={prod.description || ''} onChange={(e) => updateProduct(i, 'description', e.target.value)} />
                     </div>
                   </div>

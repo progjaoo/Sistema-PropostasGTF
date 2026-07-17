@@ -20,8 +20,20 @@ export interface ProposalSummary {
   /** @nullable */
   advertiserName?: string | null;
   /** @nullable */
+  advertiserTradeName?: string | null;
+  stationId?: string;
+  /** @nullable */
+  stationName?: string | null;
+  /** @nullable */
   fromTemplateName?: string | null;
+  /** @nullable */
+  proposalTypeId?: string | null;
+  /** @nullable */
+  proposalTypeName?: string | null;
+  createdById?: string;
   createdByName?: string;
+  /** @nullable */
+  investValue?: string | null;
   createdAt: string;
   updatedAt: string;
 }

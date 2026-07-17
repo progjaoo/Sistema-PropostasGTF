@@ -6,10 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UserInputRole } from './userInputRole';
+import type { UserStationAccessInput } from './userStationAccessInput';
 
 export interface UserInput {
   name: string;
   email: string;
   password: string;
   role: UserInputRole;
+  active?: boolean;
+  stationAccesses?: UserStationAccessInput[];
 }

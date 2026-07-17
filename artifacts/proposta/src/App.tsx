@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/sonner";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useAuthStore } from "@/store/auth";
@@ -9,6 +10,8 @@ import { useAuthStore } from "@/store/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import Dashboard from "@/pages/dashboard";
 import ProfileSettings from "@/pages/profile";
 
@@ -72,6 +75,8 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Switch>
             <Route path="/login" component={Login} />
+            <Route path="/forgot-password" component={ForgotPassword} />
+            <Route path="/reset-password" component={ResetPassword} />
             <Route path="/">
               {() => {
                 const user = useAuthStore.getState().user;
@@ -116,7 +121,16 @@ function App() {
             <Route component={NotFound} />
           </Switch>
         </WouterRouter>
-        <Toaster />
+        <ToastContainer
+          position="bottom-right"
+          autoClose={3500}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          pauseOnHover
+          draggable
+          theme="colored"
+        />
       </TooltipProvider>
     </QueryClientProvider>
   );

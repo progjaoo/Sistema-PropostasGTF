@@ -9,7 +9,7 @@ import {
   getListProposalCategoriesQueryKey,
 } from '@workspace/api-client-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { Edit, ImageIcon, Layers, Package, Plus, Search, Trash2, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -143,13 +143,13 @@ export default function AdminProposalCategories() {
   const deleteMutation = useDeleteProposalCategory({
     mutation: {
       onSuccess: () => {
-        toast.success('Programa excluído');
+        feedback.deleted('Programa excluído');
         queryClient.invalidateQueries({ queryKey: ['proposal-categories'] });
         queryClient.invalidateQueries({ queryKey: ['product-templates-for-programs'] });
         queryClient.invalidateQueries({ queryKey: [getListProposalCategoriesQueryKey()[0]] });
         queryClient.invalidateQueries({ queryKey: [getListProductTemplatesQueryKey()[0]] });
       },
-      onError: () => toast.error('Erro ao excluir programa'),
+      onError: () => feedback.error('Erro ao excluir programa'),
     },
   });
 
@@ -254,16 +254,16 @@ export default function AdminProposalCategories() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      toast.error('Selecione uma imagem válida');
+      feedback.error('Selecione uma imagem válida');
       return;
     }
 
     const reader = new FileReader();
     reader.onload = () => {
       form.setValue('icon', String(reader.result || ''), { shouldDirty: true });
-      toast.success('Ícone carregado');
+      feedback.updated('Ícone carregado');
     };
-    reader.onerror = () => toast.error('Erro ao carregar imagem');
+    reader.onerror = () => feedback.error('Erro ao carregar imagem');
     reader.readAsDataURL(file);
   };
 
@@ -295,7 +295,7 @@ export default function AdminProposalCategories() {
         },
       ]);
       setIsProductOpen(false);
-      toast.success('Produto adicionado ao programa');
+      feedback.created('Produto adicionado ao programa');
       return;
     }
 
@@ -312,9 +312,9 @@ export default function AdminProposalCategories() {
       queryClient.invalidateQueries({ queryKey: ['product-templates-for-programs'] });
       queryClient.invalidateQueries({ queryKey: [getListProductTemplatesQueryKey()[0]] });
       setIsProductOpen(false);
-      toast.success('Produto criado e vinculado');
+      feedback.created('Produto criado e vinculado');
     } catch {
-      toast.error('Erro ao criar produto');
+      feedback.error('Erro ao criar produto');
     }
   };
 
@@ -329,7 +329,7 @@ export default function AdminProposalCategories() {
     try {
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, data: payload as any });
-        toast.success('Programa atualizado');
+        feedback.updated('Programa atualizado');
       } else {
         const createdProgram = await createMutation.mutateAsync({ data: payload as any });
         const programId = (createdProgram as any)?.id;
@@ -353,7 +353,7 @@ export default function AdminProposalCategories() {
             ),
           );
         }
-        toast.success('Programa criado');
+        feedback.created('Programa criado');
       }
       queryClient.invalidateQueries({ queryKey: ['proposal-categories'] });
       queryClient.invalidateQueries({ queryKey: ['product-templates-for-programs'] });
@@ -362,14 +362,14 @@ export default function AdminProposalCategories() {
       setPendingProducts([]);
       setIsOpen(false);
     } catch {
-      toast.error('Erro ao salvar programa');
+      feedback.error('Erro ao salvar programa');
     }
   };
 
   const createDuration = async () => {
     const label = newDurationLabel.trim();
     if (!label) {
-      toast.error('Informe a duração');
+      feedback.error('Informe a duração');
       return;
     }
 
@@ -388,9 +388,9 @@ export default function AdminProposalCategories() {
       productForm.setValue('durationId', payload.id, { shouldDirty: true });
       setNewDurationLabel('');
       setDurationDialogOpen(false);
-      toast.success('Duração criada');
+      feedback.created('Duração criada');
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar duração');
+      feedback.error(error.message || 'Erro ao criar duração');
     }
   };
 

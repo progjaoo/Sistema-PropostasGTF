@@ -8,7 +8,10 @@
 import type { ProductTemplateInputColor } from './productTemplateInputColor';
 
 export interface ProductTemplateInput {
-  name: string;
+  stationId: string;
+  /** @nullable */
+  programId?: string | null;
+  name?: string;
   qty?: string;
   title: string;
   description?: string;

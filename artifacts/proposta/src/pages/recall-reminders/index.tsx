@@ -12,7 +12,7 @@ import {
   Target,
   UserRound,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -155,9 +155,9 @@ export default function RecallRemindersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recall-reminders'] });
       queryClient.invalidateQueries({ queryKey: ['recall-reminders-count'] });
-      toast.success('Aviso reagendado');
+      feedback.updated('Aviso reagendado');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => feedback.error(error.message),
   });
 
   const doneMutation = useMutation({
@@ -167,9 +167,9 @@ export default function RecallRemindersPage() {
       queryClient.invalidateQueries({ queryKey: ['recall-reminders-count'] });
       setDoneTarget(null);
       setDoneNote('');
-      toast.success('Aviso marcado como tratado');
+      feedback.updated('Aviso marcado como tratado');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => feedback.error(error.message),
   });
 
   const reminders = remindersQuery.data?.items ?? [];

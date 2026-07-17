@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useLogin } from '@workspace/api-client-react';
 import { useAuthStore } from '@/store/auth';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -18,19 +18,18 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Radio } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { normalizeEmailInput } from '@/lib/masks';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres'),
 });
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Informe seu nome'),
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres'),
 });
 
 export default function Login() {
@@ -60,10 +59,10 @@ export default function Login() {
     try {
       const data = await loginMutation.mutateAsync({ data: values });
       setAuth(data.user, data.accessToken);
-      toast.success('Login realizado com sucesso!');
+      feedback.success('Login realizado com sucesso!');
       setLocation(data.user.role === 'ADMIN' ? '/dashboard' : '/proposals');
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao fazer login. Verifique suas credenciais.');
+      feedback.error(error.message || 'Erro ao fazer login. Verifique suas credenciais.');
     }
   };
 
@@ -79,12 +78,12 @@ export default function Login() {
       if (!response.ok) {
         throw new Error(payload?.error || 'Erro ao criar cadastro');
       }
-      toast.success('Cadastro comercial criado. Faça login para continuar.');
+      feedback.success('Solicitação enviada. Um administrador precisa aprovar seu acesso e definir as empresas permitidas.');
       form.setValue('email', values.email);
-      form.setValue('password', values.password);
+      form.setValue('password', '');
       registerForm.reset();
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar cadastro');
+      feedback.error(error.message || 'Erro ao criar cadastro');
     } finally {
       setRegistering(false);
     }
@@ -94,12 +93,15 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="space-y-3 text-center pb-6">
-          <div className="mx-auto w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-2">
-            <Radio className="w-6 h-6 text-primary" />
+          <div className="mx-auto mb-2 flex h-28 max-w-[180px] items-center justify-center">
+            <img
+              src="/brand/gtf-logo-completa.png"
+              alt="GTF"
+              className="h-full w-auto object-contain"
+            />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">Genesis</CardTitle>
           <CardDescription className="text-base">
-            Entre para gerenciar as propostas comerciais
+            Sistema Comercial GTF
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -129,7 +131,16 @@ export default function Login() {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Senha</FormLabel>
+                        <div className="flex items-center justify-between gap-3">
+                          <FormLabel>Senha</FormLabel>
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-primary hover:underline"
+                            onClick={() => setLocation('/forgot-password')}
+                          >
+                            Esqueceu a senha?
+                          </button>
+                        </div>
                         <FormControl>
                           <Input type="password" placeholder="••••••••" {...field} />
                         </FormControl>
@@ -168,8 +179,11 @@ export default function Login() {
                     </FormItem>
                   )} />
                   <Button type="submit" className="w-full" size="lg" disabled={registering}>
-                    {registering ? 'Criando...' : 'Criar login comercial'}
+                    {registering ? 'Enviando...' : 'Solicitar acesso comercial'}
                   </Button>
+                  <p className="text-center text-xs text-muted-foreground">
+                    O acesso será liberado após aprovação de um administrador.
+                  </p>
                 </form>
               </Form>
             </TabsContent>

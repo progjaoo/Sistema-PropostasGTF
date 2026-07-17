@@ -1,6 +1,6 @@
 import React from 'react';
 import { Clock, Plus } from 'lucide-react';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -66,7 +66,7 @@ export function ProposalTimeline({ proposalId, items, onAdded }: ProposalTimelin
         if (!cancelled) setLoadedItems(Array.isArray(payload) ? payload : []);
       })
       .catch((error: any) => {
-        if (!cancelled) toast.error(error.message || 'Erro ao carregar andamento');
+        if (!cancelled) feedback.error(error.message || 'Erro ao carregar andamento');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -103,9 +103,9 @@ export function ProposalTimeline({ proposalId, items, onAdded }: ProposalTimelin
         setLoadedItems((current) => [...current, payload]);
       }
       setNote('');
-      toast.success('Etapa registrada');
+      feedback.created('Etapa registrada');
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao registrar etapa');
+      feedback.error(error.message || 'Erro ao registrar etapa');
     } finally {
       setSaving(false);
     }

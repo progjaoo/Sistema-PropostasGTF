@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocation } from 'wouter';
 import { CalendarClock, ExternalLink, RotateCcw, Target, UserRoundCheck } from 'lucide-react';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,18 +51,18 @@ export function RecallReminderDialog({ open, reminders, onOpenChange }: RecallRe
     mutationFn: (id: string) => completeRecallReminder(id),
     onSuccess: () => {
       invalidateReminders(queryClient);
-      toast.success('Aviso marcado como tratado');
+      feedback.updated('Aviso marcado como tratado');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => feedback.error(error.message),
   });
 
   const snoozeMutation = useMutation({
     mutationFn: ({ id, days }: { id: string; days: number }) => snoozeRecallReminder(id, days),
     onSuccess: () => {
       invalidateReminders(queryClient);
-      toast.success('Aviso reagendado');
+      feedback.updated('Aviso reagendado');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => feedback.error(error.message),
   });
 
   const visibleReminders = reminders.slice(0, 5);

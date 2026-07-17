@@ -72,6 +72,25 @@ async function seed() {
       contactEmail: "carlos@radio88fm.com.br",
     },
   });
+  const [activeCommercialUsers, activeStations] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: "COMERCIAL", active: true, stationAccesses: { none: {} } },
+      select: { id: true },
+    }),
+    prisma.station.findMany({ where: { active: true }, select: { id: true } }),
+  ]);
+  await prisma.userStationAccess.createMany({
+    data: activeCommercialUsers.flatMap((user) =>
+      activeStations.map((activeStation) => ({
+        userId: user.id,
+        stationId: activeStation.id,
+        canCreateProposals: true,
+        canViewCatalog: true,
+        active: true,
+      })),
+    ),
+    skipDuplicates: true,
+  });
   console.log("Users OK");
 
   await prisma.advertiser.upsert({

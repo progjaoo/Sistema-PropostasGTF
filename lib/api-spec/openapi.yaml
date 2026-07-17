@@ -101,6 +101,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
 
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Request password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordInput"
+      responses:
+        "202":
+          description: Password reset requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/reset-password:
+    post:
+      operationId: resetPasswordPublic
+      tags: [auth]
+      summary: Reset password with a one-time token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicResetPasswordInput"
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
   # ─── USERS ──────────────────────────────────────────────────────────────────
 
   /users:
@@ -140,6 +178,25 @@ paths:
                 $ref: "#/components/schemas/User"
 
   /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user and station accesses (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
     patch:
       operationId: updateUser
       tags: [users]
@@ -277,6 +334,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/Station"
 
+  /stations/{id}/presentation:
+    get:
+      operationId: getStationPresentation
+      tags: [stations]
+      summary: Get station default presentation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Station presentation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StationPresentationResponse"
+    put:
+      operationId: updateStationPresentation
+      tags: [stations]
+      summary: Replace station default presentation (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StationPresentationInput"
+      responses:
+        "200":
+          description: Station presentation updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StationPresentationResponse"
+
   # ─── ADVERTISERS ────────────────────────────────────────────────────────────
 
   /advertisers:
@@ -398,6 +501,35 @@ paths:
       summary: List product templates
       security:
         - bearerAuth: []
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+        - name: programId
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: active
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: minValue
+          in: query
+          schema:
+            type: string
+        - name: maxValue
+          in: query
+          schema:
+            type: string
       responses:
         "200":
           description: List of product templates
@@ -1021,6 +1153,24 @@ components:
         password:
           type: string
 
+    ForgotPasswordInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+
+    PublicResetPasswordInput:
+      type: object
+      required: [token, newPassword, confirmPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+        confirmPassword:
+          type: string
+
     AuthResponse:
       type: object
       required: [accessToken, user]
@@ -1049,6 +1199,42 @@ components:
           type: boolean
         createdAt:
           type: string
+        updatedAt:
+          type: string
+        stationAccesses:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserStationAccess"
+
+    UserStationAccess:
+      type: object
+      required: [stationId, canCreateProposals, canViewCatalog, active]
+      properties:
+        id:
+          type: string
+        stationId:
+          type: string
+        stationName:
+          type: string
+        canCreateProposals:
+          type: boolean
+        canViewCatalog:
+          type: boolean
+        active:
+          type: boolean
+
+    UserStationAccessInput:
+      type: object
+      required: [stationId, canCreateProposals, canViewCatalog, active]
+      properties:
+        stationId:
+          type: string
+        canCreateProposals:
+          type: boolean
+        canViewCatalog:
+          type: boolean
+        active:
+          type: boolean
 
     UserInput:
       type: object
@@ -1063,6 +1249,12 @@ components:
         role:
           type: string
           enum: [ADMIN, COMERCIAL]
+        active:
+          type: boolean
+        stationAccesses:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserStationAccessInput"
 
     UserUpdate:
       type: object
@@ -1076,6 +1268,10 @@ components:
           enum: [ADMIN, COMERCIAL]
         active:
           type: boolean
+        stationAccesses:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserStationAccessInput"
 
     ResetPasswordInput:
       type: object
@@ -1088,7 +1284,7 @@ components:
 
     Station:
       type: object
-      required: [id, name, createdAt]
+      required: [id, name, primaryColor, active, createdAt]
       properties:
         id:
           type: string
@@ -1096,21 +1292,95 @@ components:
           type: string
         slogan:
           type: ["string", "null"]
+        primaryColor:
+          type: string
         logoBase64:
           type: ["string", "null"]
+        contactPhone:
+          type: ["string", "null"]
+        contactEmail:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        viewerCanCreateProposals:
+          type: boolean
+          description: Permissão calculada para o usuário autenticado criar propostas nesta empresa.
+        viewerCanViewCatalog:
+          type: boolean
+          description: Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.
+        presentationItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/StationPresentationItem"
         createdAt:
           type: string
 
+    StationPresentationItem:
+      type: object
+      required: [highlight, description, order]
+      properties:
+        id:
+          type: string
+        highlight:
+          type: string
+        description:
+          type: string
+        order:
+          type: integer
+        active:
+          type: boolean
+
+    StationPresentationInput:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/StationPresentationItem"
+
+    StationPresentationResponse:
+      type: object
+      required: [stationId, items, stats]
+      properties:
+        stationId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StationPresentationItem"
+        stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBlock"
+
     StationInput:
       type: object
-      required: [name]
+      required: [name, primaryColor]
       properties:
         name:
           type: string
         slogan:
           type: string
+        primaryColor:
+          type: string
         logoBase64:
           type: string
+        contactPhone:
+          type: string
+        contactEmail:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        active:
+          type: boolean
 
     StationUpdate:
       type: object
@@ -1119,8 +1389,20 @@ components:
           type: string
         slogan:
           type: string
+        primaryColor:
+          type: string
         logoBase64:
           type: string
+        contactPhone:
+          type: string
+        contactEmail:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        active:
+          type: boolean
 
     # ─── ADVERTISERS ──────────────────────────────────────────────────────────
 
@@ -1175,6 +1457,9 @@ components:
           type: string
         notes:
           type: string
+        status:
+          type: string
+          enum: [LEAD, CLIENT]
 
     AdvertiserUpdate:
       type: object
@@ -1199,6 +1484,9 @@ components:
           type: string
         active:
           type: boolean
+        status:
+          type: string
+          enum: [LEAD, CLIENT]
 
     # ─── PRODUCT TEMPLATES ────────────────────────────────────────────────────
 
@@ -1210,6 +1498,12 @@ components:
           type: string
         stationId:
           type: string
+        stationName:
+          type: ["string", "null"]
+        stationPrimaryColor:
+          type: ["string", "null"]
+        programId:
+          type: ["string", "null"]
         name:
           type: string
         qty:
@@ -1234,8 +1528,12 @@ components:
 
     ProductTemplateInput:
       type: object
-      required: [name, title]
+      required: [stationId, title]
       properties:
+        stationId:
+          type: string
+        programId:
+          type: ["string", "null"]
         name:
           type: string
         qty:
@@ -1259,6 +1557,10 @@ components:
     ProductTemplateUpdate:
       type: object
       properties:
+        stationId:
+          type: string
+        programId:
+          type: ["string", "null"]
         name:
           type: string
         qty:
@@ -1306,8 +1608,10 @@ components:
 
     ProposalCategoryInput:
       type: object
-      required: [name, slug]
+      required: [stationId, name, slug]
       properties:
+        stationId:
+          type: string
         name:
           type: string
         slug:
@@ -1324,6 +1628,8 @@ components:
     ProposalCategoryUpdate:
       type: object
       properties:
+        stationId:
+          type: string
         name:
           type: string
         slug:
@@ -1573,6 +1879,8 @@ components:
           type: ["string", "null"]
         periodDesc:
           type: ["string", "null"]
+        showPeriod:
+          type: boolean
         bannerBase64:
           type: ["string", "null"]
         overlayOpacity:
@@ -1685,6 +1993,8 @@ components:
           type: string
         periodDesc:
           type: string
+        showPeriod:
+          type: boolean
         bannerBase64:
           type: string
         overlayOpacity:
@@ -1731,6 +2041,8 @@ components:
           type: string
         periodDesc:
           type: string
+        showPeriod:
+          type: boolean
         bannerBase64:
           type: string
         overlayOpacity:

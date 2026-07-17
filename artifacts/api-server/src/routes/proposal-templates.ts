@@ -5,6 +5,11 @@ import {
   CreateProposalTemplateBody,
   UpdateProposalTemplateBody,
 } from "@workspace/api-zod";
+import {
+  assertStationPermission,
+  getAccessibleStationIds,
+  respondToStationAccessError,
+} from "../services/station-access";
 
 const router = Router();
 
@@ -69,8 +74,12 @@ async function formatTemplate(t: ProposalTemplate, includeProducts = false) {
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
   const { categoryId } = req.query as { categoryId?: string };
+  const accessibleStationIds = await getAccessibleStationIds(req.userId!, req.userRole, "canViewCatalog");
   const rows = await prisma.proposalTemplate.findMany({
-    where: categoryId ? { categoryId } : undefined,
+    where: {
+      ...(categoryId ? { categoryId } : {}),
+      ...(accessibleStationIds === null ? {} : { stationId: { in: accessibleStationIds } }),
+    },
     orderBy: { createdAt: "asc" },
   });
   const result = await Promise.all(rows.map((t) => formatTemplate(t, true)));
@@ -82,6 +91,12 @@ router.get("/:id", requireAuth, async (req, res): Promise<void> => {
   if (!t) {
     res.status(404).json({ error: "Template not found" });
     return;
+  }
+  try {
+    await assertStationPermission(req.userId!, req.userRole, t.stationId, "canViewCatalog");
+  } catch (error) {
+    if (respondToStationAccessError(error, res)) return;
+    throw error;
   }
   res.json(await formatTemplate(t, true));
 });
@@ -173,6 +188,12 @@ router.post("/:id/use", requireAuth, async (req, res): Promise<void> => {
   if (!t) {
     res.status(404).json({ error: "Template not found" });
     return;
+  }
+  try {
+    await assertStationPermission(req.userId!, req.userRole, t.stationId, "canCreateProposals");
+  } catch (error) {
+    if (respondToStationAccessError(error, res)) return;
+    throw error;
   }
   const products = await prisma.proposalTemplateProduct.findMany({
     where: { templateId: t.id },
@@ -336,6 +357,7 @@ async function buildFullProposal(id: string) {
     dateStart: p.dateStart ?? null,
     dateEnd: p.dateEnd ?? null,
     periodDesc: p.periodDesc ?? null,
+    showPeriod: p.showPeriod,
     bannerBase64: p.bannerBase64 ?? null,
     overlayOpacity: p.overlayOpacity,
     stats: p.stats ?? [],

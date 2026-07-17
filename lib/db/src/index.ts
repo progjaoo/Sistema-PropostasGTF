@@ -30,5 +30,6 @@ export type {
   RefreshToken,
   Station,
   User,
+  UserStationAccess,
 } from "@prisma/client";
 export { ProductColor, ProposalStatus, UserRole } from "@prisma/client";

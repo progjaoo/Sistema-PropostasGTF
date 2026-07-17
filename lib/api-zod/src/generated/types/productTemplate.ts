@@ -10,6 +10,12 @@ import type { ProductTemplateColor } from './productTemplateColor';
 export interface ProductTemplate {
   id: string;
   stationId: string;
+  /** @nullable */
+  stationName?: string | null;
+  /** @nullable */
+  stationPrimaryColor?: string | null;
+  /** @nullable */
+  programId?: string | null;
   name: string;
   qty: string;
   title: string;

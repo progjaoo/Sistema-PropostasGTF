@@ -3,12 +3,13 @@ import {
   useCreateProductTemplate,
   useDeleteProductTemplate,
   useListProposalCategories,
+  useListStations,
   useUpdateProductTemplate,
   getListProductTemplatesQueryKey,
   getListProposalCategoriesQueryKey,
 } from '@workspace/api-client-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { feedback } from '@/lib/feedback';
 import { Building2, ChevronRight, Clock, Edit, Package, Plus, Search, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,7 +28,8 @@ import { useAuthStore } from '@/store/auth';
 import { currencyToNumberString, formatCurrencyBRL } from '@/lib/masks';
 
 const schema = z.object({
-  programId: z.string().min(1, 'Programa é obrigatório'),
+  stationId: z.string().min(1, 'Empresa é obrigatória'),
+  programId: z.string().optional(),
   title: z.string().min(1, 'Nome do produto é obrigatório'),
   durationId: z.string().optional(),
   description: z.string().optional(),
@@ -47,6 +49,7 @@ export default function AdminProductTemplates() {
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     search: '',
+    stationId: 'all',
     programId: 'all',
     active: 'true',
     minValue: '',
@@ -59,6 +62,7 @@ export default function AdminProductTemplates() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.search.trim()) params.set('search', filters.search.trim());
+      if (filters.stationId !== 'all') params.set('stationId', filters.stationId);
       if (filters.programId !== 'all') params.set('programId', filters.programId);
       if (filters.active) params.set('active', filters.active);
       if (filters.minValue.trim()) params.set('minValue', currencyToNumberString(filters.minValue));
@@ -72,6 +76,7 @@ export default function AdminProductTemplates() {
     },
   });
   const { data: programs } = useListProposalCategories();
+  const { data: stations } = useListStations();
   const { data: durations } = useQuery({
     queryKey: ['product-durations'],
     queryFn: async () => {
@@ -83,7 +88,12 @@ export default function AdminProductTemplates() {
     },
   });
 
-  const programList = React.useMemo(() => ((programs as any[]) || []), [programs]);
+  const stationList = React.useMemo(() => ((stations as any[]) || []).filter((station) => station.active !== false), [stations]);
+  const allPrograms = React.useMemo(() => ((programs as any[]) || []), [programs]);
+  const programList = React.useMemo(
+    () => filters.stationId === 'all' ? allPrograms : allPrograms.filter((program) => program.stationId === filters.stationId),
+    [allPrograms, filters.stationId],
+  );
   const productList = React.useMemo(() => ((products as any[]) || []), [products]);
   const selectedProgram = React.useMemo(() => {
     if (!selectedProgramId) return null;
@@ -134,18 +144,19 @@ export default function AdminProductTemplates() {
   const deleteMutation = useDeleteProductTemplate({
     mutation: {
       onSuccess: () => {
-        toast.success('Produto excluído');
+        feedback.deleted('Produto excluído');
         queryClient.invalidateQueries({ queryKey: ['product-templates'] });
         queryClient.invalidateQueries({ queryKey: [getListProductTemplatesQueryKey()[0]] });
         queryClient.invalidateQueries({ queryKey: [getListProposalCategoriesQueryKey()[0]] });
       },
-      onError: () => toast.error('Erro ao excluir produto'),
+      onError: () => feedback.error('Erro ao excluir produto'),
     },
   });
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
+      stationId: '',
       programId: '',
       title: '',
       durationId: '',
@@ -155,10 +166,16 @@ export default function AdminProductTemplates() {
       tags: [],
     },
   });
+  const formStationId = form.watch('stationId');
+  const formPrograms = React.useMemo(
+    () => allPrograms.filter((program) => program.stationId === formStationId),
+    [allPrograms, formStationId],
+  );
 
   const openEdit = (product: any) => {
     setEditingId(product.id);
     form.reset({
+      stationId: product.stationId || '',
       programId: product.programId || '',
       title: product.title,
       durationId: product.durationId || '',
@@ -173,6 +190,7 @@ export default function AdminProductTemplates() {
   const openCreate = () => {
     setEditingId(null);
     form.reset({
+      stationId: selectedProgram?.stationId || (filters.stationId !== 'all' ? filters.stationId : stationList[0]?.id) || '',
       programId: selectedProgramId || '',
       title: '',
       durationId: '',
@@ -186,7 +204,8 @@ export default function AdminProductTemplates() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     const data = {
-      programId: values.programId,
+      stationId: values.stationId,
+      programId: values.programId || null,
       title: values.title,
       durationId: values.durationId || null,
       description: values.description || null,
@@ -199,24 +218,24 @@ export default function AdminProductTemplates() {
     try {
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, data: data as any });
-        toast.success('Produto atualizado');
+        feedback.updated('Produto atualizado');
       } else {
         await createMutation.mutateAsync({ data: data as any });
-        toast.success('Produto criado');
+        feedback.created('Produto criado');
       }
       queryClient.invalidateQueries({ queryKey: ['product-templates'] });
       queryClient.invalidateQueries({ queryKey: [getListProductTemplatesQueryKey()[0]] });
       queryClient.invalidateQueries({ queryKey: [getListProposalCategoriesQueryKey()[0]] });
       setIsOpen(false);
     } catch {
-      toast.error('Erro ao salvar produto');
+      feedback.error('Erro ao salvar produto');
     }
   };
 
   const createDuration = async () => {
     const label = newDurationLabel.trim();
     if (!label) {
-      toast.error('Informe a duração');
+      feedback.error('Informe a duração');
       return;
     }
 
@@ -235,9 +254,9 @@ export default function AdminProductTemplates() {
       form.setValue('durationId', payload.id, { shouldDirty: true });
       setNewDurationLabel('');
       setDurationDialogOpen(false);
-      toast.success('Duração criada');
+      feedback.created('Duração criada');
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar duração');
+      feedback.error(error.message || 'Erro ao criar duração');
     }
   };
 
@@ -251,7 +270,7 @@ export default function AdminProductTemplates() {
         <Button size="lg" onClick={openCreate}><Plus className="w-5 h-5 mr-2" /> Novo Produto</Button>
       </div>
 
-      <div className="grid gap-3 rounded-lg border bg-card p-3 xl:grid-cols-[1fr_210px_140px_130px_130px_190px]">
+      <div className="grid gap-3 rounded-lg border bg-card p-3 xl:grid-cols-[1fr_190px_210px_140px_130px_130px_190px]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -261,6 +280,21 @@ export default function AdminProductTemplates() {
             onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
           />
         </div>
+        <Select
+          value={filters.stationId}
+          onValueChange={(stationId) => {
+            setFilters((current) => ({ ...current, stationId, programId: 'all' }));
+            setSelectedProgramId(null);
+          }}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as empresas</SelectItem>
+            {stationList.map((station) => (
+              <SelectItem key={station.id} value={station.id}>{station.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select
           value={filters.programId}
           onValueChange={handleProgramFilterChange}
@@ -313,14 +347,40 @@ export default function AdminProductTemplates() {
           <DialogHeader><DialogTitle>{editingId ? 'Editar Produto' : 'Criar Produto'}</DialogTitle></DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField control={form.control} name="stationId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Empresa *</FormLabel>
+                    <Select
+                      value={field.value || ''}
+                      onValueChange={(stationId) => {
+                        field.onChange(stationId);
+                        const currentProgramId = form.getValues('programId');
+                        const currentProgram = allPrograms.find((program) => program.id === currentProgramId);
+                        if (currentProgram && currentProgram.stationId !== stationId) {
+                          form.setValue('programId', '', { shouldDirty: true });
+                          feedback.info('O programa foi limpo porque pertence a outra empresa');
+                        }
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione uma empresa" /></SelectTrigger>
+                      <SelectContent>
+                        {stationList.map((station) => (
+                          <SelectItem key={station.id} value={station.id}>{station.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <FormField control={form.control} name="programId" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Programa</FormLabel>
-                    <Select value={field.value || ''} onValueChange={field.onChange}>
-                      <SelectTrigger><SelectValue placeholder="Selecione um programa" /></SelectTrigger>
+                    <FormLabel>Programa (opcional)</FormLabel>
+                    <Select value={field.value || 'none'} onValueChange={(value) => field.onChange(value === 'none' ? '' : value)} disabled={!formStationId}>
+                      <SelectTrigger><SelectValue placeholder="Sem programa" /></SelectTrigger>
                       <SelectContent>
-                        {programList.map((program) => (
+                        <SelectItem value="none">Sem programa</SelectItem>
+                        {formPrograms.map((program) => (
                           <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -519,7 +579,7 @@ export default function AdminProductTemplates() {
                                 <Building2 className="h-3.5 w-3.5" />
                                 Empresa
                               </span>
-                              <p className="mt-1 truncate">{product.programStationName || selectedProgram?.station?.name || 'Empresa não informada'}</p>
+                              <p className="mt-1 truncate">{product.stationName || product.programStationName || selectedProgram?.station?.name || 'Empresa não informada'}</p>
                             </div>
                             <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
                               <span className="font-medium text-foreground">Valor sugerido</span>
