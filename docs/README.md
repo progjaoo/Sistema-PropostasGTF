@@ -22,6 +22,7 @@ Este diretorio centraliza as guidelines, padroes tecnicos e regras funcionais do
 9. [Docker, ambientes e operacao](./09-docker-ambientes-operacao.md)
 10. [Qualidade, validacao e contribuicao](./10-qualidade-validacao-contribuicao.md)
 11. [MCPs do projeto](./mcps/README.md)
+12. [PRD do aplicativo mobile React Native + Expo](./PRD-APLICATIVO-MOBILE-REACT-NATIVE-EXPO.md)
 
 ## Documentos Funcionais Existentes
 
@@ -29,6 +30,7 @@ Este diretorio centraliza as guidelines, padroes tecnicos e regras funcionais do
 - [Subir producao](./SUBIR-PRODUÇÃO.md)
 - [Paginas por perfil](./paginas-por-perfil.md)
 - [Task da pagina de proposta](./Task-PaginaProposta.md)
+- [PRD do aplicativo mobile React Native + Expo](./PRD-APLICATIVO-MOBILE-REACT-NATIVE-EXPO.md)
 
 ## Leitura Recomendada para Novos Desenvolvedores
 

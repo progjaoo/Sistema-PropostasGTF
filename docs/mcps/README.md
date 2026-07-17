@@ -12,7 +12,7 @@ Esta pasta documenta os MCPs configurados para apoiar o desenvolvimento do GTF P
 ## Arquivos
 
 - [Context7](./context7.md)
-- [Postgres MCP Pro](./postgres-mcp.md)
+- NAO USE MAIS MCP DE POSTGREE, ESTRITMENTE PROIBIDO
 
 ## Regras de Uso
 
