@@ -46,6 +46,7 @@ function getFinalStep(status: string, entries: TimelineItem[]) {
 }
 
 export function ProposalProgressTimeline({ status, timeline = [], compact = false }: ProposalProgressTimelineProps) {
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const orderedItems = React.useMemo(() => {
     return [...timeline].sort((a, b) => {
       const aDate = new Date(a.createdAt || '').getTime();
@@ -73,9 +74,25 @@ export function ProposalProgressTimeline({ status, timeline = [], compact = fals
   }, -1);
   const latestItem = [...orderedItems].reverse()[0];
 
+  React.useEffect(() => {
+    const currentStep = scrollContainerRef.current?.querySelector<HTMLElement>('[data-current="true"]');
+    currentStep?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    });
+  }, [activeIndex, status]);
+
   return (
     <div className="space-y-3">
-      <div className="overflow-x-auto pb-1">
+      <p className="text-[10px] font-medium text-muted-foreground sm:hidden">
+        Arraste para acompanhar as próximas etapas.
+      </p>
+      <div
+        ref={scrollContainerRef}
+        className="touch-pan-x snap-x snap-mandatory overflow-x-auto overscroll-x-contain pb-2"
+        aria-label="Etapas do andamento da proposta"
+      >
         <div className={cn('grid min-w-[680px] grid-cols-6', compact ? 'gap-2' : 'gap-3')}>
           {steps.map((step, index) => {
             const isFinalStatus = step.key === 'APPROVED' || step.key === 'REJECTED';
@@ -85,7 +102,11 @@ export function ProposalProgressTimeline({ status, timeline = [], compact = fals
             const item = itemByStep[step.key];
 
             return (
-              <div key={step.key} className="relative min-w-0">
+              <div
+                key={step.key}
+                className="relative min-w-0 snap-start"
+                data-current={isCurrent ? 'true' : undefined}
+              >
                 {index < steps.length - 1 && (
                   <div
                     className={cn(

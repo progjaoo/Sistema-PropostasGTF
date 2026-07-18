@@ -48,6 +48,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/responsive/PageHeader';
+import { ResponsiveFilters } from '@/components/responsive/ResponsiveFilters';
 
 type TimelineItem = {
   id: string;
@@ -267,6 +269,17 @@ export default function ProposalProgress() {
   const selectedProgram = React.useMemo(() => {
     return programs.find((program) => program.id === selectedProgramId) || programs[0] || null;
   }, [programs, selectedProgramId]);
+  const activeFilterCount = [
+    stationId !== 'all',
+    programId !== 'all',
+    status !== 'all',
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setStationId('all');
+    setProgramId('all');
+    setStatus('all');
+  };
 
   React.useEffect(() => {
     if (programs.length === 0) {
@@ -279,35 +292,39 @@ export default function ProposalProgress() {
   }, [programs, selectedProgramId]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Propostas"
+        description="Acompanhe propostas por programa, registre etapas comerciais e gerencie aprovações."
+        eyebrow={(
           <div className="mb-2 inline-flex items-center gap-2 rounded-md border bg-card px-2.5 py-1 text-xs font-semibold uppercase text-muted-foreground">
             <Activity className="h-3.5 w-3.5 text-primary" />
             Gestão comercial
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Propostas</h1>
-          <p className="mt-1 max-w-3xl text-muted-foreground">
-            Acompanhe propostas por programa, registre etapas comerciais e gerencie aprovações.
-          </p>
-        </div>
-        <Button size="lg" onClick={() => setLocation('/proposals/new')}>
-          <FileText className="h-5 w-5" />
-          Nova Proposta
-        </Button>
-      </div>
+        )}
+        action={(
+          <Button className="w-full sm:w-auto" size="lg" onClick={() => setLocation('/proposals/new')}>
+            <FileText className="h-5 w-5" />
+            Nova Proposta
+          </Button>
+        )}
+      />
 
-      <Card className="p-4">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_220px_220px_190px]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Buscar por cliente, proposta, produto ou responsável"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
+      <Card className="space-y-3 p-3 sm:p-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Buscar por cliente, proposta, produto ou responsável"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+        <ResponsiveFilters
+          activeCount={activeFilterCount}
+          onClear={clearFilters}
+          desktopClassName="lg:grid-cols-[220px_220px_190px]"
+        >
           <Select value={stationId} onValueChange={setStationId}>
             <SelectTrigger>
               <SelectValue placeholder="Empresa" />
@@ -346,7 +363,7 @@ export default function ProposalProgress() {
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </ResponsiveFilters>
       </Card>
 
       {boardQuery.isLoading ? (
@@ -360,8 +377,27 @@ export default function ProposalProgress() {
           <p className="mt-1 text-muted-foreground">Ajuste os filtros ou crie propostas vinculadas a programas.</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
-          <div className="space-y-3">
+        <div className="space-y-4">
+          <div className="xl:hidden">
+            <label className="mb-2 block text-xs font-semibold uppercase text-muted-foreground">
+              Programa em acompanhamento
+            </label>
+            <Select value={selectedProgram?.id || ''} onValueChange={setSelectedProgramId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um programa" />
+              </SelectTrigger>
+              <SelectContent>
+                {programs.map((program) => (
+                  <SelectItem key={program.id} value={program.id}>
+                    {program.name} · {program.proposalCount} proposta(s)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
+          <div className="hidden space-y-3 xl:block">
             {programs.map((program) => {
               const selected = selectedProgram?.id === program.id;
               return (
@@ -403,13 +439,13 @@ export default function ProposalProgress() {
             })}
           </div>
 
-          <Card className="min-h-[560px] overflow-hidden">
+          <Card className="min-h-0 overflow-hidden xl:min-h-[560px]">
             {selectedProgram && (
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 <div className="flex flex-col gap-3 border-b pb-5 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Programa selecionado</p>
-                    <h2 className="mt-1 text-2xl font-bold">{selectedProgram.name}</h2>
+                    <h2 className="mt-1 text-xl font-bold sm:text-2xl">{selectedProgram.name}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {selectedProgram.proposalCount} proposta(s) para acompanhamento comercial.
                     </p>
@@ -427,7 +463,7 @@ export default function ProposalProgress() {
                     const canReject = proposal.viewerCanEdit && !isRejected;
 
                     return (
-                      <div key={proposal.id} className="rounded-lg border bg-background p-4 shadow-sm">
+                      <div key={proposal.id} className="rounded-lg border bg-background p-3 shadow-sm sm:p-4">
                         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
@@ -437,12 +473,12 @@ export default function ProposalProgress() {
                             </div>
                           </div>
 
-                          <div className="flex shrink-0 flex-wrap gap-2 2xl:justify-end">
-                            <Button size="sm" variant="outline" onClick={() => setLocation(`/proposals/${proposal.id}/edit`)}>
+                          <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap 2xl:justify-end">
+                            <Button className="col-span-2 sm:w-auto" size="sm" variant="outline" onClick={() => setLocation(`/proposals/${proposal.id}/edit`)}>
                               Abrir proposta
                             </Button>
                             {proposal.viewerCanEdit && (
-                              <Button size="sm" variant="outline" disabled={isApproved} onClick={() => setStepTarget(proposal)}>
+                              <Button className="col-span-2 sm:w-auto" size="sm" variant="outline" disabled={isApproved} onClick={() => setStepTarget(proposal)}>
                                 <PencilLine className="mr-1.5 h-3.5 w-3.5" />
                                 Registrar andamento
                               </Button>
@@ -466,13 +502,13 @@ export default function ProposalProgress() {
                           </div>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground xl:grid-cols-4">
                           <div className="min-w-0 rounded-md bg-muted/30 px-3 py-2">
                             <span className="flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground">
                               <FileText className="h-3.5 w-3.5 shrink-0" />
                               Proposta
                             </span>
-                            <p className="mt-1 truncate" title={proposal.proposalTypeName || 'Proposta Comercial'}>
+                            <p className="mt-1 line-clamp-2" title={proposal.proposalTypeName || 'Proposta Comercial'}>
                               {proposal.proposalTypeName || 'Proposta Comercial'}
                             </p>
                           </div>
@@ -481,7 +517,7 @@ export default function ProposalProgress() {
                               <Building2 className="h-3.5 w-3.5 shrink-0" />
                               Empresa
                             </span>
-                            <p className="mt-1 truncate" title={proposal.stationName || 'Empresa não informada'}>
+                            <p className="mt-1 line-clamp-2" title={proposal.stationName || 'Empresa não informada'}>
                               {proposal.stationName || 'Empresa não informada'}
                             </p>
                           </div>
@@ -490,7 +526,7 @@ export default function ProposalProgress() {
                               <UserRound className="h-3.5 w-3.5 shrink-0" />
                               Responsável
                             </span>
-                            <p className="mt-1 truncate" title={proposal.createdByName || 'Não informado'}>
+                            <p className="mt-1 line-clamp-2" title={proposal.createdByName || 'Não informado'}>
                               {proposal.createdByName || 'Não informado'}
                             </p>
                           </div>
@@ -499,7 +535,7 @@ export default function ProposalProgress() {
                               <Clock3 className="h-3.5 w-3.5 shrink-0" />
                               Atualização
                             </span>
-                            <p className="mt-1 truncate" title={formatDate(proposal.updatedAt)}>
+                            <p className="mt-1 line-clamp-2" title={formatDate(proposal.updatedAt)}>
                               {formatDate(proposal.updatedAt)}
                             </p>
                           </div>
@@ -530,7 +566,7 @@ export default function ProposalProgress() {
                               )}
                             </div>
                           </div>
-                          <div className="rounded-md bg-muted/30 px-4 py-3 text-right">
+                          <div className="rounded-md bg-muted/30 px-4 py-3 text-left sm:text-right">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Investimento</p>
                             <p className="text-lg font-bold">{formatInvestment(proposal.investValue)}</p>
                           </div>
@@ -550,6 +586,7 @@ export default function ProposalProgress() {
               </div>
             )}
           </Card>
+          </div>
         </div>
       )}
 

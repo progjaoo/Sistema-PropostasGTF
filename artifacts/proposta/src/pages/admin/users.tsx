@@ -28,6 +28,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { normalizeEmailInput } from '@/lib/masks';
+import { PageHeader } from '@/components/responsive/PageHeader';
+import { ResponsiveFilters } from '@/components/responsive/ResponsiveFilters';
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 const userSchema = z.object({
   name: z.string().min(2, 'Informe o nome completo'),
@@ -61,6 +64,7 @@ export default function AdminUsers() {
   const [resetPassword, setResetPassword] = React.useState('');
   const [deleteTarget, setDeleteTarget] = React.useState<any | null>(null);
   const [filters, setFilters] = React.useState({ search: '', role: 'all', status: 'all', stationId: 'all' });
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   const { data: users, isLoading } = useListUsers({ query: { queryKey: getListUsersQueryKey() } });
   const { data: stations } = useListStations();
@@ -200,21 +204,41 @@ export default function AdminUsers() {
     }
   };
 
+  const renderUserActions = (user: any) => (
+    <div className="flex justify-end gap-1">
+      <Button variant="ghost" size="icon" onClick={() => openEdit(user)} title="Editar usuário">
+        <Edit3 className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon" onClick={() => { setResetTarget(user); setResetPassword(''); }} title="Redefinir senha">
+        <KeyRound className="h-4 w-4" />
+      </Button>
+      {user.active && (
+        <Button variant="ghost" size="icon" className="text-error hover:bg-error/10 hover:text-error" onClick={() => setDeleteTarget(user)} title="Desativar usuário">
+          <Ban className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Usuários</h1>
-          <p className="mt-1 text-muted-foreground">Gerencie contas e permissões comerciais por empresa.</p>
-        </div>
-        <Button size="lg" onClick={openCreate}><Plus className="mr-2 h-5 w-5" /> Novo Usuário</Button>
-      </div>
+      <PageHeader
+        title="Usuários"
+        description="Gerencie contas e permissões comerciais por empresa."
+        action={<Button size="lg" className="w-full sm:w-auto" onClick={openCreate}><Plus className="mr-2 h-5 w-5" /> Novo Usuário</Button>}
+      />
 
-      <div className="grid gap-3 rounded-lg border bg-card p-3 lg:grid-cols-[minmax(260px,1fr)_180px_180px_220px]">
+      <div className="rounded-lg border bg-card p-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-9" placeholder="Buscar por nome ou e-mail" value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
         </div>
+        <ResponsiveFilters
+          className="mt-3"
+          desktopClassName="lg:grid-cols-3"
+          activeCount={[filters.role !== 'all', filters.status !== 'all', filters.stationId !== 'all'].filter(Boolean).length}
+          onClear={() => setFilters((current) => ({ ...current, role: 'all', status: 'all', stationId: 'all' }))}
+        >
         <Select value={filters.role} onValueChange={(role) => setFilters((current) => ({ ...current, role }))}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="all">Todos os perfis</SelectItem><SelectItem value="ADMIN">Administradores</SelectItem><SelectItem value="COMERCIAL">Comerciais</SelectItem></SelectContent>
@@ -227,11 +251,51 @@ export default function AdminUsers() {
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="all">Todas as empresas</SelectItem>{stationList.map((station) => <SelectItem key={station.id} value={station.id}>{station.name}</SelectItem>)}</SelectContent>
         </Select>
+        </ResponsiveFilters>
       </div>
 
       <Card className="overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-muted-foreground">Carregando...</div>
+        ) : filteredUsers.length && isMobile ? (
+          <div className="divide-y">
+            {filteredUsers.map((user) => (
+              <article key={user.id} className="space-y-4 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="break-words font-semibold">{user.name}</h2>
+                    <p className="break-all text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                  {renderUserActions(user)}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={user.role === 'ADMIN' ? 'default' : 'secondary'}>
+                    {user.role === 'ADMIN' ? 'Administrador' : 'Comercial'}
+                  </Badge>
+                  <span className={user.active ? 'text-xs font-medium text-success' : 'text-xs font-medium text-amber-700'}>
+                    {user.active ? 'Ativo' : 'Inativo/Pendente'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Criado em {format(new Date(user.createdAt), 'dd/MM/yyyy', { locale: ptBR })}
+                  </span>
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Empresas permitidas</p>
+                  {user.role === 'ADMIN' ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                      <ShieldCheck className="h-4 w-4" /> Acesso global
+                    </span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {(user.stationAccesses || []).filter((access: any) => access.active !== false).length
+                        ? (user.stationAccesses || []).filter((access: any) => access.active !== false).map((access: any) => <Badge key={access.stationId} variant="outline">{access.stationName}</Badge>)
+                        : <span className="text-xs text-amber-700">Aguardando definição de acesso</span>}
+                    </div>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
         ) : filteredUsers.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
@@ -252,7 +316,7 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-5 py-4 text-muted-foreground">{format(new Date(user.createdAt), 'dd/MM/yyyy', { locale: ptBR })}</td>
                     <td className="px-5 py-4">{user.active ? <span className="text-xs font-medium text-success">Ativo</span> : <span className="text-xs font-medium text-amber-700">Inativo/Pendente</span>}</td>
-                    <td className="px-5 py-4"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => openEdit(user)} title="Editar usuário"><Edit3 className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => { setResetTarget(user); setResetPassword(''); }} title="Redefinir senha"><KeyRound className="h-4 w-4" /></Button>{user.active && <Button variant="ghost" size="icon" className="text-error hover:bg-error/10 hover:text-error" onClick={() => setDeleteTarget(user)} title="Desativar usuário"><Ban className="h-4 w-4" /></Button>}</div></td>
+                    <td className="px-5 py-4">{renderUserActions(user)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -278,10 +342,25 @@ export default function AdminUsers() {
                 <div className="space-y-3 border-t pt-5">
                   <div><h3 className="font-semibold">Acessos por Empresa</h3><p className="text-sm text-muted-foreground">Defina onde o usuário pode consultar o catálogo e criar propostas.</p></div>
                   <div className="overflow-hidden rounded-lg border">
-                    <div className="grid grid-cols-[minmax(180px,1fr)_120px_140px] gap-3 border-b bg-muted/50 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground"><span>Empresa</span><span>Criar proposta</span><span>Ver catálogo</span></div>
+                    <div className="hidden grid-cols-[minmax(180px,1fr)_120px_140px] gap-3 border-b bg-muted/50 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground sm:grid"><span>Empresa</span><span>Criar proposta</span><span>Ver catálogo</span></div>
                     {stationList.map((station) => {
                       const access = accessDraft[station.id] || { selected: false, canCreateProposals: false, canViewCatalog: false };
-                      return <div key={station.id} className="grid grid-cols-[minmax(180px,1fr)_120px_140px] items-center gap-3 border-b px-4 py-3 last:border-0"><label className="flex items-center gap-3 font-medium"><Checkbox checked={access.selected} onCheckedChange={(checked) => updateAccess(station.id, { selected: checked === true })} />{station.name}</label><Switch disabled={!access.selected} checked={access.canCreateProposals} onCheckedChange={(checked) => updateAccess(station.id, { canCreateProposals: checked })} /><Switch disabled={!access.selected} checked={access.canViewCatalog} onCheckedChange={(checked) => updateAccess(station.id, { canViewCatalog: checked })} /></div>;
+                      return (
+                        <div key={station.id} className="grid gap-4 border-b px-4 py-4 last:border-0 sm:grid-cols-[minmax(180px,1fr)_120px_140px] sm:items-center sm:gap-3 sm:py-3">
+                          <label className="flex items-center gap-3 font-medium">
+                            <Checkbox checked={access.selected} onCheckedChange={(checked) => updateAccess(station.id, { selected: checked === true })} />
+                            {station.name}
+                          </label>
+                          <label className="flex items-center justify-between gap-3 text-sm sm:block">
+                            <span className="sm:sr-only">Criar proposta</span>
+                            <Switch disabled={!access.selected} checked={access.canCreateProposals} onCheckedChange={(checked) => updateAccess(station.id, { canCreateProposals: checked })} />
+                          </label>
+                          <label className="flex items-center justify-between gap-3 text-sm sm:block">
+                            <span className="sm:sr-only">Ver catálogo</span>
+                            <Switch disabled={!access.selected} checked={access.canViewCatalog} onCheckedChange={(checked) => updateAccess(station.id, { canViewCatalog: checked })} />
+                          </label>
+                        </div>
+                      );
                     })}
                   </div>
                 </div>

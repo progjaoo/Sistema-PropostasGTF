@@ -1115,3 +1115,15 @@ Fluxos com alertas/toasts:
 - `/admin/product-templates`
 - `/admin/proposal-categories`
 - `/admin/proposal-types`
+
+## Uso em Navegadores Mobile
+
+As mesmas rotas e permissoes descritas neste documento estao disponiveis em navegadores de celular. Nao existe um frontend web mobile separado.
+
+- A sidebar vira um menu lateral acionado pelo cabecalho.
+- ADMIN continua vendo a secao Administracao; COMERCIAL recebe apenas os destinos autorizados.
+- Dashboard, Propostas, Clientes, Leads, Avisos de Recaptura e Usuarios usam cards operacionais no celular.
+- Busca permanece visivel e filtros secundarios abrem em uma folha inferior.
+- O editor permite alternar entre formulario e preview sem modificar o autosave ou o PDF.
+- Propostas vinculadas continuam respeitando `viewerCanEdit`; a apresentacao mobile nao altera redacao de campos nem permissoes.
+- Formularios, dialogs, confirmacoes e barras de acao respeitam teclado virtual, altura dinamica e safe area.

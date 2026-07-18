@@ -36,6 +36,8 @@ import {
 } from '@/components/ui/select';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/responsive/PageHeader';
+import { ResponsiveFilters } from '@/components/responsive/ResponsiveFilters';
 
 type DashboardStatus = 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED';
 
@@ -178,6 +180,14 @@ export default function Dashboard() {
   const total = proposalsQuery.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const activeConfig = STATUS_CONFIG[selectedStatus];
+  const activeFilterCount = [
+    stationId !== 'all',
+    createdById !== 'all',
+    proposalTypeId !== 'all',
+    Boolean(dateFrom),
+    Boolean(dateTo),
+    sortDir !== 'desc',
+  ].filter(Boolean).length;
 
   const resetPage = React.useCallback(() => setPage(1), []);
 
@@ -198,19 +208,19 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="mt-1 text-muted-foreground">Visão geral e gestão rápida das propostas por status.</p>
-        </div>
-        <Button onClick={() => setLocation('/proposals/new')} size="lg" className="shadow-sm">
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Dashboard"
+        description="Visão geral e gestão rápida das propostas por status."
+        action={(
+          <Button onClick={() => setLocation('/proposals/new')} size="lg" className="w-full shadow-sm sm:w-auto">
           <Plus className="mr-2 h-5 w-5" />
           Nova Proposta
-        </Button>
-      </div>
+          </Button>
+        )}
+      />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {STATUS_ORDER.map((status) => {
           const config = STATUS_CONFIG[status];
           const Icon = config.icon;
@@ -222,17 +232,17 @@ export default function Dashboard() {
               onClick={() => selectStatus(status)}
               className={cn(
                 'rounded-lg text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-                selected ? 'ring-2 ring-primary ring-offset-2' : 'hover:-translate-y-0.5 hover:shadow-md',
+                selected ? 'ring-2 ring-primary ring-offset-2' : 'sm:hover:-translate-y-0.5 sm:hover:shadow-md',
               )}
               aria-pressed={selected}
             >
               <Card className={cn('border-border/60 shadow-sm', selected && 'border-primary bg-primary/5')}>
-                <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                  <div className={cn('mb-3 flex h-10 w-10 items-center justify-center rounded-full', config.bg, config.color)}>
+                <CardContent className="flex min-h-32 flex-col items-center justify-center p-3 text-center sm:p-4">
+                  <div className={cn('mb-2 flex h-9 w-9 items-center justify-center rounded-full sm:mb-3 sm:h-10 sm:w-10', config.bg, config.color)}>
                     <Icon className="h-5 w-5" />
                   </div>
                   <p className="text-sm font-medium text-muted-foreground">{config.title}</p>
-                  <h3 className="mt-1 text-2xl font-bold">{statsLoading ? '-' : getStatValue(status, stats)}</h3>
+                  <h3 className="mt-1 text-xl font-bold sm:text-2xl">{statsLoading ? '-' : getStatValue(status, stats)}</h3>
                 </CardContent>
               </Card>
             </button>
@@ -241,7 +251,7 @@ export default function Dashboard() {
       </div>
 
       <Card className="border-border/60 shadow-sm">
-        <CardHeader className="space-y-4">
+        <CardHeader className="space-y-4 p-4 sm:p-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <CardTitle className="text-lg">{activeConfig.listTitle}</CardTitle>
@@ -249,7 +259,7 @@ export default function Dashboard() {
                 {proposalsQuery.isLoading ? 'Carregando propostas...' : `${total} proposta(s) encontradas neste filtro.`}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <Button variant="outline" size="sm" onClick={clearInternalFilters}>
                 Limpar filtros
               </Button>
@@ -259,7 +269,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 xl:grid-cols-[1.3fr_180px_180px_180px_150px_150px_140px]">
+          <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -272,62 +282,68 @@ export default function Dashboard() {
                 }}
               />
             </div>
-            <Select value={stationId} onValueChange={(value) => { setStationId(value); resetPage(); }}>
-              <SelectTrigger><SelectValue placeholder="Empresa" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas empresas</SelectItem>
-                {(stations ?? []).map((station: any) => (
-                  <SelectItem key={station.id} value={station.id}>{station.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={createdById} onValueChange={(value) => { setCreatedById(value); resetPage(); }}>
-              <SelectTrigger><SelectValue placeholder="Responsável" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos responsáveis</SelectItem>
-                {(users ?? []).filter((user: any) => user.active !== false).map((user: any) => (
-                  <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={proposalTypeId} onValueChange={(value) => { setProposalTypeId(value); resetPage(); }}>
-              <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                {(proposalTypesQuery.data ?? []).map((type) => (
-                  <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(event) => {
-                setDateFrom(event.target.value);
-                resetPage();
-              }}
-              aria-label="Data inicial"
-            />
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(event) => {
-                setDateTo(event.target.value);
-                resetPage();
-              }}
-              aria-label="Data final"
-            />
-            <Select value={sortDir} onValueChange={(value: 'asc' | 'desc') => { setSortDir(value); resetPage(); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="desc">Mais recentes</SelectItem>
-                <SelectItem value="asc">Mais antigas</SelectItem>
-              </SelectContent>
-            </Select>
+            <ResponsiveFilters
+              activeCount={activeFilterCount}
+              onClear={clearInternalFilters}
+              desktopClassName="lg:grid-cols-3 xl:grid-cols-6"
+            >
+              <Select value={stationId} onValueChange={(value) => { setStationId(value); resetPage(); }}>
+                <SelectTrigger><SelectValue placeholder="Empresa" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas empresas</SelectItem>
+                  {(stations ?? []).map((station: any) => (
+                    <SelectItem key={station.id} value={station.id}>{station.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={createdById} onValueChange={(value) => { setCreatedById(value); resetPage(); }}>
+                <SelectTrigger><SelectValue placeholder="Responsável" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos responsáveis</SelectItem>
+                  {(users ?? []).filter((user: any) => user.active !== false).map((user: any) => (
+                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={proposalTypeId} onValueChange={(value) => { setProposalTypeId(value); resetPage(); }}>
+                <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  {(proposalTypesQuery.data ?? []).map((type) => (
+                    <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(event) => {
+                  setDateFrom(event.target.value);
+                  resetPage();
+                }}
+                aria-label="Data inicial"
+              />
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(event) => {
+                  setDateTo(event.target.value);
+                  resetPage();
+                }}
+                aria-label="Data final"
+              />
+              <Select value={sortDir} onValueChange={(value: 'asc' | 'desc') => { setSortDir(value); resetPage(); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Mais recentes</SelectItem>
+                  <SelectItem value="asc">Mais antigas</SelectItem>
+                </SelectContent>
+              </Select>
+            </ResponsiveFilters>
           </div>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
           {proposalsQuery.isLoading ? (
             <div className="py-10 text-center text-muted-foreground">Carregando propostas...</div>
           ) : proposals.length > 0 ? (
@@ -344,7 +360,7 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground">
                   Página {page} de {totalPages} · {total} proposta(s)
                 </p>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:flex">
                   <Button
                     variant="outline"
                     size="sm"
@@ -379,7 +395,7 @@ export default function Dashboard() {
 function ProposalDashboardRow({ proposal, onOpen }: { proposal: ProposalSummary; onOpen: () => void }) {
   return (
     <div
-      className="rounded-lg border border-border/50 p-4 transition-colors hover:bg-muted/40"
+      className="rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/40 sm:p-4"
       role="button"
       tabIndex={0}
       onClick={onOpen}
@@ -391,17 +407,17 @@ function ProposalDashboardRow({ proposal, onOpen }: { proposal: ProposalSummary;
       }}
     >
       <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr_1fr_auto] lg:items-center">
-        <div className="flex min-w-0 items-start gap-4">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
             <FileText className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <h4 className="truncate text-base font-semibold">{getProposalTitle(proposal)}</h4>
-            <p className="mt-1 truncate text-sm text-muted-foreground">{getProposalType(proposal)}</p>
+            <h4 className="line-clamp-2 text-base font-semibold sm:truncate">{getProposalTitle(proposal)}</h4>
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground sm:truncate">{getProposalType(proposal)}</p>
           </div>
         </div>
 
-        <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
+        <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground lg:grid-cols-1">
           <span className="flex min-w-0 items-center gap-2">
             <Building2 className="h-4 w-4 shrink-0" />
             <span className="truncate">{proposal.stationName || 'Empresa não informada'}</span>
@@ -417,12 +433,13 @@ function ProposalDashboardRow({ proposal, onOpen }: { proposal: ProposalSummary;
           <p className="font-medium text-foreground">{formatDate(proposal.updatedAt)}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+        <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap sm:gap-3 lg:justify-end">
           {getStatusBadge(proposal.status)}
           {proposal.investValue && <span className="text-sm font-bold">{proposal.investValue}</span>}
           <Button
             size="sm"
             variant="outline"
+            className="col-span-2 w-full sm:w-auto"
             onClick={(event) => {
               event.stopPropagation();
               onOpen();

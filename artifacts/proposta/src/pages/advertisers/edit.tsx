@@ -90,12 +90,12 @@ export default function AdvertiserEdit({ params, mode = 'client' }: { params: { 
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Editar {entityLabel}</h1>
+          <h1 className="text-2xl font-bold tracking-normal sm:text-3xl">Editar {entityLabel}</h1>
         </div>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-4 sm:p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="flex items-center justify-between mb-4">
@@ -208,11 +208,11 @@ export default function AdvertiserEdit({ params, mode = 'client' }: { params: { 
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-6">
-                <Button variant="outline" type="button" onClick={() => setLocation(backPath)}>
+              <div className="grid grid-cols-1 gap-3 pt-6 sm:flex sm:justify-end">
+                <Button variant="outline" className="w-full sm:w-auto" type="button" onClick={() => setLocation(backPath)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={updateMutation.isPending}>
+                <Button className="w-full sm:w-auto" type="submit" disabled={updateMutation.isPending}>
                   {updateMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
                 </Button>
               </div>

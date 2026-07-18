@@ -2,10 +2,17 @@ import React from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuthStore } from '@/store/auth';
 import { useLogout } from '@workspace/api-client-react';
-import { BellRing, Building2, FileCog, FileText, Users, LogOut, Radio, Package, Layers, UserCircle, UserPlus } from 'lucide-react';
+import { LogOut, UserCircle } from 'lucide-react';
 import { feedback } from '@/lib/feedback';
 import { cn } from '@/lib/utils';
 import { RecallReminderProvider, useRecallReminderCount } from '@/components/notifications/RecallReminderProvider';
+import { MobileNavigationSheet } from '@/components/layout/MobileNavigationSheet';
+import {
+  adminNavigation,
+  isNavigationItemActive,
+  mainNavigation,
+  type NavigationItem,
+} from '@/components/layout/navigation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +36,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { user, clearAuth } = useAuthStore();
   const logout = useLogout();
   const recallCountQuery = useRecallReminderCount();
+  const mainRef = React.useRef<HTMLElement>(null);
 
   // Redirect if not logged in
   React.useEffect(() => {
@@ -36,6 +44,10 @@ export function AppLayout({ children }: AppLayoutProps) {
       setLocation('/login');
     }
   }, [user, setLocation]);
+
+  React.useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [location]);
 
   if (!user) return null;
   const userAvatar = (user as any).avatarBase64 as string | null | undefined;
@@ -53,38 +65,27 @@ export function AppLayout({ children }: AppLayoutProps) {
     }
   };
 
-  const navItems = [
-    { icon: Radio, label: 'Dashboard', href: '/dashboard', roles: ['ADMIN'] },
-    { icon: FileText, label: 'Propostas', href: '/proposals', roles: ['COMERCIAL', 'ADMIN'] },
-    { icon: BellRing, label: 'Avisos de Recaptura', href: '/recall-reminders', roles: ['COMERCIAL', 'ADMIN'], badge: recallDueCount },
-    { icon: Users, label: 'Clientes', href: '/advertisers', roles: ['COMERCIAL', 'ADMIN'] },
-    { icon: UserPlus, label: 'Leads', href: '/leads', roles: ['COMERCIAL', 'ADMIN'] },
-    { icon: Layers, label: 'Programas', href: '/programs', roles: ['COMERCIAL'] },
-  ];
+  const navItems = mainNavigation
+    .filter((item) => !item.roles || item.roles.includes(user.role))
+    .map((item) => (
+      item.href === '/recall-reminders' ? { ...item, badge: recallDueCount } : item
+    ));
 
-  const adminItems = [
-    { icon: UserCircle, label: 'Usuários', href: '/admin/users' },
-    { icon: Building2, label: 'Empresas', href: '/admin/station' },
-    { icon: Package, label: 'Produtos', href: '/admin/product-templates' },
-    { icon: Layers, label: 'Programas', href: '/admin/proposal-categories' },
-    { icon: FileCog, label: 'Tipos de Proposta', href: '/admin/proposal-types' },
-  ];
-
-  const renderLink = (item: any) => {
-    const isActive = location === item.href || location.startsWith(`${item.href}/`);
+  const renderLink = (item: NavigationItem) => {
+    const isActive = isNavigationItemActive(location, item.href);
     return (
       <Link href={item.href} key={item.href}>
         <span className={cn(
-          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+          "flex min-h-10 items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
           isActive 
             ? "bg-primary/10 text-primary" 
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )}>
           <item.icon className="w-4 h-4" />
           <span className="flex-1 truncate">{item.label}</span>
-          {item.badge > 0 && (
+          {(item.badge ?? 0) > 0 && (
             <span className="ml-auto rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold leading-none text-destructive-foreground">
-              {item.badge > 99 ? '99+' : item.badge}
+              {(item.badge ?? 0) > 99 ? '99+' : item.badge}
             </span>
           )}
         </span>
@@ -93,9 +94,9 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen min-h-dvh bg-background">
       {/* Sidebar */}
-      <div className="w-64 border-r bg-card flex flex-col hidden md:flex">
+      <aside className="hidden w-64 shrink-0 flex-col border-r bg-card lg:flex">
         <div className="p-6">
           <div className="flex flex-col gap-1">
             <img
@@ -112,7 +113,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-1">
-            {navItems.filter(i => i.roles.includes(user.role)).map(renderLink)}
+            {navItems.map(renderLink)}
           </div>
 
           {user.role === 'ADMIN' && (
@@ -121,7 +122,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 Administração
               </h4>
               <div className="space-y-1">
-                {adminItems.map(renderLink)}
+                {adminNavigation.map(renderLink)}
               </div>
             </div>
           )}
@@ -173,12 +174,32 @@ export function AppLayout({ children }: AppLayoutProps) {
             </AlertDialogContent>
           </AlertDialog>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <RecallReminderProvider />
-        <main className="flex-1 overflow-y-auto bg-background p-6">
+        <header className="sticky top-0 z-40 flex min-h-14 items-center gap-3 border-b bg-background/95 px-3 pb-2 pt-[max(.5rem,env(safe-area-inset-top))] backdrop-blur lg:hidden">
+          <MobileNavigationSheet
+            location={location}
+            user={{
+              name: user.name,
+              role: user.role,
+              avatarBase64: userAvatar,
+            }}
+            recallDueCount={recallDueCount}
+            onLogout={handleLogout}
+          />
+          <img
+            src="/brand/gtf-logo-horizontal.png"
+            alt="GTF"
+            className="h-4 w-fit max-w-[112px] object-contain"
+          />
+          <span className="min-w-0 flex-1 truncate text-right text-xs font-medium text-muted-foreground">
+            Sistema Comercial GTF
+          </span>
+        </header>
+        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-background px-4 py-4 sm:px-6 sm:py-6">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>

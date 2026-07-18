@@ -90,9 +90,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md shadow-xl border-border/50">
-        <CardHeader className="space-y-3 text-center pb-6">
+    <div className="flex min-h-screen min-h-dvh w-full items-center justify-center overflow-x-hidden bg-muted/30 p-4">
+      <Card className="w-full min-w-0 max-w-md overflow-hidden border-border/50 shadow-xl">
+        <CardHeader className="space-y-3 px-4 pb-6 text-center sm:px-6">
           <div className="mx-auto mb-2 flex h-28 max-w-[180px] items-center justify-center">
             <img
               src="/brand/gtf-logo-completa.png"
@@ -104,7 +104,7 @@ export default function Login() {
             Sistema Comercial GTF
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0 px-4 sm:px-6">
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Entrar</TabsTrigger>
@@ -131,11 +131,11 @@ export default function Login() {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <FormLabel>Senha</FormLabel>
                           <button
                             type="button"
-                            className="text-xs font-medium text-primary hover:underline"
+                            className="min-h-8 text-xs font-medium text-primary hover:underline"
                             onClick={() => setLocation('/forgot-password')}
                           >
                             Esqueceu a senha?

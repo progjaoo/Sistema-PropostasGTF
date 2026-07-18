@@ -27,6 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/store/auth';
 import { formatCurrencyBRL } from '@/lib/masks';
+import { PageHeader } from '@/components/responsive/PageHeader';
+import { ResponsiveFilters } from '@/components/responsive/ResponsiveFilters';
 
 const schema = z.object({
   stationId: z.string().min(1, 'Empresa é obrigatória'),
@@ -396,24 +398,20 @@ export default function AdminProposalCategories() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Programas</h1>
-          <p className="text-muted-foreground mt-1">
-            {isAdmin
-              ? 'Cadastre programas, envie um ícone e vincule produtos existentes.'
-              : 'Consulte os programas e seus produtos disponíveis.'}
-          </p>
-        </div>
-        {isAdmin && (
-          <Button size="lg" onClick={openCreate}>
+      <PageHeader
+        title="Programas"
+        description={isAdmin
+          ? 'Cadastre programas, envie um ícone e vincule produtos existentes.'
+          : 'Consulte os programas e seus produtos disponíveis.'}
+        action={isAdmin ? (
+          <Button size="lg" className="w-full sm:w-auto" onClick={openCreate}>
             <Plus className="mr-2 h-5 w-5" />
             Novo Programa
           </Button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
-      <div className="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-[1fr_220px_180px_220px]">
+      <div className="rounded-lg border bg-card p-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -423,6 +421,12 @@ export default function AdminProposalCategories() {
             onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
           />
         </div>
+        <ResponsiveFilters
+          className="mt-3"
+          desktopClassName="lg:grid-cols-[220px_180px_220px]"
+          activeCount={[filters.stationId !== 'all', filters.active !== 'true', filters.sort !== 'order_asc'].filter(Boolean).length}
+          onClear={() => setFilters((current) => ({ ...current, stationId: 'all', active: 'true', sort: 'order_asc' }))}
+        >
         <Select value={filters.stationId} onValueChange={(stationId) => setFilters((current) => ({ ...current, stationId }))}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -452,6 +456,7 @@ export default function AdminProposalCategories() {
             <SelectItem value="oldest">Mais antigos</SelectItem>
           </SelectContent>
         </Select>
+        </ResponsiveFilters>
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>

@@ -56,8 +56,8 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md border-border/50 shadow-xl">
+    <div className="flex min-h-screen min-h-dvh w-full items-center justify-center overflow-x-hidden bg-muted/30 p-4">
+      <Card className="w-full min-w-0 max-w-md overflow-hidden border-border/50 shadow-xl">
         <CardHeader className="space-y-3 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
             <LockKeyhole className="h-7 w-7" />
@@ -67,7 +67,7 @@ export default function ResetPassword() {
             Crie uma nova senha para acessar o Sistema Comercial GTF.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           {!token ? (
             <div className="space-y-5">
               <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">

@@ -59,6 +59,31 @@ Padroes:
 - Preferir UI densa, clara e operacional.
 - Garantir que textos nao estourem botoes ou campos em telas menores.
 
+## Mobile First
+
+- Todas as rotas web devem funcionar a partir de `320px` de largura.
+- O layout parte de uma coluna e evolui nos breakpoints `sm`, `md`, `lg` e `xl`.
+- A sidebar aparece somente a partir de `lg`; abaixo disso, a navegacao usa o cabecalho e o `MobileNavigationSheet`.
+- Sidebar e menu mobile devem consumir a mesma configuracao em `components/layout/navigation.ts`.
+- Use `min-h-dvh` e as classes de safe area do `index.css` em shells e barras fixas.
+- A busca principal permanece visivel. Filtros secundarios devem usar `ResponsiveFilters`, com contador e acao para limpar.
+- Tabelas densas devem manter tabela no desktop e cards operacionais no celular. As duas apresentacoes compartilham a mesma query, mutations e regras.
+- Botoes e controles interativos devem ter alvo de toque minimo de `44px`.
+- Dialogs e AlertDialogs devem caber em `calc(100vw - 2rem)` e ter scroll interno quando excederem o `dvh`.
+- No editor de proposta, celular alterna entre `Editar` e `Preview`; desktop preserva os dois paineis.
+- O preview A4 em tela deve usar `ResponsiveProposalPreview`. O componente de impressao/PDF nao deve ser escalado ou alterado por regras mobile.
+- Timeline e preview podem rolar horizontalmente dentro do proprio componente; a pagina inteira nao pode ter overflow horizontal.
+- Rotas autenticadas pesadas sao carregadas sob demanda por `React.lazy` e `Suspense` em `App.tsx`.
+
+Viewports de referencia:
+
+- `320 x 568`: celular compacto;
+- `390 x 844`: celular moderno;
+- `430 x 932`: celular grande;
+- `768 x 1024`: tablet retrato;
+- `1024 x 768`: tablet paisagem;
+- `1440 x 900`: regressao desktop.
+
 ## Propostas
 
 - O editor principal fica em `pages/proposals/edit.tsx`.

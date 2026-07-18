@@ -41,8 +41,8 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md border-border/50 shadow-xl">
+    <div className="flex min-h-screen min-h-dvh w-full items-center justify-center overflow-x-hidden bg-muted/30 p-4">
+      <Card className="w-full min-w-0 max-w-md overflow-hidden border-border/50 shadow-xl">
         <CardHeader className="space-y-3 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Mail className="h-7 w-7" />
@@ -52,7 +52,7 @@ export default function ForgotPassword() {
             Informe seu e-mail de acesso para receber as instruções.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <form onSubmit={submit} className="space-y-5">
             <Input
               type="email"

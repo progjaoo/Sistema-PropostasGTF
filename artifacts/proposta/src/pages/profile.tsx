@@ -126,7 +126,7 @@ export default function ProfileSettings() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Meu Perfil</h1>
+        <h1 className="text-2xl font-bold tracking-normal sm:text-3xl">Meu Perfil</h1>
         <p className="text-muted-foreground">Atualize os dados comerciais exibidos nas propostas.</p>
       </div>
 
@@ -150,7 +150,7 @@ export default function ProfileSettings() {
           )}
         </section>
 
-        <section className="rounded-lg border bg-card p-6 space-y-6">
+        <section className="space-y-6 rounded-lg border bg-card p-4 sm:p-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Nome de exibição</Label>
@@ -179,7 +179,7 @@ export default function ProfileSettings() {
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving}>
+            <Button className="w-full sm:w-auto" onClick={handleSave} disabled={saving}>
               <Save className={`mr-2 h-4 w-4 ${saving ? 'animate-pulse' : ''}`} />
               {saving ? 'Salvando...' : 'Salvar perfil'}
             </Button>

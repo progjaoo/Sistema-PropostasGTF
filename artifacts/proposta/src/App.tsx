@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react';
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastContainer } from 'react-toastify';
@@ -12,23 +13,21 @@ import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
-import Dashboard from "@/pages/dashboard";
-import ProfileSettings from "@/pages/profile";
 
-import ProposalNew from "@/pages/proposals/new";
-import ProposalEdit from "@/pages/proposals/edit";
-import ProposalProgress from "@/pages/proposals/progress";
-import RecallRemindersPage from "@/pages/recall-reminders";
-
-import AdvertisersList from "@/pages/advertisers/index";
-import AdvertiserNew from "@/pages/advertisers/new";
-import AdvertiserEdit from "@/pages/advertisers/edit";
-
-import AdminUsers from "@/pages/admin/users";
-import AdminStation from "@/pages/admin/station";
-import AdminProductTemplates from "@/pages/admin/product-templates";
-import AdminProposalCategories from "@/pages/admin/proposal-categories";
-import AdminProposalTypes from "@/pages/admin/proposal-types";
+const Dashboard = React.lazy(() => import('@/pages/dashboard'));
+const ProfileSettings = React.lazy(() => import('@/pages/profile'));
+const ProposalNew = React.lazy(() => import('@/pages/proposals/new'));
+const ProposalEdit = React.lazy(() => import('@/pages/proposals/edit'));
+const ProposalProgress = React.lazy(() => import('@/pages/proposals/progress'));
+const RecallRemindersPage = React.lazy(() => import('@/pages/recall-reminders'));
+const AdvertisersList = React.lazy(() => import('@/pages/advertisers/index'));
+const AdvertiserNew = React.lazy(() => import('@/pages/advertisers/new'));
+const AdvertiserEdit = React.lazy(() => import('@/pages/advertisers/edit'));
+const AdminUsers = React.lazy(() => import('@/pages/admin/users'));
+const AdminStation = React.lazy(() => import('@/pages/admin/station'));
+const AdminProductTemplates = React.lazy(() => import('@/pages/admin/product-templates'));
+const AdminProposalCategories = React.lazy(() => import('@/pages/admin/proposal-categories'));
+const AdminProposalTypes = React.lazy(() => import('@/pages/admin/proposal-types'));
 
 const queryClient = new QueryClient();
 
@@ -71,6 +70,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Suspense fallback={<div className="flex min-h-dvh items-center justify-center p-6 text-sm text-muted-foreground">Carregando página...</div>}>
           <Switch>
             <Route path="/login" component={Login} />
             <Route path="/forgot-password" component={ForgotPassword} />
@@ -118,6 +118,7 @@ function App() {
 
             <Route component={NotFound} />
           </Switch>
+          </Suspense>
         </WouterRouter>
         <ToastContainer
           position="bottom-right"

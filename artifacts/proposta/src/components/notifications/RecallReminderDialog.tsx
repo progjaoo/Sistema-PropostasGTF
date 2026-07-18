@@ -69,7 +69,7 @@ export function RecallReminderDialog({ open, reminders, onOpenChange }: RecallRe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl p-4 sm:p-6">
         <DialogHeader>
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-warning/15 text-warning">
@@ -88,7 +88,7 @@ export function RecallReminderDialog({ open, reminders, onOpenChange }: RecallRe
           {visibleReminders.map((reminder) => {
             const advertiser = reminder.advertiser;
             return (
-            <div key={reminder.id} className="rounded-md border bg-card p-4">
+            <div key={reminder.id} className="rounded-md border bg-card p-3 sm:p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -114,14 +114,15 @@ export function RecallReminderDialog({ open, reminders, onOpenChange }: RecallRe
               </div>
 
               <div className="mt-4 flex flex-col gap-2 border-t pt-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setLocation(`/proposals/${reminder.proposal.id}/edit`)}>
+                <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+                  <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => setLocation(`/proposals/${reminder.proposal.id}/edit`)}>
                     <ExternalLink className="h-4 w-4" />
                     Abrir proposta
                   </Button>
                   {advertiser && (
                     <Button
                       size="sm"
+                      className="w-full sm:w-auto"
                       variant="outline"
                       onClick={() => setLocation(advertiser.status === 'LEAD' ? `/leads/${advertiser.id}/edit` : `/advertisers/${advertiser.id}/edit`)}
                     >
@@ -131,12 +132,12 @@ export function RecallReminderDialog({ open, reminders, onOpenChange }: RecallRe
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
                   <Select
                     value={snoozeDaysById[reminder.id] ?? '15'}
                     onValueChange={(days) => setSnoozeDaysById((current) => ({ ...current, [reminder.id]: days }))}
                   >
-                    <SelectTrigger className="h-8 w-28 text-xs">
+                    <SelectTrigger className="w-full text-xs sm:h-8 sm:w-28">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -147,6 +148,7 @@ export function RecallReminderDialog({ open, reminders, onOpenChange }: RecallRe
                   </Select>
                   <Button
                     size="sm"
+                    className="w-full sm:w-auto"
                     variant="secondary"
                     onClick={() => snoozeMutation.mutate({ id: reminder.id, days: Number(snoozeDaysById[reminder.id] ?? 15) })}
                     disabled={snoozeMutation.isPending}
@@ -156,6 +158,7 @@ export function RecallReminderDialog({ open, reminders, onOpenChange }: RecallRe
                   </Button>
                   <Button
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() => completeMutation.mutate(reminder.id)}
                     disabled={completeMutation.isPending}
                   >

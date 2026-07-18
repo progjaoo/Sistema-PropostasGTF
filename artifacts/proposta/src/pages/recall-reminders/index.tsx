@@ -28,6 +28,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { PageHeader } from '@/components/responsive/PageHeader';
+import { ResponsiveFilters } from '@/components/responsive/ResponsiveFilters';
 import { useAuthStore } from '@/store/auth';
 import {
   completeRecallReminder,
@@ -174,38 +176,54 @@ export default function RecallRemindersPage() {
 
   const reminders = remindersQuery.data?.items ?? [];
   const due = remindersQuery.data?.meta.due ?? 0;
+  const activeFilterCount = [
+    stationId !== 'all',
+    milestoneMonths !== 'all',
+    status !== 'active',
+    user?.role === 'ADMIN' && assignedToId !== 'all',
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setStationId('all');
+    setAssignedToId('all');
+    setMilestoneMonths('all');
+    setStatus('active');
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Avisos de Recaptura</h1>
-          <p className="text-muted-foreground">
-            Revise leads e clientes com propostas rejeitadas nos marcos de 3, 6 e 10 meses.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 rounded-md border bg-card px-4 py-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-warning/15 text-warning">
-            <BellRing className="h-5 w-5" />
+      <PageHeader
+        title="Avisos de Recaptura"
+        description="Revise leads e clientes com propostas rejeitadas nos marcos de 3, 6 e 10 meses."
+        action={(
+          <div className="flex w-full items-center gap-3 rounded-md border bg-card px-4 py-3 sm:w-auto">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-warning/15 text-warning">
+              <BellRing className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold leading-none">{due}</p>
+              <p className="text-xs text-muted-foreground">avisos vencidos</p>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold leading-none">{due}</p>
-            <p className="text-xs text-muted-foreground">avisos vencidos</p>
-          </div>
-        </div>
-      </div>
+        )}
+      />
 
       <div className="rounded-md border bg-card p-4">
-        <div className="grid gap-3 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por lead, cliente, proposta ou responsavel"
-              className="pl-9"
-            />
-          </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar por lead, cliente, proposta ou responsável"
+            className="pl-9"
+          />
+        </div>
+        <ResponsiveFilters
+          className="mt-3"
+          desktopClassName="lg:grid-cols-4"
+          activeCount={activeFilterCount}
+          onClear={clearFilters}
+        >
           <Select value={stationId} onValueChange={setStationId}>
             <SelectTrigger>
               <SelectValue />
@@ -243,10 +261,7 @@ export default function RecallRemindersPage() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-
-        {user?.role === 'ADMIN' && (
-          <div className="mt-3 max-w-sm">
+          {user?.role === 'ADMIN' ? (
             <Select value={assignedToId} onValueChange={setAssignedToId}>
               <SelectTrigger>
                 <SelectValue placeholder="Responsavel" />
@@ -260,8 +275,8 @@ export default function RecallRemindersPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        )}
+          ) : <div className="hidden lg:block" />}
+        </ResponsiveFilters>
       </div>
 
       {remindersQuery.isLoading ? (
@@ -286,11 +301,11 @@ export default function RecallRemindersPage() {
             return (
               <Card key={reminder.id} className="overflow-hidden p-0">
                 <div className={cn('h-1 bg-warning', reminder.status === 'DONE' && 'bg-success', reminder.status === 'SNOOZED' && 'bg-primary')} />
-                <div className="p-5">
+                <div className="p-4 sm:p-5">
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                     <div className="min-w-0 flex-1 space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="truncate text-xl font-semibold">
+                        <h2 className="break-words text-lg font-semibold sm:text-xl">
                           {advertiser?.name ?? 'Lead sem nome'}
                         </h2>
                         {leadBadge(reminder)}
@@ -300,7 +315,7 @@ export default function RecallRemindersPage() {
                         </Badge>
                       </div>
 
-                      <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-4">
+                      <div className="grid grid-cols-1 gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
                         <span className="flex items-center gap-2">
                           <Target className="h-4 w-4" />
                           {reminder.proposal.propType}
@@ -319,7 +334,7 @@ export default function RecallRemindersPage() {
                         </span>
                       </div>
 
-                      <div className="grid gap-2 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground md:grid-cols-3">
+                      <div className="grid gap-2 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground sm:grid-cols-3">
                         <span>Rejeitada em: <strong className="text-foreground">{formatDateTime(reminder.rejectedAt)}</strong></span>
                         <span>Marco original: <strong className="text-foreground">{formatDate(reminder.dueAt)}</strong></span>
                         <span>Investimento: <strong className="text-foreground">{reminder.proposal.investValue ?? 'Nao informado'}</strong></span>
@@ -327,7 +342,7 @@ export default function RecallRemindersPage() {
                     </div>
 
                     <div className="flex flex-col gap-2 xl:w-[420px]">
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <Button variant="outline" onClick={() => setLocation(`/proposals/${reminder.proposal.id}/edit`)}>
                           <ExternalLink className="h-4 w-4" />
                           Abrir proposta
@@ -341,7 +356,7 @@ export default function RecallRemindersPage() {
                           </Button>
                         )}
                       </div>
-                      <div className="grid grid-cols-[120px_1fr_1fr] gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[120px_1fr_1fr]">
                         <Select
                           value={snoozeValue}
                           onValueChange={(days) => setSnoozeDaysById((current) => ({ ...current, [reminder.id]: days }))}

@@ -14,6 +14,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuthStore } from '@/store/auth';
+import { PageHeader } from '@/components/responsive/PageHeader';
+import { ResponsiveFilters } from '@/components/responsive/ResponsiveFilters';
 
 const schema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -141,18 +143,16 @@ export default function AdminProposalTypes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tipos de Proposta</h1>
-          <p className="mt-1 text-muted-foreground">Cadastre os tipos usados no editor de propostas.</p>
-        </div>
-        <Button size="lg" onClick={openCreate}>
+      <PageHeader
+        title="Tipos de Proposta"
+        description="Cadastre os tipos usados no editor de propostas."
+        action={<Button size="lg" className="w-full sm:w-auto" onClick={openCreate}>
           <Plus className="mr-2 h-5 w-5" />
           Novo Tipo
-        </Button>
-      </div>
+        </Button>}
+      />
 
-      <div className="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-[1fr_180px]">
+      <div className="rounded-lg border bg-card p-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -162,6 +162,12 @@ export default function AdminProposalTypes() {
             onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
           />
         </div>
+        <ResponsiveFilters
+          className="mt-3"
+          desktopClassName="md:grid-cols-1"
+          activeCount={filters.active !== 'true' ? 1 : 0}
+          onClear={() => setFilters((current) => ({ ...current, active: 'true' }))}
+        >
         <Select value={filters.active} onValueChange={(active) => setFilters((current) => ({ ...current, active }))}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -170,6 +176,7 @@ export default function AdminProposalTypes() {
             <SelectItem value="all">Todos</SelectItem>
           </SelectContent>
         </Select>
+        </ResponsiveFilters>
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>

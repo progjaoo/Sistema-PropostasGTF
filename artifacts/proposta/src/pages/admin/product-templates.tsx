@@ -26,6 +26,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuthStore } from '@/store/auth';
 import { currencyToNumberString, formatCurrencyBRL } from '@/lib/masks';
+import { PageHeader } from '@/components/responsive/PageHeader';
+import { ResponsiveFilters } from '@/components/responsive/ResponsiveFilters';
 
 const schema = z.object({
   stationId: z.string().min(1, 'Empresa é obrigatória'),
@@ -262,15 +264,13 @@ export default function AdminProductTemplates() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Produtos</h1>
-          <p className="text-muted-foreground mt-1">Produtos comerciais vinculados aos programas.</p>
-        </div>
-        <Button size="lg" onClick={openCreate}><Plus className="w-5 h-5 mr-2" /> Novo Produto</Button>
-      </div>
+      <PageHeader
+        title="Produtos"
+        description="Produtos comerciais vinculados aos programas."
+        action={<Button size="lg" className="w-full sm:w-auto" onClick={openCreate}><Plus className="mr-2 h-5 w-5" /> Novo Produto</Button>}
+      />
 
-      <div className="grid gap-3 rounded-lg border bg-card p-3 xl:grid-cols-[1fr_190px_210px_140px_130px_130px_190px]">
+      <div className="rounded-lg border bg-card p-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -280,6 +280,22 @@ export default function AdminProductTemplates() {
             onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
           />
         </div>
+        <ResponsiveFilters
+          className="mt-3"
+          desktopClassName="xl:grid-cols-[190px_210px_140px_130px_130px_190px]"
+          activeCount={[
+            filters.stationId !== 'all',
+            filters.programId !== 'all',
+            filters.active !== 'true',
+            Boolean(filters.minValue),
+            Boolean(filters.maxValue),
+            filters.sort !== 'order_asc',
+          ].filter(Boolean).length}
+          onClear={() => {
+            setFilters((current) => ({ ...current, stationId: 'all', programId: 'all', active: 'true', minValue: '', maxValue: '', sort: 'order_asc' }));
+            setSelectedProgramId(null);
+          }}
+        >
         <Select
           value={filters.stationId}
           onValueChange={(stationId) => {
@@ -340,6 +356,7 @@ export default function AdminProductTemplates() {
             <SelectItem value="oldest">Mais antigos</SelectItem>
           </SelectContent>
         </Select>
+        </ResponsiveFilters>
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -454,8 +471,21 @@ export default function AdminProductTemplates() {
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground">Carregando...</div>
       ) : programList.length || filters.programId === 'none' ? (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
-          <div className="space-y-3">
+        <div className="space-y-4">
+          <div className="xl:hidden">
+            <Select
+              value={filters.programId === 'none' ? 'none' : selectedProgram?.id || ''}
+              onValueChange={(value) => value === 'none' ? handleProgramFilterChange('none') : handleProgramSelect(value)}
+            >
+              <SelectTrigger aria-label="Selecionar programa"><SelectValue placeholder="Selecione um programa" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem programa</SelectItem>
+                {programList.map((program) => <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
+          <div className="hidden space-y-3 xl:block">
             {programList.map((program) => {
               const selected = selectedProgram?.id === program.id;
               const productCount = program.productCount || program.templateCount || program.products?.length || 0;
@@ -509,8 +539,8 @@ export default function AdminProductTemplates() {
             )}
           </div>
 
-          <Card className="min-h-[520px] overflow-hidden">
-            <div className="p-5">
+          <Card className="min-h-[420px] overflow-hidden xl:min-h-[520px]">
+            <div className="p-4 sm:p-5">
               <div className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                   <div
@@ -521,7 +551,7 @@ export default function AdminProductTemplates() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Produtos do programa</p>
-                    <h2 className="truncate text-2xl font-bold">{filters.programId === 'none' ? 'Sem programa' : selectedProgram?.name || 'Selecione um programa'}</h2>
+                    <h2 className="break-words text-xl font-bold sm:text-2xl">{filters.programId === 'none' ? 'Sem programa' : selectedProgram?.name || 'Selecione um programa'}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {visibleProducts.length} produto(s) encontrado(s) com os filtros atuais.
                     </p>
@@ -605,6 +635,7 @@ export default function AdminProductTemplates() {
               </div>
             </div>
           </Card>
+          </div>
         </div>
       ) : (
         <div className="py-16 text-center border rounded-xl border-dashed">

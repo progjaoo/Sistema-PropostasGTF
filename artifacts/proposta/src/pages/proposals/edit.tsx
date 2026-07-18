@@ -14,9 +14,9 @@ import {
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedback } from '@/lib/feedback';
-import { AlertTriangle, ArrowLeft, Plus, Printer, Save, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Eye, Plus, Printer, Save, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 
-import { ProposalPreview } from '@/components/proposal/ProposalPreview';
+import { ResponsiveProposalPreview } from '@/components/proposal/ResponsiveProposalPreview';
 import { ProposalPrint } from '@/components/proposal/ProposalPrint';
 import { ProposalTimeline } from '@/components/proposal/ProposalTimeline';
 import { useAuthStore } from '@/store/auth';
@@ -35,6 +35,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { formatCurrencyBRL, formatPhoneBR, normalizeEmailInput } from '@/lib/masks';
+import { cn } from '@/lib/utils';
 
 const PERIODICITY_LABELS: Record<string, string> = {
   MONTHLY: 'Mensal',
@@ -216,6 +217,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const [catalogProductSearch, setCatalogProductSearch] = useState('');
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [printIntent, setPrintIntent] = useState<PrintIntent>(null);
+  const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   const dirtyRef = useRef(false);
   const initialized = useRef(false);
 
@@ -647,7 +649,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
   const proposalPrintData = { ...localData, station, advertiser: selectedAdvertiser };
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] -m-6 border-t border-border overflow-hidden bg-background">
+    <div className="relative -m-4 flex min-h-[calc(100dvh-4.5rem)] flex-col overflow-hidden border-t border-border bg-background sm:-m-6 sm:min-h-[calc(100dvh-5.75rem)] lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:flex-row">
       {printIntent && <ProposalPrint proposal={proposalPrintData} onReady={handleProposalPrintReady} />}
       <ConfirmActionDialog
         open={leaveDialogOpen}
@@ -683,7 +685,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                 autoFocus
               />
             </div>
-            <div className="max-h-[360px] overflow-y-auto rounded-lg border">
+            <div className="max-h-[50dvh] overflow-y-auto rounded-lg border sm:max-h-[360px]">
               {(advertisers as any[])?.length ? (advertisers as any[]).slice(0, 12).map((advertiser) => (
                 <button
                   key={advertiser.id}
@@ -709,12 +711,12 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
       <Dialog open={advertiserDialogOpen} onOpenChange={setAdvertiserDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Novo lead</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input placeholder="Nome *" value={advertiserDraft.tradeName} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, tradeName: e.target.value }))} />
             <Input placeholder="Nome do contato *" value={advertiserDraft.contactName} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactName: e.target.value }))} />
             <Input inputMode="tel" placeholder="Telefone *" value={advertiserDraft.contactPhone} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactPhone: formatPhoneBR(e.target.value) }))} />
             <Input type="email" placeholder="contato@cliente.com.br" value={advertiserDraft.contactEmail} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, contactEmail: normalizeEmailInput(e.target.value) }))} />
-            <Textarea className="md:col-span-2" rows={3} placeholder="Informação interna" value={advertiserDraft.notes} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, notes: e.target.value }))} />
+            <Textarea className="sm:col-span-2" rows={3} placeholder="Informação interna" value={advertiserDraft.notes} onChange={(e) => setAdvertiserDraft((prev) => ({ ...prev, notes: e.target.value }))} />
           </div>
           <Button className="w-full" disabled={createAdvertiserMutation.isPending} onClick={createAdvertiser}>
             {createAdvertiserMutation.isPending ? 'Salvando...' : 'Salvar lead'}
@@ -722,7 +724,33 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
         </DialogContent>
       </Dialog>
 
-      <div className="w-[420px] shrink-0 border-r border-border bg-card flex flex-col h-full z-10 shadow-sm no-print">
+      <div className="grid grid-cols-2 gap-1 border-b bg-card p-2 no-print lg:hidden">
+        <Button
+          type="button"
+          variant={mobileView === 'editor' ? 'default' : 'ghost'}
+          onClick={() => setMobileView('editor')}
+          aria-pressed={mobileView === 'editor'}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          Editar
+        </Button>
+        <Button
+          type="button"
+          variant={mobileView === 'preview' ? 'default' : 'ghost'}
+          onClick={() => setMobileView('preview')}
+          aria-pressed={mobileView === 'preview'}
+        >
+          <Eye className="h-4 w-4" />
+          Preview
+        </Button>
+      </div>
+
+      <div
+        className={cn(
+          'z-10 min-h-0 w-full flex-1 flex-col border-r border-border bg-card shadow-sm no-print lg:flex lg:h-full lg:w-[420px] lg:flex-none',
+          mobileView === 'editor' ? 'flex' : 'hidden',
+        )}
+      >
         <div className="p-4 border-b border-border flex items-center justify-between sticky top-0 bg-card/95 backdrop-blur z-20">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="w-8 h-8" onClick={handleBack}>
@@ -826,7 +854,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                     <div className="mt-2 text-sm text-muted-foreground">Nenhum cliente selecionado.</div>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Button variant="outline" className="w-full" onClick={() => setClientPickerOpen(true)}>
                     <Search className="w-4 h-4 mr-2" /> Selecionar
                   </Button>
@@ -853,7 +881,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                     </span>
                   </span>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-xs font-medium">Início</label>
                     <Input type="date" disabled={localData.showPeriod === false} value={localData.dateStart || ''} onChange={(e) => handleChange('dateStart', e.target.value)} />
@@ -875,7 +903,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
                 <div className="space-y-3">
                   {proposalStats.length > 0 ? (
                     proposalStats.map((stat, index) => (
-                      <div key={index} className="grid grid-cols-[1fr_1.6fr] items-start gap-2 rounded-lg border bg-muted/20 p-3">
+                      <div key={index} className="grid grid-cols-1 items-start gap-2 rounded-lg border bg-muted/20 p-3 sm:grid-cols-[1fr_1.6fr]">
                         <div className="space-y-1">
                           <label className="text-[10px] font-medium uppercase text-muted-foreground">Destaque</label>
                           <Input
@@ -1112,7 +1140,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
           </Accordion>
         </div>
 
-        <div className="p-4 border-t border-border bg-card/95 backdrop-blur sticky bottom-0 z-20 space-y-3">
+        <div className="sticky bottom-0 z-20 space-y-3 border-t border-border bg-card/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
           <Select value={localData.status} onValueChange={handleStatusChange}>
             <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
@@ -1133,13 +1161,16 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      <div className="flex-1 bg-[#F4F4F5] relative overflow-y-auto overflow-x-hidden flex items-start justify-center p-8 print-only-container print:bg-white print:p-0 print:m-0">
+      <div
+        className={cn(
+          'relative min-h-0 flex-1 items-start justify-center overflow-y-auto overflow-x-hidden bg-[#F4F4F5] p-3 print-only-container print:m-0 print:bg-white print:p-0 sm:p-6 lg:flex lg:p-8',
+          mobileView === 'preview' ? 'flex' : 'hidden',
+        )}
+      >
         <div className="absolute top-4 right-4 text-xs font-bold text-muted-foreground/30 uppercase tracking-widest no-print">
           Preview
         </div>
-        <div className="print-area print-scale-wrapper print:!transform-none print:w-[210mm] print:h-auto shadow-2xl transition-transform origin-top">
-          <ProposalPreview proposal={proposalPrintData} scale={0.8} />
-        </div>
+        <ResponsiveProposalPreview proposal={proposalPrintData} />
       </div>
     </div>
   );

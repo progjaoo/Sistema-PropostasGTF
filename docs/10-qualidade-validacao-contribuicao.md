@@ -38,7 +38,7 @@ pnpm seed
 
 - Usar shadcn/ui/Radix para dialogs, selects, inputs e alertas.
 - Usar AlertDialog para confirmacoes criticas.
-- Usar Sonner para feedback de sucesso/erro sem decisao.
+- Usar React Toastify, exclusivamente pelo wrapper `src/lib/feedback.ts`, para feedback de sucesso/erro sem decisao.
 - Usar icones Lucide em botoes quando houver icone correspondente.
 - Manter textos claros e operacionais.
 - Evitar instrucoes longas dentro da interface.
@@ -67,3 +67,19 @@ pnpm seed
 - O Docker foi reconstruido quando necessario?
 - A documentacao relevante foi atualizada?
 
+## Checklist Responsivo
+
+Validar pelo menos em `320x568`, `390x844`, `768x1024` e `1440x900`:
+
+- menu mobile abre, navega, destaca a rota atual e fecha depois da navegacao;
+- nenhum documento apresenta rolagem horizontal acidental;
+- filtros mobile abrem, aplicam e limpam sem duplicar requisicoes;
+- tabelas administrativas viram cards legiveis no celular;
+- dialogs e AlertDialogs cabem no viewport e possuem scroll interno;
+- botoes, selects e acoes possuem alvo de toque de pelo menos `44px`;
+- teclado virtual nao esconde o envio de login, filtros ou formularios;
+- editor alterna entre Editar e Preview, mantendo autosave;
+- timeline rola por toque e centraliza a etapa atual;
+- PDF A4, `Ctrl+P`/`Cmd+P`, investimento e contato permanecem inalterados;
+- ADMIN e COMERCIAL recebem somente rotas e acoes autorizadas;
+- orientacao retrato e paisagem nao causam sobreposicao.

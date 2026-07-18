@@ -17,6 +17,7 @@ import { ColorPickerField } from '@/components/ui/color-picker-field';
 import { Switch } from '@/components/ui/switch';
 import { useAuthStore } from '@/store/auth';
 import { formatPhoneBR, normalizeEmailInput } from '@/lib/masks';
+import { PageHeader } from '@/components/responsive/PageHeader';
 
 const schema = z.object({
   name: z.string().min(1, 'Nome da empresa é obrigatório'),
@@ -209,13 +210,11 @@ export default function AdminStation() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Empresas</h1>
-          <p className="text-muted-foreground mt-1">Cadastre empresas/emissoras que assinam as propostas comerciais.</p>
-        </div>
-        <Button size="lg" onClick={openCreate}><Plus className="w-5 h-5 mr-2" /> Nova Empresa</Button>
-      </div>
+      <PageHeader
+        title="Empresas"
+        description="Cadastre empresas/emissoras que assinam as propostas comerciais."
+        action={<Button size="lg" className="w-full sm:w-auto" onClick={openCreate}><Plus className="mr-2 h-5 w-5" /> Nova Empresa</Button>}
+      />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -279,14 +278,14 @@ export default function AdminStation() {
               </div>
 
               <div className="space-y-4 border-t pt-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="text-sm font-semibold">Apresentação padrão</h3>
                     <p className="text-xs text-muted-foreground">
                       Itens usados automaticamente em novas propostas desta empresa.
                     </p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={addPresentationItem} disabled={presentationItems.length >= 4}>
+                  <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" onClick={addPresentationItem} disabled={presentationItems.length >= 4}>
                     <Plus className="mr-2 h-4 w-4" />
                     Item ({presentationItems.length}/4)
                   </Button>
@@ -312,6 +311,7 @@ export default function AdminStation() {
                           type="button"
                           variant="destructive"
                           size="icon"
+                          className="w-full md:w-11"
                           onClick={() => removePresentationItem(index)}
                           aria-label="Remover item"
                         >
@@ -327,11 +327,11 @@ export default function AdminStation() {
                 )}
 
                 {presentationItems.length > 0 && (
-                  <div className="grid overflow-hidden rounded-lg border bg-[#F8FBFF] md:grid-cols-4">
+                  <div className="grid grid-cols-2 overflow-hidden rounded-lg border bg-[#F8FBFF] md:grid-cols-4">
                     {presentationItems.map((item, index) => {
                       const color = index % 2 === 0 ? form.watch('primaryColor') || '#427EFF' : '#727272';
                       return (
-                        <div key={`preview-${index}`} className="border-r last:border-r-0">
+                        <div key={`preview-${index}`} className="border-b border-r last:border-r-0 md:border-b-0">
                           <div className="h-1.5" style={{ backgroundColor: color }} />
                           <div className="p-3">
                             <div className="text-lg font-black" style={{ color }}>
@@ -349,7 +349,7 @@ export default function AdminStation() {
               </div>
 
               <div className="flex justify-end pt-2">
-                <Button type="submit" disabled={updateMutation.isPending || createMutation.isPending}>
+                <Button type="submit" className="w-full sm:w-auto" disabled={updateMutation.isPending || createMutation.isPending}>
                   <Save className="w-4 h-4 mr-2" />
                   {(updateMutation.isPending || createMutation.isPending) ? 'Salvando...' : 'Salvar Empresa'}
                 </Button>

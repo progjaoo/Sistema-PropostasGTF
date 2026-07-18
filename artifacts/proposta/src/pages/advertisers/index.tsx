@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ConfirmActionDialog } from '@/components/ui/confirm-action-dialog';
+import { PageHeader } from '@/components/responsive/PageHeader';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,6 +74,7 @@ export default function AdvertisersList({ mode = 'client' }: AdvertisersListProp
   const [search, setSearch] = React.useState('');
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [deleteTarget, setDeleteTarget] = React.useState<any | null>(null);
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   const advertiserParams = { search: search || undefined, status: copy.status };
   const { data: advertisers, isLoading } = useListAdvertisers(advertiserParams);
@@ -105,20 +108,100 @@ export default function AdvertisersList({ mode = 'client' }: AdvertisersListProp
     );
   };
 
+  const renderProposals = (adv: any) => (
+    <div className="space-y-2">
+      <div className="text-xs font-semibold uppercase text-muted-foreground">Propostas vinculadas</div>
+      {adv.proposals?.length ? adv.proposals.map((proposal: any) => {
+        const canEdit = proposal.viewerCanEdit === true;
+        const title = proposal.clientLine1 || proposal.campTag || proposal.propType || 'Proposta';
+        const programName = proposal.programName || 'Programa não informado';
+
+        if (!canEdit) {
+          return (
+            <div key={proposal.id} className="w-full rounded-md border bg-card px-3 py-3 text-left sm:px-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="break-words font-medium">Programa: {programName}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Responsável: {proposal.createdByName || 'Comercial'}
+                  </div>
+                  {renderTimelineStep(proposal)}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {getStatusBadge(proposal.status)}
+                  <span title="Proposta de outro responsável - visualização restrita">
+                    <Lock className="h-4 w-4 text-muted-foreground" aria-label="Proposta de outro responsável" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <button
+            key={proposal.id}
+            type="button"
+            className="w-full rounded-md border bg-card px-3 py-3 text-left hover:bg-muted/40 sm:px-4"
+            onClick={() => setLocation(`/proposals/${proposal.id}/edit`)}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="break-words font-medium">{title}</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {programName} · {proposal.createdByName || 'Comercial'}
+                </div>
+                {renderTimelineStep(proposal)}
+              </div>
+              {getStatusBadge(proposal.status)}
+            </div>
+            {proposal.investValue && (
+              <div className="mt-2 text-sm font-semibold">{proposal.investValue}</div>
+            )}
+          </button>
+        );
+      }) : (
+        <div className="text-sm text-muted-foreground">
+          Nenhuma proposta vinculada para este {copy.singularLower}.
+        </div>
+      )}
+    </div>
+  );
+
+  const renderActions = (adv: any) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="shrink-0" aria-label={`Ações de ${adv.tradeName}`}>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Ações</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => setLocation(`${copy.editBasePath}/${adv.id}/edit`)}>
+          <Edit className="mr-2 h-4 w-4" /> Editar
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-error focus:bg-error/10 focus:text-error" onClick={() => setDeleteTarget(adv)}>
+          <Trash2 className="mr-2 h-4 w-4" /> Excluir
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{copy.title}</h1>
-          <p className="text-muted-foreground mt-1">{copy.description}</p>
-        </div>
-        <Button onClick={() => setLocation(copy.newPath)} size="lg">
+      <PageHeader
+        title={copy.title}
+        description={copy.description}
+        action={(
+          <Button onClick={() => setLocation(copy.newPath)} size="lg" className="w-full sm:w-auto">
           <Plus className="w-5 h-5 mr-2" />
           {copy.newLabel}
-        </Button>
-      </div>
+          </Button>
+        )}
+      />
 
-      <div className="flex gap-4 items-center max-w-md">
+      <div className="flex w-full max-w-md items-center gap-4">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
@@ -133,6 +216,52 @@ export default function AdvertisersList({ mode = 'client' }: AdvertisersListProp
       <Card className="border-border/60 shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-muted-foreground">Carregando...</div>
+        ) : advertisers && advertisers.length > 0 && isMobile ? (
+          <div className="divide-y divide-border/60">
+            {advertisers.map((adv: any) => (
+              <article key={adv.id} className="p-4">
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => setExpanded((prev) => ({ ...prev, [adv.id]: !prev[adv.id] }))}
+                  >
+                    <div className="flex items-start gap-2">
+                      {expanded[adv.id] ? (
+                        <ChevronDown className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                      )}
+                      <div className="min-w-0">
+                        <h2 className="break-words font-semibold">{adv.tradeName}</h2>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {adv.proposals?.length || 0} proposta(s) vinculada(s)
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                  <span className={`mt-1 shrink-0 rounded-md px-2 py-1 text-xs font-medium ${adv.active ? 'bg-success/10 text-success' : 'bg-neutral-100 text-neutral-600'}`}>
+                    {adv.active ? 'Ativo' : 'Inativo'}
+                  </span>
+                  {renderActions(adv)}
+                </div>
+
+                <dl className="mt-4 grid grid-cols-2 gap-3 rounded-md bg-muted/40 p-3 text-sm">
+                  <div className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">Contato</dt>
+                    <dd className="mt-1 break-words font-medium">{adv.contactName || 'Não informado'}</dd>
+                    {adv.contactPhone && <dd className="text-xs text-muted-foreground">{adv.contactPhone}</dd>}
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">CNPJ</dt>
+                    <dd className="mt-1 break-words font-medium">{adv.cnpj || 'Não informado'}</dd>
+                  </div>
+                </dl>
+
+                {expanded[adv.id] && <div className="mt-4 border-t pt-4">{renderProposals(adv)}</div>}
+              </article>
+            ))}
+          </div>
         ) : advertisers && advertisers.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -175,90 +304,13 @@ export default function AdvertisersList({ mode = 'client' }: AdvertisersListProp
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Abrir menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => setLocation(`${copy.editBasePath}/${adv.id}/edit`)}>
-                              <Edit className="w-4 h-4 mr-2" /> Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-error focus:bg-error/10 focus:text-error" onClick={() => setDeleteTarget(adv)}>
-                              <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {renderActions(adv)}
                       </td>
                     </tr>
                     {expanded[adv.id] && (
                       <tr className="bg-muted/20 border-b border-border/50">
                         <td colSpan={5} className="px-12 py-4">
-                          <div className="text-xs font-semibold text-muted-foreground uppercase mb-3">Propostas vinculadas</div>
-                          {adv.proposals?.length ? (
-                            <div className="space-y-2">
-                              {adv.proposals.map((proposal: any) => {
-                                const canEdit = proposal.viewerCanEdit === true;
-                                const title = proposal.clientLine1 || proposal.campTag || proposal.propType || 'Proposta';
-                                const programName = proposal.programName || 'Programa não informado';
-
-                                if (!canEdit) {
-                                  return (
-                                    <div
-                                      key={proposal.id}
-                                      className="w-full rounded-md border bg-card px-4 py-3 text-left"
-                                    >
-                                      <div className="flex items-center justify-between gap-4">
-                                        <div className="min-w-0">
-                                          <div className="truncate font-medium">Programa: {programName}</div>
-                                          <div className="mt-1 text-xs text-muted-foreground">
-                                            Responsável: {proposal.createdByName || 'Comercial'}
-                                          </div>
-                                          {renderTimelineStep(proposal)}
-                                        </div>
-                                        <div className="flex shrink-0 items-center gap-2">
-                                          {getStatusBadge(proposal.status)}
-                                          <span title="Proposta de outro responsável - visualização restrita">
-                                            <Lock
-                                              className="h-4 w-4 text-muted-foreground"
-                                              aria-label="Proposta de outro responsável"
-                                            />
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-
-                                return (
-                                  <button
-                                    key={proposal.id}
-                                    type="button"
-                                    className="w-full flex items-center justify-between gap-4 rounded-md border bg-card px-4 py-3 text-left hover:bg-muted/40"
-                                    onClick={() => setLocation(`/proposals/${proposal.id}/edit`)}
-                                  >
-                                    <div className="min-w-0">
-                                      <div className="truncate font-medium">{title}</div>
-                                      <div className="mt-1 text-xs text-muted-foreground">
-                                        {programName} · {proposal.createdByName || 'Comercial'}
-                                      </div>
-                                      {renderTimelineStep(proposal)}
-                                    </div>
-                                    <div className="flex shrink-0 items-center gap-3">
-                                      {proposal.investValue && <span className="text-sm font-medium">{proposal.investValue}</span>}
-                                      {getStatusBadge(proposal.status)}
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-muted-foreground">Nenhuma proposta vinculada para este {copy.singularLower}.</div>
-                          )}
+                          {renderProposals(adv)}
                         </td>
                       </tr>
                     )}
