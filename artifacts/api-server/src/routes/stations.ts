@@ -150,6 +150,47 @@ router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   res.status(201).json(formatStation(station));
 });
 
+router.get("/:id", requireAuth, async (req, res): Promise<void> => {
+  const stationId = String(req.params["id"]);
+  const accessibleIds = await getAccessibleStationIds(req.userId!, req.userRole);
+  if (accessibleIds !== null && !accessibleIds.includes(stationId)) {
+    res.status(403).json({ error: "Você não possui acesso a esta empresa" });
+    return;
+  }
+
+  const station = await prisma.station.findUnique({
+    where: { id: stationId },
+    include: {
+      presentationItems: {
+        where: { active: true },
+        orderBy: { order: "asc" },
+      },
+    },
+  });
+  if (!station) {
+    res.status(404).json({ error: "Company not found" });
+    return;
+  }
+
+  if (accessibleIds === null) {
+    res.json(formatStation(station));
+    return;
+  }
+
+  const access = await prisma.userStationAccess.findFirst({
+    where: {
+      userId: req.userId!,
+      stationId,
+      active: true,
+    },
+    select: {
+      canCreateProposals: true,
+      canViewCatalog: true,
+    },
+  });
+  res.json(formatStation(station, access ?? undefined));
+});
+
 router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   const parsed = stationBody.partial().safeParse(req.body);
   if (!parsed.success) {

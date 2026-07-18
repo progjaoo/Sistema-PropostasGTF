@@ -67,7 +67,12 @@ function getPasswordResetTtlMinutes() {
   return Number.isFinite(raw) && raw > 0 ? raw : 30;
 }
 
-function buildResetUrl(token: string) {
+function buildResetUrl(token: string, clientPlatform?: string) {
+  if (clientPlatform === "mobile") {
+    const rawMobileUrl = process.env["MOBILE_APP_RESET_URL"] || "gtfpropostas://reset-password";
+    const mobileUrl = rawMobileUrl.replace(/\/$/, "");
+    return `${mobileUrl}?token=${encodeURIComponent(token)}`;
+  }
   const rawBaseUrl = process.env["APP_PUBLIC_URL"] || "http://localhost:21709";
   const baseUrl = rawBaseUrl.replace(/\/$/, "");
   return `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
@@ -99,6 +104,22 @@ function formatAuthUser(user: {
   };
 }
 
+async function createSession(user: {
+  id: string;
+  role: string;
+}) {
+  const accessToken = signAccessToken({ userId: user.id, role: user.role });
+  const refreshToken = signRefreshToken({ userId: user.id, role: user.role });
+  await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      token: refreshToken,
+      expiresAt: getRefreshExpiresAt(),
+    },
+  });
+  return { accessToken, refreshToken };
+}
+
 router.post("/login", async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
@@ -117,15 +138,7 @@ router.post("/login", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Credenciais invalidas" });
     return;
   }
-  const accessToken = signAccessToken({ userId: user.id, role: user.role });
-  const refreshToken = signRefreshToken({ userId: user.id, role: user.role });
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      token: refreshToken,
-      expiresAt: getRefreshExpiresAt(),
-    },
-  });
+  const { accessToken, refreshToken } = await createSession(user);
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: process.env["NODE_ENV"] === "production",
@@ -209,7 +222,7 @@ router.post("/forgot-password", async (req, res): Promise<void> => {
       await sendPasswordResetEmail({
         to: user.email,
         userName: user.name,
-        resetUrl: buildResetUrl(token),
+        resetUrl: buildResetUrl(token, req.header("x-client-platform")),
         ttlMinutes,
       });
     } catch (error) {
@@ -312,6 +325,90 @@ router.post("/refresh", async (req, res): Promise<void> => {
   } catch {
     res.status(401).json({ error: "Invalid refresh token" });
   }
+});
+
+router.post("/mobile/login", async (req, res): Promise<void> => {
+  const parsed = LoginBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { password } = parsed.data;
+  const email = normalizeEmail(parsed.data.email);
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || !user.active) {
+    res.status(401).json({ error: "Credenciais invalidas ou conta inativa" });
+    return;
+  }
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: "Credenciais invalidas" });
+    return;
+  }
+
+  const { accessToken, refreshToken } = await createSession(user);
+  res.json({
+    accessToken,
+    refreshToken,
+    user: formatAuthUser(user),
+  });
+});
+
+router.post("/mobile/refresh", async (req, res): Promise<void> => {
+  const refreshToken = req.body?.refreshToken;
+  if (!refreshToken || typeof refreshToken !== "string") {
+    res.status(400).json({ error: "refreshToken is required" });
+    return;
+  }
+
+  try {
+    const payload = verifyRefreshToken(refreshToken);
+    const stored = await prisma.refreshToken.findFirst({
+      where: {
+        token: refreshToken,
+        userId: payload.userId,
+        expiresAt: { gt: new Date() },
+      },
+      include: { user: true },
+    });
+    if (!stored) {
+      res.status(401).json({ error: "Invalid refresh token" });
+      return;
+    }
+    if (!stored.user.active) {
+      await prisma.refreshToken.deleteMany({ where: { userId: stored.userId } });
+      res.status(401).json({ error: "Conta inativa" });
+      return;
+    }
+
+    const newAccessToken = signAccessToken({ userId: stored.user.id, role: stored.user.role });
+    const newRefreshToken = signRefreshToken({ userId: stored.user.id, role: stored.user.role });
+    await prisma.$transaction([
+      prisma.refreshToken.delete({ where: { id: stored.id } }),
+      prisma.refreshToken.create({
+        data: {
+          userId: stored.user.id,
+          token: newRefreshToken,
+          expiresAt: getRefreshExpiresAt(),
+        },
+      }),
+    ]);
+    res.json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: formatAuthUser(stored.user),
+    });
+  } catch {
+    res.status(401).json({ error: "Invalid refresh token" });
+  }
+});
+
+router.post("/mobile/logout", async (req, res): Promise<void> => {
+  const refreshToken = req.body?.refreshToken;
+  if (refreshToken && typeof refreshToken === "string") {
+    await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+  }
+  res.status(204).send();
 });
 
 router.post("/logout", async (req, res): Promise<void> => {

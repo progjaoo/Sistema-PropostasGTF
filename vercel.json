@@ -1,0 +1,16 @@
+{
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @workspace/db run generate && PORT=21709 BASE_PATH=/ pnpm --filter @workspace/proposta run build",
+  "outputDirectory": "artifacts/proposta/dist/public",
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!api/.*).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

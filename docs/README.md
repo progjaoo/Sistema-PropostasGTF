@@ -23,11 +23,15 @@ Este diretorio centraliza as guidelines, padroes tecnicos e regras funcionais do
 10. [Qualidade, validacao e contribuicao](./10-qualidade-validacao-contribuicao.md)
 11. [MCPs do projeto](./mcps/README.md)
 12. [PRD do aplicativo mobile React Native + Expo](./PRD-APLICATIVO-MOBILE-REACT-NATIVE-EXPO.md)
+13. [Deploy no Vercel com Neon DB](./DEPLOY-VERCEL-NEON.md)
+14. [Deploy no Railway](./DEPLOY-RAILWAY.md)
 
 ## Documentos Funcionais Existentes
 
 - [Rodar localmente](./rodar-local.md)
 - [Subir producao](./SUBIR-PRODUÇÃO.md)
+- [Deploy no Vercel com Neon DB](./DEPLOY-VERCEL-NEON.md)
+- [Deploy no Railway](./DEPLOY-RAILWAY.md)
 - [Paginas por perfil](./paginas-por-perfil.md)
 - [Task da pagina de proposta](./Task-PaginaProposta.md)
 - [PRD do aplicativo mobile React Native + Expo](./PRD-APLICATIVO-MOBILE-REACT-NATIVE-EXPO.md)

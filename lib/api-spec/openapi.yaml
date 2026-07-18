@@ -77,6 +77,63 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
 
+  /auth/mobile/login:
+    post:
+      operationId: mobileLogin
+      tags: [auth]
+      summary: Mobile login with refresh token in response body
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Mobile session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileAuthResponse"
+        "401":
+          description: Invalid credentials or inactive account
+
+  /auth/mobile/refresh:
+    post:
+      operationId: mobileRefreshToken
+      tags: [auth]
+      summary: Renew mobile access token using refresh token from request body
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileRefreshInput"
+      responses:
+        "200":
+          description: Mobile token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileAuthResponse"
+        "401":
+          description: Invalid refresh token
+
+  /auth/mobile/logout:
+    post:
+      operationId: mobileLogout
+      tags: [auth]
+      summary: Invalidate mobile refresh token from request body
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileRefreshInput"
+      responses:
+        "204":
+          description: Logged out
+
   /auth/logout:
     post:
       operationId: logout
@@ -308,6 +365,29 @@ paths:
                 $ref: "#/components/schemas/Station"
 
   /stations/{id}:
+    get:
+      operationId: getStation
+      tags: [stations]
+      summary: Get station detail
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Station detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Station"
+        "403":
+          description: No access to station
+        "404":
+          description: Station not found
     patch:
       operationId: updateStation
       tags: [stations]
@@ -1176,6 +1256,24 @@ components:
       required: [accessToken, user]
       properties:
         accessToken:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    MobileRefreshInput:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    MobileAuthResponse:
+      type: object
+      required: [accessToken, refreshToken, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
           type: string
         user:
           $ref: "#/components/schemas/User"
