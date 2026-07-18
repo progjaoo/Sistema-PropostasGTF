@@ -25,6 +25,7 @@ Este diretorio centraliza as guidelines, padroes tecnicos e regras funcionais do
 12. [PRD do aplicativo mobile React Native + Expo](./PRD-APLICATIVO-MOBILE-REACT-NATIVE-EXPO.md)
 13. [Deploy no Vercel com Neon DB](./DEPLOY-VERCEL-NEON.md)
 14. [Deploy no Railway](./DEPLOY-RAILWAY.md)
+15. [Status de producao do ecossistema](./STATUS-PRODUCAO-ECOSSISTEMA.md)
 
 ## Documentos Funcionais Existentes
 
@@ -32,6 +33,7 @@ Este diretorio centraliza as guidelines, padroes tecnicos e regras funcionais do
 - [Subir producao](./SUBIR-PRODUÇÃO.md)
 - [Deploy no Vercel com Neon DB](./DEPLOY-VERCEL-NEON.md)
 - [Deploy no Railway](./DEPLOY-RAILWAY.md)
+- [Status de producao do ecossistema](./STATUS-PRODUCAO-ECOSSISTEMA.md)
 - [Paginas por perfil](./paginas-por-perfil.md)
 - [Task da pagina de proposta](./Task-PaginaProposta.md)
 - [PRD do aplicativo mobile React Native + Expo](./PRD-APLICATIVO-MOBILE-REACT-NATIVE-EXPO.md)

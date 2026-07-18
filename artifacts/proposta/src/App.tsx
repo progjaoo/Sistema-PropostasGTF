@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastContainer } from 'react-toastify';
@@ -6,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useAuthStore } from "@/store/auth";
+import { installAuthenticatedFetch } from "@/lib/auth-fetch";
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import NotFound from "@/pages/not-found";
@@ -31,6 +31,9 @@ import AdminProposalCategories from "@/pages/admin/proposal-categories";
 import AdminProposalTypes from "@/pages/admin/proposal-types";
 
 const queryClient = new QueryClient();
+
+setAuthTokenGetter(() => useAuthStore.getState().accessToken);
+installAuthenticatedFetch();
 
 function LeadsList() {
   return <AdvertisersList mode="lead" />;
@@ -64,11 +67,6 @@ function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: an
 }
 
 function App() {
-  useEffect(() => {
-    // Configure the API client to use the Zustand token
-    setAuthTokenGetter(() => useAuthStore.getState().accessToken);
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
