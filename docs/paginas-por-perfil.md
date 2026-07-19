@@ -1120,6 +1120,7 @@ Fluxos com alertas/toasts:
 
 As mesmas rotas e permissoes descritas neste documento estao disponiveis em navegadores de celular. Nao existe um frontend web mobile separado.
 
+- Em desktop, a sidebar fica fixa no viewport, pode ser recolhida e mostra tooltips com os nomes dos destinos quando estiver compacta.
 - A sidebar vira um menu lateral acionado pelo cabecalho.
 - ADMIN continua vendo a secao Administracao; COMERCIAL recebe apenas os destinos autorizados.
 - Dashboard, Propostas, Clientes, Leads, Avisos de Recaptura e Usuarios usam cards operacionais no celular.

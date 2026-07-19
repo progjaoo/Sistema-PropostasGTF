@@ -55,6 +55,8 @@ Padroes:
 
 - Layout autenticado fica em `components/layout/AppLayout.tsx`.
 - Sidebar deve refletir permissoes por perfil.
+- Em desktop (`lg+`), a sidebar deve ficar fixa no viewport, com navegacao rolando internamente e o bloco de usuario/perfil/logout sempre preso ao rodape.
+- A sidebar desktop pode ser recolhida; em modo recolhido, itens devem manter `aria-label`, tooltip lateral e badge compacto quando houver notificacao.
 - Evitar cards dentro de cards.
 - Preferir UI densa, clara e operacional.
 - Garantir que textos nao estourem botoes ou campos em telas menores.
@@ -65,6 +67,7 @@ Padroes:
 - O layout parte de uma coluna e evolui nos breakpoints `sm`, `md`, `lg` e `xl`.
 - A sidebar aparece somente a partir de `lg`; abaixo disso, a navegacao usa o cabecalho e o `MobileNavigationSheet`.
 - Sidebar e menu mobile devem consumir a mesma configuracao em `components/layout/navigation.ts`.
+- O estado recolhido da sidebar desktop nao deve afetar o menu mobile.
 - Use `min-h-dvh` e as classes de safe area do `index.css` em shells e barras fixas.
 - A busca principal permanece visivel. Filtros secundarios devem usar `ResponsiveFilters`, com contador e acao para limpar.
 - Tabelas densas devem manter tabela no desktop e cards operacionais no celular. As duas apresentacoes compartilham a mesma query, mutations e regras.
