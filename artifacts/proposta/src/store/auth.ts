@@ -1,25 +1,20 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User } from '@workspace/api-client-react';
 
 interface AuthState {
   user: User | null;
   accessToken: string | null;
+  bootstrapped: boolean;
   setAuth: (user: User, token: string) => void;
   clearAuth: () => void;
+  markBootstrapped: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      accessToken: null,
-      setAuth: (user, accessToken) => set({ user, accessToken }),
-      clearAuth: () => set({ user: null, accessToken: null }),
-    }),
-    {
-      name: 'proposta-auth-storage',
-      storage: createJSONStorage(() => sessionStorage),
-    }
-  )
-);
+export const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  accessToken: null,
+  bootstrapped: false,
+  setAuth: (user, accessToken) => set({ user, accessToken }),
+  clearAuth: () => set({ user: null, accessToken: null }),
+  markBootstrapped: () => set({ bootstrapped: true }),
+}));

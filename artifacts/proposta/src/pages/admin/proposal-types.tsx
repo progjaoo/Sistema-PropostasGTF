@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { feedback } from '@/lib/feedback';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { Edit, FileCog, Plus, Search, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -94,7 +95,7 @@ export default function AdminProposalTypes() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error || 'Erro ao salvar tipo de proposta');
+        throw new Error(getApiErrorMessage(payload, 'Erro ao salvar tipo de proposta'));
       }
       if (editing) {
         feedback.updated('Tipo de proposta atualizado');

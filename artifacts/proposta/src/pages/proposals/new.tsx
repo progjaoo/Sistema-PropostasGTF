@@ -8,6 +8,7 @@ import {
 } from '@workspace/api-client-react';
 import { ArrowLeft, Building2, FileText, Loader2, Plus } from 'lucide-react';
 import { feedback } from '@/lib/feedback';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,7 @@ export default function ProposalNew() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao carregar tipos de proposta');
+        throw new Error(getApiErrorMessage(payload, 'Erro ao carregar tipos de proposta'));
       }
       return Array.isArray(payload) ? (payload as ProposalTypeOption[]) : [];
     },

@@ -209,3 +209,25 @@ Quando o plan-004 estiver aplicado no Docker, esse arquivo deve conter `program-
 docker compose build --no-cache
 docker compose up -d
 ```
+
+## PostgreSQL Isolado para Testes de Seguranca
+
+O profile `test` usa banco efemero na porta `5435` e nao compartilha volume com
+o desenvolvimento:
+
+```bash
+docker compose --profile test up -d postgres-test
+DATABASE_URL=postgresql://propostas_test:propostas_test@localhost:5435/propostas_test \
+  pnpm --filter @workspace/db exec prisma db push --schema ./prisma/schema.prisma
+pnpm run test:security
+```
+
+O `db push` acima e exclusivo do banco descartavel de testes. Em Railway,
+Vercel ou outro ambiente de producao, use apenas migrations versionadas com
+`prisma migrate deploy`.
+
+Para parar somente o banco de teste:
+
+```bash
+docker compose --profile test stop postgres-test
+```

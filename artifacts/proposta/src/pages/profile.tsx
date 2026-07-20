@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/store/auth';
 import { formatPhoneBR, normalizeEmailInput } from '@/lib/masks';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 type ProfileForm = {
   name: string;
@@ -38,7 +39,7 @@ export default function ProfileSettings() {
     })
       .then(async (response) => {
         const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.error || 'Erro ao carregar perfil');
+        if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao carregar perfil'));
         return payload;
       })
       .then((payload) => {
@@ -99,7 +100,7 @@ export default function ProfileSettings() {
         }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao salvar perfil');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao salvar perfil'));
 
       if (accessToken && user) {
         setAuth({ ...user, ...payload } as any, accessToken);

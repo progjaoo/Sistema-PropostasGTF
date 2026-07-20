@@ -15,6 +15,15 @@ let installed = false;
 let originalFetch: typeof fetch | null = null;
 let refreshPromise: Promise<boolean> | null = null;
 
+function clearLegacyAuthStorage(): void {
+  try {
+    window.sessionStorage.removeItem('proposta-auth-storage');
+    window.localStorage.removeItem('proposta-auth-storage');
+  } catch {
+    // Storage access can fail in restricted browser modes.
+  }
+}
+
 function getUrl(input: FetchInput): string {
   if (typeof input === 'string') return input;
   if (input instanceof URL) return input.toString();
@@ -90,6 +99,14 @@ async function refreshSession(): Promise<boolean> {
   return refreshPromise;
 }
 
+export async function bootstrapAuthSession(): Promise<void> {
+  try {
+    await refreshSession();
+  } finally {
+    useAuthStore.getState().markBootstrapped();
+  }
+}
+
 function withRetryHeader(init?: FetchInit): FetchInit {
   const headers = new Headers(init?.headers);
   headers.set('x-auth-retry', '1');
@@ -106,6 +123,7 @@ function hasAlreadyRetried(init?: FetchInit): boolean {
 export function installAuthenticatedFetch(): void {
   if (installed || typeof window === 'undefined') return;
 
+  clearLegacyAuthStorage();
   originalFetch = window.fetch.bind(window);
   installed = true;
 

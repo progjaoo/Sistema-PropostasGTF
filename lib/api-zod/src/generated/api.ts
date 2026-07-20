@@ -72,6 +72,77 @@ export const RefreshTokenResponse = zod.object({
 
 
 /**
+ * @summary Mobile login with refresh token in response body
+ */
+export const MobileLoginBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string()
+})
+
+export const MobileLoginResponse = zod.object({
+  "accessToken": zod.string(),
+  "refreshToken": zod.string(),
+  "user": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'COMERCIAL']),
+  "active": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
+})
+})
+
+
+/**
+ * @summary Renew mobile access token using refresh token from request body
+ */
+export const MobileRefreshTokenBody = zod.object({
+  "refreshToken": zod.string()
+})
+
+export const MobileRefreshTokenResponse = zod.object({
+  "accessToken": zod.string(),
+  "refreshToken": zod.string(),
+  "user": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'COMERCIAL']),
+  "active": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "stationAccesses": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "stationId": zod.string(),
+  "stationName": zod.string().optional(),
+  "canCreateProposals": zod.boolean(),
+  "canViewCatalog": zod.boolean(),
+  "active": zod.boolean()
+})).optional()
+})
+})
+
+
+/**
+ * @summary Invalidate mobile refresh token from request body
+ */
+export const MobileLogoutBody = zod.object({
+  "refreshToken": zod.string()
+})
+
+export const MobileLogoutResponse = zod.void()
+
+
+/**
  * @summary Invalidate refresh token
  */
 export const LogoutResponse = zod.void()
@@ -335,6 +406,37 @@ export const CreateStationBody = zod.object({
 })
 
 export const CreateStationResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "slogan": zod.string().nullish(),
+  "primaryColor": zod.string(),
+  "logoBase64": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "active": zod.boolean(),
+  "viewerCanCreateProposals": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado criar propostas nesta empresa.'),
+  "viewerCanViewCatalog": zod.boolean().optional().describe('Permissão calculada para o usuário autenticado visualizar o catálogo desta empresa.'),
+  "presentationItems": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "highlight": zod.string(),
+  "description": zod.string(),
+  "order": zod.number(),
+  "active": zod.boolean().optional()
+})).optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Get station detail
+ */
+export const GetStationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetStationResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "slogan": zod.string().nullish(),

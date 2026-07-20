@@ -3,26 +3,44 @@ import { prisma, type Prisma, type ProductTemplate } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { z } from "zod/v4";
 import { getAccessibleStationIds } from "../services/station-access";
+import { registerIdParamValidation } from "../lib/validation";
 
 const router = Router();
+registerIdParamValidation(router);
 
 const productBody = z.object({
-  stationId: z.string().optional().nullable(),
-  programId: z.string().optional().nullable(),
-  durationId: z.string().optional().nullable(),
+  stationId: z.string().min(1).max(128).optional().nullable(),
+  programId: z.string().min(1).max(128).optional().nullable(),
+  durationId: z.string().min(1).max(128).optional().nullable(),
   order: z.number().int().optional(),
-  name: z.string().min(1).optional().nullable(),
-  qty: z.string().optional().nullable(),
-  title: z.string().min(1),
-  description: z.string().optional().nullable(),
-  detail: z.string().optional().nullable(),
-  program: z.string().optional().nullable(),
-  suggestedValueMin: z.string().optional().nullable(),
-  suggestedValueMax: z.string().optional().nullable(),
-  tags: z.array(z.string()).optional(),
+  name: z.string().trim().min(1).max(120).optional().nullable(),
+  qty: z.string().max(20).optional().nullable(),
+  title: z.string().trim().min(2).max(200),
+  description: z.string().max(2_000).optional().nullable(),
+  detail: z.string().max(2_000).optional().nullable(),
+  program: z.string().max(200).optional().nullable(),
+  suggestedValueMin: z.string().max(50).optional().nullable(),
+  suggestedValueMax: z.string().max(50).optional().nullable(),
+  tags: z.array(z.string().max(100)).max(20).optional(),
   color: z.enum(["BLUE", "YELLOW", "RED", "GREEN", "DARK"]).optional(),
   active: z.boolean().optional(),
-});
+}).strict();
+const productListQuery = z.object({
+  stationId: z.string().max(128).optional(),
+  programId: z.string().max(128).optional(),
+  search: z.string().max(200).optional(),
+  active: z.enum(["true", "false", "all"]).optional(),
+  sort: z.enum([
+    "name_asc",
+    "name_desc",
+    "newest",
+    "oldest",
+    "value_asc",
+    "value_desc",
+  ]).optional(),
+  minValue: z.string().max(50).regex(/^\d+(?:[.,]\d{1,2})?$/).optional(),
+  maxValue: z.string().max(50).regex(/^\d+(?:[.,]\d{1,2})?$/).optional(),
+}).strict();
 
 type ProductWithProgram = ProductTemplate & {
   station?: { id: string; name: string; primaryColor: string } | null;
@@ -130,15 +148,12 @@ async function getProgramName(programId?: string | null) {
 }
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const { stationId, programId, search, active, sort, minValue, maxValue } = req.query as {
-    stationId?: string;
-    programId?: string;
-    search?: string;
-    active?: string;
-    sort?: string;
-    minValue?: string;
-    maxValue?: string;
-  };
+  const query = productListQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Filtros de produtos invalidos", fields: query.error.issues });
+    return;
+  }
+  const { stationId, programId, search, active, sort, minValue, maxValue } = query.data;
   const where: Prisma.ProductTemplateWhereInput = {};
   const accessibleIds = await getAccessibleStationIds(req.userId!, req.userRole, "canViewCatalog");
   if (accessibleIds !== null) {

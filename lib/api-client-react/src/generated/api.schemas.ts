@@ -5,6 +5,18 @@
  * Sistema de Gerenciamento e Criação de Propostas Comerciais
  * OpenAPI spec version: 0.1.0
  */
+export interface ApiError {
+  code: string;
+  message: string;
+  requestId: string;
+  /** Optional validation issues safe to expose to the caller */
+  fields?: unknown;
+}
+
+export interface ApiErrorResponse {
+  error: ApiError;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -58,6 +70,16 @@ export interface User {
 
 export interface AuthResponse {
   accessToken: string;
+  user: User;
+}
+
+export interface MobileRefreshInput {
+  refreshToken: string;
+}
+
+export interface MobileAuthResponse {
+  accessToken: string;
+  refreshToken: string;
   user: User;
 }
 
@@ -707,6 +729,51 @@ export interface TemplateUsageStat {
   categoryName: string;
   usageCount: number;
 }
+
+/**
+ * Invalid body, query string or path parameter
+ */
+export type BadRequestResponse = ApiErrorResponse;
+
+/**
+ * Missing, invalid, expired or revoked authentication
+ */
+export type UnauthorizedResponse = ApiErrorResponse;
+
+/**
+ * Authenticated principal does not have access to the resource
+ */
+export type ForbiddenResponse = ApiErrorResponse;
+
+/**
+ * Resource or route not found
+ */
+export type NotFoundResponse = ApiErrorResponse;
+
+/**
+ * Resource conflicts with current persisted state
+ */
+export type ConflictResponse = ApiErrorResponse;
+
+/**
+ * JSON or Base64 payload exceeds the route limit
+ */
+export type PayloadTooLargeResponse = ApiErrorResponse;
+
+/**
+ * Mutating requests with a body must use application/json
+ */
+export type UnsupportedMediaTypeResponse = ApiErrorResponse;
+
+/**
+ * Request rate limit exceeded
+ */
+export type RateLimitedResponse = ApiErrorResponse;
+
+/**
+ * Unexpected server error with no internal details exposed
+ */
+export type InternalErrorResponse = ApiErrorResponse;
 
 export type ListAdvertisersParams = {
 search?: string;

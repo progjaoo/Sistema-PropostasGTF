@@ -66,6 +66,8 @@ pnpm seed
 - O build do frontend passou?
 - O Docker foi reconstruido quando necessario?
 - A documentacao relevante foi atualizada?
+- `pnpm run test:security` passou no banco isolado `_test`?
+- Nenhum `.env`, certificado ou chave privada esta rastreado pelo Git?
 
 ## Checklist Responsivo
 

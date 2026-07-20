@@ -9,6 +9,7 @@
     "db:push": "pnpm --filter @workspace/db run push",
     "seed": "pnpm --filter @workspace/scripts run seed",
     "docker:up": "docker compose up --build",
+    "test:security": "pnpm --filter @workspace/api-server run test:security",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },

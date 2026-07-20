@@ -24,15 +24,23 @@ import type {
   AdvertiserInput,
   AdvertiserUpdate,
   AuthResponse,
+  BadRequestResponse,
+  ConflictResponse,
   DashboardStats,
+  ForbiddenResponse,
   ForgotPasswordInput,
   HealthStatus,
+  InternalErrorResponse,
   ListAdvertisersParams,
   ListProductTemplatesParams,
   ListProposalTemplatesParams,
   ListProposalsParams,
   LoginInput,
   MessageResponse,
+  MobileAuthResponse,
+  MobileRefreshInput,
+  NotFoundResponse,
+  PayloadTooLargeResponse,
   ProductTemplate,
   ProductTemplateInput,
   ProductTemplateUpdate,
@@ -50,6 +58,7 @@ import type {
   ProposalUpdate,
   ProposalVersion,
   PublicResetPasswordInput,
+  RateLimitedResponse,
   ResetPasswordInput,
   Station,
   StationInput,
@@ -57,6 +66,8 @@ import type {
   StationPresentationResponse,
   StationUpdate,
   TemplateUsageStat,
+  UnauthorizedResponse,
+  UnsupportedMediaTypeResponse,
   User,
   UserInput,
   UserUpdate
@@ -191,7 +202,7 @@ export const login = async (loginInput: LoginInput, options?: RequestInit): Prom
 
 
 
-export const getLoginMutationOptions = <TError = ErrorType<void>,
+export const getLoginMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | UnsupportedMediaTypeResponse | RateLimitedResponse | InternalErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext> => {
 
@@ -220,12 +231,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type LoginMutationResult = NonNullable<Awaited<ReturnType<typeof login>>>
     export type LoginMutationBody = BodyType<LoginInput>
-    export type LoginMutationError = ErrorType<void>
+    export type LoginMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | UnsupportedMediaTypeResponse | RateLimitedResponse | InternalErrorResponse>
 
     /**
  * @summary Login with email and password
  */
-export const useLogin = <TError = ErrorType<void>,
+export const useLogin = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | UnsupportedMediaTypeResponse | RateLimitedResponse | InternalErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof login>>,
@@ -261,7 +272,7 @@ export const refreshToken = async ( options?: RequestInit): Promise<AuthResponse
 
 
 
-export const getRefreshTokenMutationOptions = <TError = ErrorType<unknown>,
+export const getRefreshTokenMutationOptions = <TError = ErrorType<UnauthorizedResponse | ForbiddenResponse | RateLimitedResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshToken>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof refreshToken>>, TError,void, TContext> => {
 
@@ -290,12 +301,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RefreshTokenMutationResult = NonNullable<Awaited<ReturnType<typeof refreshToken>>>
 
-    export type RefreshTokenMutationError = ErrorType<unknown>
+    export type RefreshTokenMutationError = ErrorType<UnauthorizedResponse | ForbiddenResponse | RateLimitedResponse>
 
     /**
  * @summary Renew access token via refresh token
  */
-export const useRefreshToken = <TError = ErrorType<unknown>,
+export const useRefreshToken = <TError = ErrorType<UnauthorizedResponse | ForbiddenResponse | RateLimitedResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshToken>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof refreshToken>>,
@@ -304,6 +315,216 @@ export const useRefreshToken = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRefreshTokenMutationOptions(options));
+    }
+
+export const getMobileLoginUrl = () => {
+
+
+
+
+  return `/api/auth/mobile/login`
+}
+
+/**
+ * @summary Mobile login with refresh token in response body
+ */
+export const mobileLogin = async (loginInput: LoginInput, options?: RequestInit): Promise<MobileAuthResponse> => {
+
+  return customFetch<MobileAuthResponse>(getMobileLoginUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(loginInput)
+  }
+);}
+
+
+
+
+export const getMobileLoginMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | UnsupportedMediaTypeResponse | RateLimitedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileLogin>>, TError,{data: BodyType<LoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mobileLogin>>, TError,{data: BodyType<LoginInput>}, TContext> => {
+
+const mutationKey = ['mobileLogin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mobileLogin>>, {data: BodyType<LoginInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  mobileLogin(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MobileLoginMutationResult = NonNullable<Awaited<ReturnType<typeof mobileLogin>>>
+    export type MobileLoginMutationBody = BodyType<LoginInput>
+    export type MobileLoginMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | UnsupportedMediaTypeResponse | RateLimitedResponse>
+
+    /**
+ * @summary Mobile login with refresh token in response body
+ */
+export const useMobileLogin = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | UnsupportedMediaTypeResponse | RateLimitedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileLogin>>, TError,{data: BodyType<LoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mobileLogin>>,
+        TError,
+        {data: BodyType<LoginInput>},
+        TContext
+      > => {
+      return useMutation(getMobileLoginMutationOptions(options));
+    }
+
+export const getMobileRefreshTokenUrl = () => {
+
+
+
+
+  return `/api/auth/mobile/refresh`
+}
+
+/**
+ * @summary Renew mobile access token using refresh token from request body
+ */
+export const mobileRefreshToken = async (mobileRefreshInput: MobileRefreshInput, options?: RequestInit): Promise<MobileAuthResponse> => {
+
+  return customFetch<MobileAuthResponse>(getMobileRefreshTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mobileRefreshInput)
+  }
+);}
+
+
+
+
+export const getMobileRefreshTokenMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | UnsupportedMediaTypeResponse | RateLimitedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileRefreshToken>>, TError,{data: BodyType<MobileRefreshInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mobileRefreshToken>>, TError,{data: BodyType<MobileRefreshInput>}, TContext> => {
+
+const mutationKey = ['mobileRefreshToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mobileRefreshToken>>, {data: BodyType<MobileRefreshInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  mobileRefreshToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MobileRefreshTokenMutationResult = NonNullable<Awaited<ReturnType<typeof mobileRefreshToken>>>
+    export type MobileRefreshTokenMutationBody = BodyType<MobileRefreshInput>
+    export type MobileRefreshTokenMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | UnsupportedMediaTypeResponse | RateLimitedResponse>
+
+    /**
+ * @summary Renew mobile access token using refresh token from request body
+ */
+export const useMobileRefreshToken = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | UnsupportedMediaTypeResponse | RateLimitedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileRefreshToken>>, TError,{data: BodyType<MobileRefreshInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mobileRefreshToken>>,
+        TError,
+        {data: BodyType<MobileRefreshInput>},
+        TContext
+      > => {
+      return useMutation(getMobileRefreshTokenMutationOptions(options));
+    }
+
+export const getMobileLogoutUrl = () => {
+
+
+
+
+  return `/api/auth/mobile/logout`
+}
+
+/**
+ * @summary Invalidate mobile refresh token from request body
+ */
+export const mobileLogout = async (mobileRefreshInput?: MobileRefreshInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getMobileLogoutUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mobileRefreshInput)
+  }
+);}
+
+
+
+
+export const getMobileLogoutMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileLogout>>, TError,{data?: BodyType<MobileRefreshInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mobileLogout>>, TError,{data?: BodyType<MobileRefreshInput>}, TContext> => {
+
+const mutationKey = ['mobileLogout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mobileLogout>>, {data?: BodyType<MobileRefreshInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  mobileLogout(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MobileLogoutMutationResult = NonNullable<Awaited<ReturnType<typeof mobileLogout>>>
+    export type MobileLogoutMutationBody = BodyType<MobileRefreshInput> | undefined
+    export type MobileLogoutMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Invalidate mobile refresh token from request body
+ */
+export const useMobileLogout = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileLogout>>, TError,{data?: BodyType<MobileRefreshInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mobileLogout>>,
+        TError,
+        {data?: BodyType<MobileRefreshInput>},
+        TContext
+      > => {
+      return useMutation(getMobileLogoutMutationOptions(options));
     }
 
 export const getLogoutUrl = () => {
@@ -1175,6 +1396,83 @@ export const useCreateStation = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCreateStationMutationOptions(options));
     }
+
+export const getGetStationUrl = (id: string,) => {
+
+
+
+
+  return `/api/stations/${id}`
+}
+
+/**
+ * @summary Get station detail
+ */
+export const getStation = async (id: string, options?: RequestInit): Promise<Station> => {
+
+  return customFetch<Station>(getGetStationUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStationQueryKey = (id: string,) => {
+    return [
+    `/api/stations/${id}`
+    ] as const;
+    }
+
+
+export const getGetStationQueryOptions = <TData = Awaited<ReturnType<typeof getStation>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStation>>> = ({ signal }) => getStation(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStationQueryResult = NonNullable<Awaited<ReturnType<typeof getStation>>>
+export type GetStationQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get station detail
+ */
+
+export function useGetStation<TData = Awaited<ReturnType<typeof getStation>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUpdateStationUrl = (id: string,) => {
 
@@ -2832,7 +3130,7 @@ export const getListProposalsQueryKey = (params?: ListProposalsParams,) => {
     }
 
 
-export const getListProposalsQueryOptions = <TData = Awaited<ReturnType<typeof listProposals>>, TError = ErrorType<unknown>>(params?: ListProposalsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProposals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListProposalsQueryOptions = <TData = Awaited<ReturnType<typeof listProposals>>, TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | RateLimitedResponse>>(params?: ListProposalsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProposals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -2851,14 +3149,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListProposalsQueryResult = NonNullable<Awaited<ReturnType<typeof listProposals>>>
-export type ListProposalsQueryError = ErrorType<unknown>
+export type ListProposalsQueryError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | RateLimitedResponse>
 
 
 /**
  * @summary List proposals (own for COMERCIAL, all for ADMIN) with pagination and filters
  */
 
-export function useListProposals<TData = Awaited<ReturnType<typeof listProposals>>, TError = ErrorType<unknown>>(
+export function useListProposals<TData = Awaited<ReturnType<typeof listProposals>>, TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | RateLimitedResponse>>(
  params?: ListProposalsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProposals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -2901,7 +3199,7 @@ export const createProposal = async (proposalInput: ProposalInput, options?: Req
 
 
 
-export const getCreateProposalMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateProposalMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | PayloadTooLargeResponse | UnsupportedMediaTypeResponse | RateLimitedResponse | InternalErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProposal>>, TError,{data: BodyType<ProposalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createProposal>>, TError,{data: BodyType<ProposalInput>}, TContext> => {
 
@@ -2930,12 +3228,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateProposalMutationResult = NonNullable<Awaited<ReturnType<typeof createProposal>>>
     export type CreateProposalMutationBody = BodyType<ProposalInput>
-    export type CreateProposalMutationError = ErrorType<unknown>
+    export type CreateProposalMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | PayloadTooLargeResponse | UnsupportedMediaTypeResponse | RateLimitedResponse | InternalErrorResponse>
 
     /**
  * @summary Create a new proposal
  */
-export const useCreateProposal = <TError = ErrorType<unknown>,
+export const useCreateProposal = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | PayloadTooLargeResponse | UnsupportedMediaTypeResponse | RateLimitedResponse | InternalErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProposal>>, TError,{data: BodyType<ProposalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createProposal>>,
@@ -2979,7 +3277,7 @@ export const getGetProposalQueryKey = (id: string,) => {
     }
 
 
-export const getGetProposalQueryOptions = <TData = Awaited<ReturnType<typeof getProposal>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProposal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetProposalQueryOptions = <TData = Awaited<ReturnType<typeof getProposal>>, TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProposal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -2998,14 +3296,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetProposalQueryResult = NonNullable<Awaited<ReturnType<typeof getProposal>>>
-export type GetProposalQueryError = ErrorType<unknown>
+export type GetProposalQueryError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse>
 
 
 /**
  * @summary Get proposal full detail
  */
 
-export function useGetProposal<TData = Awaited<ReturnType<typeof getProposal>>, TError = ErrorType<unknown>>(
+export function useGetProposal<TData = Awaited<ReturnType<typeof getProposal>>, TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse>>(
  id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProposal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -3049,7 +3347,7 @@ export const updateProposal = async (id: string,
 
 
 
-export const getUpdateProposalMutationOptions = <TError = ErrorType<unknown>,
+export const getUpdateProposalMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse | ConflictResponse | PayloadTooLargeResponse | UnsupportedMediaTypeResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProposal>>, TError,{id: string;data: BodyType<ProposalUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateProposal>>, TError,{id: string;data: BodyType<ProposalUpdate>}, TContext> => {
 
@@ -3078,12 +3376,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateProposalMutationResult = NonNullable<Awaited<ReturnType<typeof updateProposal>>>
     export type UpdateProposalMutationBody = BodyType<ProposalUpdate>
-    export type UpdateProposalMutationError = ErrorType<unknown>
+    export type UpdateProposalMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse | ConflictResponse | PayloadTooLargeResponse | UnsupportedMediaTypeResponse>
 
     /**
  * @summary Save proposal changes (auto-creates version)
  */
-export const useUpdateProposal = <TError = ErrorType<unknown>,
+export const useUpdateProposal = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse | ConflictResponse | PayloadTooLargeResponse | UnsupportedMediaTypeResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProposal>>, TError,{id: string;data: BodyType<ProposalUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateProposal>>,

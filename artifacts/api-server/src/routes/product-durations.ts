@@ -6,11 +6,11 @@ import { z } from "zod/v4";
 const router = Router();
 
 const durationBody = z.object({
-  label: z.string().min(1),
+  label: z.string().trim().min(1).max(50),
   seconds: z.number().int().positive().optional().nullable(),
   active: z.boolean().optional(),
   order: z.number().int().optional(),
-});
+}).strict();
 
 function normalizeDurationLabel(label: string, seconds?: number | null) {
   const trimmed = label.trim().replace(/\s+/g, " ");

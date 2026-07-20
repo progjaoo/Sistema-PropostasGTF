@@ -10,6 +10,7 @@ import {
 } from '@workspace/api-client-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { feedback } from '@/lib/feedback';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { Edit, ImageIcon, Layers, Package, Plus, Search, Trash2, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -385,7 +386,7 @@ export default function AdminProposalCategories() {
         body: JSON.stringify({ label }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao criar duração');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao criar duração'));
       queryClient.invalidateQueries({ queryKey: ['product-durations'] });
       productForm.setValue('durationId', payload.id, { shouldDirty: true });
       setNewDurationLabel('');

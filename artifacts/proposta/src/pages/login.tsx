@@ -6,6 +6,7 @@ import * as z from 'zod';
 import { useLogin } from '@workspace/api-client-react';
 import { useAuthStore } from '@/store/auth';
 import { feedback } from '@/lib/feedback';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -76,7 +77,7 @@ export default function Login() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao criar cadastro');
+        throw new Error(getApiErrorMessage(payload, 'Erro ao criar cadastro'));
       }
       feedback.success('Solicitação enviada. Um administrador precisa aprovar seu acesso e definir as empresas permitidas.');
       form.setValue('email', values.email);

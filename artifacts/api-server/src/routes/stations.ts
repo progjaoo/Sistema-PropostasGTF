@@ -2,41 +2,47 @@ import { Router } from "express";
 import { prisma, type Station } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { z } from "zod/v4";
-import { getAccessibleStationIds } from "../services/station-access";
+import {
+  assertStationPermission,
+  getAccessibleStationIds,
+  respondToStationAccessError,
+} from "../services/station-access";
 import {
   normalizePresentationItems,
   replaceStationPresentationItems,
   stationPresentationToStats,
 } from "../services/station-presentation";
+import { optionalImageDataUrlSchema, registerIdParamValidation } from "../lib/validation";
 
 const router = Router();
+registerIdParamValidation(router);
 
 const stationBody = z.object({
-  name: z.string().min(1),
-  slogan: z.string().optional().nullable(),
+  name: z.string().trim().min(2).max(120),
+  slogan: z.string().max(500).optional().nullable(),
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
-  logoBase64: z.string().optional().nullable(),
-  cnpj: z.string().optional().nullable(),
-  tradeName: z.string().optional().nullable(),
-  legalName: z.string().optional().nullable(),
-  contactName: z.string().optional().nullable(),
-  contactPhone: z.string().optional().nullable(),
-  contactEmail: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  state: z.string().optional().nullable(),
-  website: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  logoBase64: optionalImageDataUrlSchema.optional().nullable(),
+  cnpj: z.string().max(32).optional().nullable(),
+  tradeName: z.string().max(120).optional().nullable(),
+  legalName: z.string().max(120).optional().nullable(),
+  contactName: z.string().max(120).optional().nullable(),
+  contactPhone: z.string().max(50).optional().nullable(),
+  contactEmail: z.union([z.string().email().max(254), z.literal("")]).optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  city: z.string().max(120).optional().nullable(),
+  state: z.string().max(50).optional().nullable(),
+  website: z.union([z.string().url().max(500), z.literal("")]).optional().nullable(),
+  notes: z.string().max(2_000).optional().nullable(),
   active: z.boolean().optional(),
-});
+}).strict();
 
 const presentationBody = z.object({
   items: z.array(z.object({
     highlight: z.string().trim().min(1).max(40),
     description: z.string().trim().min(1).max(140),
     order: z.number().int().min(0).max(3).optional(),
-  })).max(4),
-});
+  }).strict()).max(4),
+}).strict();
 
 type ViewerPermissions = {
   canCreateProposals: boolean;
@@ -212,6 +218,17 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> 
 });
 
 router.get("/:id/presentation", requireAuth, async (req, res): Promise<void> => {
+  try {
+    await assertStationPermission(
+      req.userId!,
+      req.userRole,
+      String(req.params["id"]),
+      "canViewCatalog",
+    );
+  } catch (error) {
+    if (respondToStationAccessError(error, res)) return;
+    throw error;
+  }
   const station = await prisma.station.findUnique({
     where: { id: String(req.params["id"]) },
     select: { id: true },

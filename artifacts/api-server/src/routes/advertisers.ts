@@ -1,9 +1,41 @@
 import { Router } from "express";
 import { prisma, type Prisma } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
-import { CreateAdvertiserBody, UpdateAdvertiserBody } from "@workspace/api-zod";
+import { z } from "zod/v4";
+import { optionalImageDataUrlSchema, registerIdParamValidation } from "../lib/validation";
 
 const router = Router();
+registerIdParamValidation(router);
+const createAdvertiserBody = z.object({
+  tradeName: z.string().trim().min(2).max(120),
+  legalName: z.string().max(120).optional(),
+  cnpj: z.string().max(32).optional(),
+  logoBase64: optionalImageDataUrlSchema.optional(),
+  segment: z.string().max(120).optional(),
+  contactName: z.string().max(120).optional(),
+  contactPhone: z.string().max(50).optional(),
+  contactEmail: z.union([z.string().email().max(254), z.literal("")]).optional(),
+  notes: z.string().max(2_000).optional(),
+  status: z.enum(["LEAD", "CLIENT"]).optional(),
+}).strict();
+const updateAdvertiserBody = z.object({
+  tradeName: z.string().trim().min(2).max(120).optional(),
+  legalName: z.string().max(120).optional(),
+  cnpj: z.string().max(32).optional(),
+  logoBase64: optionalImageDataUrlSchema.optional(),
+  segment: z.string().max(120).optional(),
+  contactName: z.string().max(120).optional(),
+  contactPhone: z.string().max(50).optional(),
+  contactEmail: z.union([z.string().email().max(254), z.literal("")]).optional(),
+  notes: z.string().max(2_000).optional(),
+  active: z.boolean().optional(),
+  status: z.enum(["LEAD", "CLIENT"]).optional(),
+}).strict();
+const advertiserListQuery = z.object({
+  search: z.string().max(200).optional(),
+  active: z.enum(["true", "false"]).optional(),
+  status: z.enum(["LEAD", "CLIENT"]).optional(),
+}).strict();
 
 type AdvertiserRow = Prisma.AdvertiserGetPayload<{
   include: {
@@ -101,7 +133,12 @@ function formatAdvertiser(a: AdvertiserRow, viewer: { userId?: string; role?: st
 }
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const { search, active, status } = req.query as { search?: string; active?: string; status?: string };
+  const query = advertiserListQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Filtros de clientes invalidos", fields: query.error.issues });
+    return;
+  }
+  const { search, active, status } = query.data;
   const where: Prisma.AdvertiserWhereInput = {};
 
   if (status) {
@@ -152,7 +189,7 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.post("/", requireAuth, async (req, res): Promise<void> => {
-  const parsed = CreateAdvertiserBody.safeParse(req.body);
+  const parsed = createAdvertiserBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
@@ -215,7 +252,7 @@ router.get("/:id", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.patch("/:id", requireAuth, async (req, res): Promise<void> => {
-  const parsed = UpdateAdvertiserBody.safeParse(req.body);
+  const parsed = updateAdvertiserBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;

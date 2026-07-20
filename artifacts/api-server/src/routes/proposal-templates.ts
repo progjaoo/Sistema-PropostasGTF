@@ -1,10 +1,8 @@
 import { Router } from "express";
 import { prisma, type ProposalTemplate } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
-import {
-  CreateProposalTemplateBody,
-  UpdateProposalTemplateBody,
-} from "@workspace/api-zod";
+import { z } from "zod/v4";
+import { registerIdParamValidation } from "../lib/validation";
 import {
   assertStationPermission,
   getAccessibleStationIds,
@@ -12,6 +10,51 @@ import {
 } from "../services/station-access";
 
 const router = Router();
+registerIdParamValidation(router);
+const templateProductBody = z.object({
+  order: z.number().int().optional(),
+  qty: z.string().max(20).optional(),
+  title: z.string().trim().min(2).max(200),
+  description: z.string().max(2_000).optional(),
+  detail: z.string().max(2_000).optional(),
+  program: z.string().max(200).optional(),
+  tags: z.array(z.string().max(100)).max(20).optional(),
+  color: z.enum(["BLUE", "YELLOW", "RED", "GREEN", "DARK"]).optional(),
+}).strict();
+const templateStatsBody = z.object({
+  num: z.string().max(100),
+  suf: z.string().max(40),
+  desc: z.string().max(500),
+}).strict();
+const createProposalTemplateBody = z.object({
+  categoryId: z.string().min(1).max(128),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().max(2_000).optional(),
+  active: z.boolean().optional(),
+  propType: z.string().trim().min(2).max(120),
+  campTag: z.string().max(200).optional(),
+  periodDesc: z.string().max(500).optional(),
+  investDesc: z.string().max(500).optional(),
+  stats: z.array(templateStatsBody).max(4).optional(),
+  overlayOpacity: z.number().int().min(0).max(100).optional(),
+  products: z.array(templateProductBody).max(100).optional(),
+}).strict();
+const updateProposalTemplateBody = z.object({
+  categoryId: z.string().min(1).max(128).optional(),
+  name: z.string().trim().min(2).max(120).optional(),
+  description: z.string().max(2_000).optional(),
+  active: z.boolean().optional(),
+  propType: z.string().trim().min(2).max(120).optional(),
+  campTag: z.string().max(200).optional(),
+  periodDesc: z.string().max(500).optional(),
+  investDesc: z.string().max(500).optional(),
+  stats: z.array(templateStatsBody).max(4).optional(),
+  overlayOpacity: z.number().int().min(0).max(100).optional(),
+  products: z.array(templateProductBody).max(100).optional(),
+}).strict();
+const templateListQuery = z.object({
+  categoryId: z.string().min(1).max(128).optional(),
+}).strict();
 
 async function formatTemplate(t: ProposalTemplate, includeProducts = false) {
   const [cat, usageCount, products] = await Promise.all([
@@ -73,7 +116,12 @@ async function formatTemplate(t: ProposalTemplate, includeProducts = false) {
 }
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const { categoryId } = req.query as { categoryId?: string };
+  const query = templateListQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Filtros de modelos invalidos", fields: query.error.issues });
+    return;
+  }
+  const { categoryId } = query.data;
   const accessibleStationIds = await getAccessibleStationIds(req.userId!, req.userRole, "canViewCatalog");
   const rows = await prisma.proposalTemplate.findMany({
     where: {
@@ -102,7 +150,7 @@ router.get("/:id", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
-  const parsed = CreateProposalTemplateBody.safeParse(req.body);
+  const parsed = createProposalTemplateBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
@@ -138,7 +186,7 @@ router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
-  const parsed = UpdateProposalTemplateBody.safeParse(req.body);
+  const parsed = updateProposalTemplateBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;

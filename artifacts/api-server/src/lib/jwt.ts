@@ -1,9 +1,6 @@
 import jwt from "jsonwebtoken";
-
-const ACCESS_SECRET = process.env["JWT_SECRET"] ?? "dev_jwt_secret_change_me";
-const REFRESH_SECRET = process.env["JWT_REFRESH_SECRET"] ?? "dev_refresh_secret_change_me";
-const ACCESS_EXPIRES = process.env["JWT_EXPIRES_IN"] ?? "15m";
-const REFRESH_EXPIRES = process.env["JWT_REFRESH_EXPIRES_IN"] ?? "7d";
+import crypto from "node:crypto";
+import { securityConfig } from "../config/security";
 
 export interface JwtPayload {
   userId: string;
@@ -11,19 +8,57 @@ export interface JwtPayload {
 }
 
 export function signAccessToken(payload: JwtPayload): string {
-  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_EXPIRES } as jwt.SignOptions);
+  return jwt.sign(
+    { role: payload.role },
+    securityConfig.accessTokenSecret,
+    {
+      algorithm: "HS256",
+      subject: payload.userId,
+      issuer: "gtf-propostas",
+      audience: "gtf-propostas-api",
+      jwtid: crypto.randomUUID(),
+      expiresIn: securityConfig.accessTokenTtl,
+    } as jwt.SignOptions,
+  );
 }
 
 export function signRefreshToken(payload: JwtPayload): string {
-  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES } as jwt.SignOptions);
+  return jwt.sign(
+    { role: payload.role },
+    securityConfig.refreshTokenSecret,
+    {
+      algorithm: "HS256",
+      subject: payload.userId,
+      issuer: "gtf-propostas",
+      audience: "gtf-propostas-api",
+      jwtid: crypto.randomUUID(),
+      expiresIn: securityConfig.refreshTokenTtl,
+    } as jwt.SignOptions,
+  );
 }
 
 export function verifyAccessToken(token: string): JwtPayload {
-  return jwt.verify(token, ACCESS_SECRET) as JwtPayload;
+  const payload = jwt.verify(token, securityConfig.accessTokenSecret, {
+    algorithms: ["HS256"],
+    issuer: "gtf-propostas",
+    audience: "gtf-propostas-api",
+  });
+  if (typeof payload === "string" || !payload.sub || typeof payload.role !== "string") {
+    throw new Error("Invalid access token claims");
+  }
+  return { userId: payload.sub, role: payload.role };
 }
 
 export function verifyRefreshToken(token: string): JwtPayload {
-  return jwt.verify(token, REFRESH_SECRET) as JwtPayload;
+  const payload = jwt.verify(token, securityConfig.refreshTokenSecret, {
+    algorithms: ["HS256"],
+    issuer: "gtf-propostas",
+    audience: "gtf-propostas-api",
+  });
+  if (typeof payload === "string" || !payload.sub || typeof payload.role !== "string") {
+    throw new Error("Invalid refresh token claims");
+  }
+  return { userId: payload.sub, role: payload.role };
 }
 
 export function getRefreshExpiresAt(): Date {

@@ -3,19 +3,34 @@ import { prisma, type Prisma } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { z } from "zod/v4";
 import { getAccessibleStationIds } from "../services/station-access";
+import { registerIdParamValidation } from "../lib/validation";
 
 const router = Router();
+registerIdParamValidation(router);
 
 const programBody = z.object({
-  stationId: z.string().min(1),
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  description: z.string().optional().nullable(),
-  icon: z.string().optional().nullable(),
+  stationId: z.string().min(1).max(128),
+  name: z.string().trim().min(2).max(120),
+  slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9-]+$/i),
+  description: z.string().max(2_000).optional().nullable(),
+  icon: z.string().max(2_800_000).optional().nullable(),
   active: z.boolean().optional(),
   order: z.number().int().optional(),
-  productIds: z.array(z.string()).optional(),
-});
+  productIds: z.array(z.string().min(1).max(128)).max(100).optional(),
+}).strict();
+const programListQuery = z.object({
+  search: z.string().max(200).optional(),
+  active: z.enum(["true", "false", "all"]).optional(),
+  sort: z.enum([
+    "name_asc",
+    "name_desc",
+    "newest",
+    "oldest",
+    "products_count_asc",
+    "products_count_desc",
+  ]).optional(),
+  stationId: z.string().max(128).optional(),
+}).strict();
 
 async function getCategories(options: { search?: string; active?: string; sort?: string; stationId?: string } = {}) {
   const where: Prisma.ProposalCategoryWhereInput = {
@@ -164,7 +179,12 @@ async function syncProgramProducts(programId: string, stationId: string, product
 }
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const { search, active, sort, stationId } = req.query as { search?: string; active?: string; sort?: string; stationId?: string };
+  const query = programListQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Filtros de programas invalidos", fields: query.error.issues });
+    return;
+  }
+  const { search, active, sort, stationId } = query.data;
   const accessibleIds = await getAccessibleStationIds(req.userId!, req.userRole, "canViewCatalog");
   if (accessibleIds !== null && stationId && stationId !== "all" && !accessibleIds.includes(stationId)) {
     res.status(403).json({ error: "Você não possui acesso ao catálogo desta empresa" });

@@ -55,7 +55,7 @@ No Railway, servicos do mesmo projeto se comunicam pela rede privada automatica.
 1. Acesse Railway.
 2. Crie um novo Project.
 3. Adicione um servico PostgreSQL.
-4. Anote ou referencie a variavel `DATABASE_URL` do PostgreSQL. (postgresql://postgres:iQwXDZlDFgsyjFpPeUFCHUExPMMvTMwm@postgres.railway.internal:5432/railway)
+4. Anote ou referencie a variavel `DATABASE_URL` do PostgreSQL. Nunca registre o valor real na documentacao ou no Git.
 
 ### Pela CLI
 

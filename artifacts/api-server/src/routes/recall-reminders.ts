@@ -7,8 +7,10 @@ import {
   getRecallReminderDueDate,
   isAllowedSnoozeDay,
 } from "../services/recall-reminders";
+import { registerIdParamValidation } from "../lib/validation";
 
 const router = Router();
+registerIdParamValidation(router);
 
 const listQuery = z.object({
   search: z.string().optional(),
@@ -18,15 +20,15 @@ const listQuery = z.object({
   status: z.enum(["active", "all", "PENDING", "NOTIFIED", "SNOOZED", "DONE", "CANCELLED"]).optional(),
   includeFuture: z.enum(["true", "false"]).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
-});
+}).strict();
 
 const snoozeInput = z.object({
   days: z.coerce.number().int(),
-});
+}).strict();
 
 const doneInput = z.object({
   note: z.string().max(500).optional().nullable(),
-});
+}).strict();
 
 const reminderInclude = {
   advertiser: { select: { id: true, tradeName: true, status: true } },
@@ -269,4 +271,3 @@ router.patch("/:id/done", requireAuth, async (req, res): Promise<void> => {
 });
 
 export default router;
-

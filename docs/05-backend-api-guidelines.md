@@ -90,3 +90,16 @@ Padrao:
 - O projeto usa Pino/Pino HTTP.
 - Logs devem registrar metodo, URL sem query sensivel e status.
 - Evitar logar tokens, senhas e payloads com dados sensiveis.
+
+## Contrato de Seguranca da API
+
+- Mutacoes com corpo aceitam somente `application/json`.
+- O limite global e 1 MB; rotas com imagem usam no maximo 3 MB.
+- Imagens Base64 aceitas sao PNG, JPEG ou WebP, com ate 2 MB decodificados.
+- Schemas de mutacao devem usar Zod `.strict()` para bloquear mass assignment.
+- IDs, filtros e paginacao devem ser validados antes de consultar o Prisma.
+- Listas de proposta aceitam no maximo 100 produtos e 4 indicadores.
+- Erros usam `{ error: { code, message, requestId, fields? } }`.
+- Erros inesperados passam pelo handler central e nunca retornam stack ou
+  detalhes do banco.
+- O OpenAPI em `lib/api-spec/openapi.yaml` e a fonte do contrato publico.

@@ -144,6 +144,20 @@ function getStringField(value: unknown, key: string): string | undefined {
   return trimmed === "" ? undefined : trimmed;
 }
 
+export function getApiErrorMessage(value: unknown, fallback = "Erro na requisicao"): string {
+  if (!value || typeof value !== "object") return fallback;
+  const nestedError = (value as Record<string, unknown>)["error"];
+  if (nestedError && typeof nestedError === "object") {
+    return getStringField(nestedError, "message") ?? fallback;
+  }
+  return (
+    getStringField(value, "message") ??
+    getStringField(value, "error_description") ??
+    getStringField(value, "error") ??
+    fallback
+  );
+}
+
 function truncate(text: string, maxLength = 300): string {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 }
@@ -158,10 +172,7 @@ function buildErrorMessage(response: Response, data: unknown): string {
 
   const title = getStringField(data, "title");
   const detail = getStringField(data, "detail");
-  const message =
-    getStringField(data, "message") ??
-    getStringField(data, "error_description") ??
-    getStringField(data, "error");
+  const message = getApiErrorMessage(data, "");
 
   if (title && detail) return `${prefix}: ${title} — ${detail}`;
   if (detail) return `${prefix}: ${detail}`;

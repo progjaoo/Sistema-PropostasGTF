@@ -23,6 +23,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { feedback } from '@/lib/feedback';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 import { ProposalProgressTimeline } from '@/components/proposal/ProposalProgressTimeline';
 import { Badge } from '@/components/ui/badge';
@@ -200,7 +201,7 @@ export default function ProposalProgress() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao carregar andamento de propostas');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao carregar andamento de propostas'));
       return payload as { programs: ProgressProgram[] };
     },
     enabled: Boolean(token),
@@ -224,7 +225,7 @@ export default function ProposalProgress() {
         body: JSON.stringify({ status: nextStatus }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao atualizar status da proposta');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao atualizar status da proposta'));
       return payload;
     },
     onSuccess: (_, variables) => {
@@ -252,7 +253,7 @@ export default function ProposalProgress() {
         body: JSON.stringify({ step: manualStep, note: manualNote.trim() || null }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao registrar andamento');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao registrar andamento'));
       return payload;
     },
     onSuccess: () => {

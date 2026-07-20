@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation } from 'wouter';
 import { Eye, EyeOff, LockKeyhole } from 'lucide-react';
 import { feedback } from '@/lib/feedback';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +45,7 @@ export default function ResetPassword() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error || 'Não foi possível redefinir a senha');
+        throw new Error(getApiErrorMessage(payload, 'Não foi possível redefinir a senha'));
       }
       setSuccess(true);
       feedback.updated('Senha redefinida com sucesso');

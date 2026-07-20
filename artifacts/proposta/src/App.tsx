@@ -6,7 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useAuthStore } from "@/store/auth";
-import { installAuthenticatedFetch } from "@/lib/auth-fetch";
+import { bootstrapAuthSession, installAuthenticatedFetch } from "@/lib/auth-fetch";
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import NotFound from "@/pages/not-found";
@@ -47,10 +47,15 @@ function LeadEdit({ params }: { params: { id: string } }) {
 }
 
 function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: any) {
+  const user = useAuthStore((state) => state.user);
+
   return (
     <Route {...rest}>
       {params => {
-        const user = useAuthStore.getState().user;
+        if (!user) {
+          window.location.href = '/login';
+          return null;
+        }
         if (adminOnly && user?.role !== 'ADMIN') {
           window.location.href = '/proposals';
           return null;
@@ -66,6 +71,30 @@ function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: an
 }
 
 function App() {
+  const user = useAuthStore((state) => state.user);
+  const bootstrapped = useAuthStore((state) => state.bootstrapped);
+  const previousUserIdRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    void bootstrapAuthSession();
+  }, []);
+
+  React.useEffect(() => {
+    const previousUserId = previousUserIdRef.current;
+    if (previousUserId && previousUserId !== user?.id) {
+      queryClient.clear();
+    }
+    previousUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
+
+  if (!bootstrapped) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center p-6 text-sm text-muted-foreground">
+        Verificando sessão...
+      </div>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -77,8 +106,11 @@ function App() {
             <Route path="/reset-password" component={ResetPassword} />
             <Route path="/">
               {() => {
-                const user = useAuthStore.getState().user;
-                window.location.href = user?.role === 'ADMIN' ? '/dashboard' : '/proposals';
+                window.location.href = !user
+                  ? '/login'
+                  : user.role === 'ADMIN'
+                    ? '/dashboard'
+                    : '/proposals';
                 return null;
               }}
             </Route>

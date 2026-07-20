@@ -1,14 +1,20 @@
 import { Router } from "express";
 import { prisma } from "@workspace/db";
 import { z } from "zod/v4";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { registerIdParamValidation } from "../lib/validation";
 
 const router = Router();
+registerIdParamValidation(router);
 
 const proposalTypeBody = z.object({
-  name: z.string().min(1),
+  name: z.string().trim().min(2).max(120),
   active: z.boolean().optional(),
-});
+}).strict();
+const proposalTypeListQuery = z.object({
+  active: z.enum(["true", "false", "all"]).optional(),
+  search: z.string().max(200).optional(),
+}).strict();
 
 function formatProposalType(type: {
   id: string;
@@ -27,7 +33,12 @@ function formatProposalType(type: {
 }
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const { active, search } = req.query as { active?: string; search?: string };
+  const query = proposalTypeListQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Filtros de tipos invalidos", fields: query.error.issues });
+    return;
+  }
+  const { active, search } = query.data;
   const types = await prisma.proposalType.findMany({
     where: {
       ...(active !== undefined && active !== "all" ? { active: active === "true" } : {}),
@@ -40,7 +51,7 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
   res.json(types.map(formatProposalType));
 });
 
-router.post("/", requireAuth, async (req, res): Promise<void> => {
+router.post("/", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   const parsed = proposalTypeBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -82,7 +93,7 @@ router.post("/", requireAuth, async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   const parsed = proposalTypeBody.partial().safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -100,7 +111,7 @@ router.patch("/:id", requireAuth, async (req, res): Promise<void> => {
   }
 });
 
-router.delete("/:id", requireAuth, async (req, res): Promise<void> => {
+router.delete("/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
     const type = await prisma.proposalType.update({
       where: { id: String(req.params["id"]) },

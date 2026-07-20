@@ -13,58 +13,96 @@ import {
   respondToStationAccessError,
 } from "../services/station-access";
 import { getStationPresentationStats } from "../services/station-presentation";
+import {
+  idSchema,
+  moneyStringSchema,
+  optionalImageDataUrlSchema,
+  registerIdParamValidation,
+} from "../lib/validation";
 
 const router = Router();
+registerIdParamValidation(router, ["id", "versionId"]);
 
 const productInput = z.object({
-  productTemplateId: z.string().optional().nullable(),
+  productTemplateId: idSchema.optional().nullable(),
   order: z.number().int().optional(),
-  qty: z.string().optional().nullable(),
-  title: z.string().min(1),
-  description: z.string().optional().nullable(),
-  detail: z.string().optional().nullable(),
-  program: z.string().optional().nullable(),
-  durationLabel: z.string().optional().nullable(),
-  airTime: z.string().optional().nullable(),
+  qty: z.string().max(20).optional().nullable(),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(2_000).optional().nullable(),
+  detail: z.string().max(2_000).optional().nullable(),
+  program: z.string().max(200).optional().nullable(),
+  durationLabel: z.string().max(100).optional().nullable(),
+  airTime: z.string().max(100).optional().nullable(),
   seasonality: z.enum(["MONTHLY", "SEMIANNUAL", "ANNUAL"]).optional().nullable(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string().max(100)).max(20).optional(),
   color: z.enum(["BLUE", "YELLOW", "RED", "GREEN", "DARK"]).optional(),
-});
+}).strict();
 
 const proposalInput = z.object({
-  stationId: z.string().optional().nullable(),
-  advertiserId: z.string().optional().nullable(),
-  proposalTypeId: z.string().optional().nullable(),
+  stationId: idSchema.optional().nullable(),
+  advertiserId: idSchema.optional().nullable(),
+  proposalTypeId: idSchema.optional().nullable(),
   periodicity: z.enum(["MONTHLY", "QUARTERLY", "YEARLY"]).optional(),
-  propType: z.string().optional(),
-  propMonth: z.string().optional(),
-  propYear: z.string().optional(),
-  campTag: z.string().optional().nullable(),
-  clientLine1: z.string().optional().nullable(),
-  clientLine2: z.string().optional().nullable(),
-  dateStart: z.string().optional().nullable(),
-  dateEnd: z.string().optional().nullable(),
-  periodDesc: z.string().optional().nullable(),
+  propType: z.string().max(200).optional(),
+  propMonth: z.string().max(20).optional(),
+  propYear: z.string().max(10).optional(),
+  campTag: z.string().max(200).optional().nullable(),
+  clientLine1: z.string().max(200).optional().nullable(),
+  clientLine2: z.string().max(200).optional().nullable(),
+  dateStart: z.string().max(30).optional().nullable(),
+  dateEnd: z.string().max(30).optional().nullable(),
+  periodDesc: z.string().max(500).optional().nullable(),
   showPeriod: z.boolean().optional(),
-  bannerBase64: z.string().optional().nullable(),
-  overlayOpacity: z.number().int().optional(),
-  stats: z.unknown().optional(),
-  investDesc: z.string().optional().nullable(),
-  investValue: z.string().optional().nullable(),
-  contactName: z.string().optional().nullable(),
-  contactRole: z.string().optional().nullable(),
-  contactPhone: z.string().optional().nullable(),
-  products: z.array(productInput).optional(),
-});
+  bannerBase64: optionalImageDataUrlSchema.optional().nullable(),
+  overlayOpacity: z.number().int().min(0).max(100).optional(),
+  stats: z.array(z.union([
+    z.object({
+      num: z.string().max(100),
+      suf: z.string().max(40).optional(),
+      desc: z.string().max(500),
+    }).strict(),
+    z.object({
+      value: z.string().max(100),
+      description: z.string().max(500),
+    }).strict(),
+  ])).max(4).optional(),
+  investDesc: z.string().max(500).optional().nullable(),
+  investValue: moneyStringSchema.optional().nullable(),
+  contactName: z.string().max(200).optional().nullable(),
+  contactRole: z.string().max(200).optional().nullable(),
+  contactPhone: z.string().max(50).optional().nullable(),
+  products: z.array(productInput).max(100).optional(),
+}).strict();
 
 const statusInput = z.object({
   status: z.enum(["DRAFT", "SENT", "APPROVED", "REJECTED"]),
-});
+}).strict();
 
 const manualTimelineInput = z.object({
   step: z.enum(["IN_CONVERSATION", "PROPOSAL_SENT", "CLIENT_REVIEWING", "NEGOTIATION"]),
   note: z.string().max(500).optional().nullable(),
-});
+}).strict();
+
+const proposalListQuery = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(["DRAFT", "SENT", "APPROVED", "REJECTED", "all"]).optional(),
+  advertiserId: idSchema.optional(),
+  search: z.string().max(200).optional(),
+  stationId: z.union([idSchema, z.literal("all")]).optional(),
+  proposalTypeId: z.union([idSchema, z.literal("all")]).optional(),
+  createdById: z.union([idSchema, z.literal("all")]).optional(),
+  dateFrom: z.iso.date().optional(),
+  dateTo: z.iso.date().optional(),
+  sortBy: z.enum(["createdAt", "updatedAt"]).default("updatedAt"),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
+}).strict();
+const proposalBoardQuery = z.object({
+  search: z.string().max(200).optional(),
+  stationId: z.union([idSchema, z.literal("all")]).optional(),
+  programId: z.union([idSchema, z.literal("all")]).optional(),
+  status: z.enum(["DRAFT", "SENT", "APPROVED", "REJECTED", "all"]).optional(),
+}).strict();
 
 const TIMELINE_STEP_LABELS: Record<string, string> = {
   LEAD_CREATED: "Lead criado",
@@ -219,7 +257,12 @@ async function authorizeProposalAccess(
 }
 
 router.get("/program-board", requireAuth, async (req, res): Promise<void> => {
-  const { search, stationId, programId, status } = req.query as Record<string, string | undefined>;
+  const query = proposalBoardQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Filtros invalidos", fields: query.error.issues });
+    return;
+  }
+  const { search, stationId, programId, status } = query.data;
   const cleanSearch = search?.trim();
   const cleanStationId = stationId && stationId !== "all" ? stationId : undefined;
   const cleanProgramId = programId && programId !== "all" ? programId : undefined;
@@ -429,7 +472,12 @@ router.get("/program-board", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/progress-board", requireAuth, async (req, res): Promise<void> => {
-  const { search, stationId, programId, status } = req.query as Record<string, string | undefined>;
+  const query = proposalBoardQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Filtros invalidos", fields: query.error.issues });
+    return;
+  }
+  const { search, stationId, programId, status } = query.data;
   const cleanSearch = search?.trim();
   const cleanStationId = stationId && stationId !== "all" ? stationId : undefined;
   const cleanProgramId = programId && programId !== "all" ? programId : undefined;
@@ -630,9 +678,14 @@ router.get("/progress-board", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
+  const query = proposalListQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Filtros de propostas invalidos", fields: query.error.issues });
+    return;
+  }
   const {
-    page = "1",
-    limit = "20",
+    page,
+    limit,
     status,
     advertiserId,
     search,
@@ -643,9 +696,9 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
     dateTo,
     sortBy = "updatedAt",
     sortDir = "desc",
-  } = req.query as Record<string, string>;
-  const pageNum = Math.max(1, parseInt(page));
-  const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+  } = query.data;
+  const pageNum = page;
+  const limitNum = limit;
   const offset = (pageNum - 1) * limitNum;
   const cleanStatus = status && status !== "all" ? status : undefined;
   const cleanStationId = stationId && stationId !== "all" ? stationId : undefined;

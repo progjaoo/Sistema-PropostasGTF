@@ -3,8 +3,10 @@ import bcrypt from "bcryptjs";
 import { prisma, type Prisma } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { z } from "zod/v4";
+import { registerIdParamValidation } from "../lib/validation";
 
 const router = Router();
+registerIdParamValidation(router);
 
 router.use(requireAuth, requireAdmin);
 
@@ -13,7 +15,7 @@ const stationAccessBody = z.object({
   canCreateProposals: z.boolean().default(true),
   canViewCatalog: z.boolean().default(true),
   active: z.boolean().default(true),
-});
+}).strict();
 
 const createUserBody = z.object({
   name: z.string().trim().min(2),
@@ -21,20 +23,20 @@ const createUserBody = z.object({
   password: z.string().min(8).max(128),
   role: z.enum(["ADMIN", "COMERCIAL"]).default("COMERCIAL"),
   active: z.boolean().default(true),
-  stationAccesses: z.array(stationAccessBody).default([]),
-});
+  stationAccesses: z.array(stationAccessBody).max(100).default([]),
+}).strict();
 
 const updateUserBody = z.object({
   name: z.string().trim().min(2).optional(),
   email: z.string().trim().email().optional(),
   role: z.enum(["ADMIN", "COMERCIAL"]).optional(),
   active: z.boolean().optional(),
-  stationAccesses: z.array(stationAccessBody).optional(),
-});
+  stationAccesses: z.array(stationAccessBody).max(100).optional(),
+}).strict();
 
 const resetPasswordBody = z.object({
   newPassword: z.string().min(8).max(128),
-});
+}).strict();
 
 type UserWithAccesses = Prisma.UserGetPayload<{
   include: {

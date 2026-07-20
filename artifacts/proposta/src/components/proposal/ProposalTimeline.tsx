@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/store/auth';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 type TimelineItem = {
   id: string;
@@ -62,7 +63,7 @@ export function ProposalTimeline({ proposalId, items, onAdded }: ProposalTimelin
     })
       .then(async (response) => {
         const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.error || 'Erro ao carregar andamento');
+        if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao carregar andamento'));
         if (!cancelled) setLoadedItems(Array.isArray(payload) ? payload : []);
       })
       .catch((error: any) => {
@@ -97,7 +98,7 @@ export function ProposalTimeline({ proposalId, items, onAdded }: ProposalTimelin
         body: JSON.stringify({ step, note: note.trim() || null }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao registrar etapa');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao registrar etapa'));
       onAdded?.(payload);
       if (!controlledItems) {
         setLoadedItems((current) => [...current, payload]);

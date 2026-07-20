@@ -15,6 +15,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { feedback } from '@/lib/feedback';
+import { getApiErrorMessage } from '@/lib/api-error';
 import {
   Building2,
   CalendarClock,
@@ -220,7 +221,7 @@ export default function ProposalsList() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao carregar propostas por programa');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao carregar propostas por programa'));
       return payload as { programs: BoardProgram[] };
     },
     enabled: Boolean(token),
@@ -248,7 +249,7 @@ export default function ProposalsList() {
         body: JSON.stringify({ status: 'APPROVED' }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao aprovar proposta');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao aprovar proposta'));
       return payload;
     },
     onSuccess: () => {
@@ -269,7 +270,7 @@ export default function ProposalsList() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao duplicar proposta');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao duplicar proposta'));
       return payload;
     },
     onSuccess: (proposal) => {

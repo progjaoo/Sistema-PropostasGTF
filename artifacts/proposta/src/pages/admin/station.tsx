@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useCreateStation, useListStations, useUpdateStation, getListStationsQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedback } from '@/lib/feedback';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { Building2, Edit, Plus, Save, Trash2, Upload } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -132,7 +133,7 @@ export default function AdminStation() {
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
-      throw new Error(payload?.error || 'Erro ao salvar apresentação padrão');
+      throw new Error(getApiErrorMessage(payload, 'Erro ao salvar apresentação padrão'));
     }
   };
 

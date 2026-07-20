@@ -104,14 +104,33 @@ model User {
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id         String    @id @default(cuid())
+  token      String?   @unique
+  tokenHash  String?   @unique @map("token_hash")
+  familyId   String?   @map("family_id")
+  userId     String    @map("user_id")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  @@index([userId, revokedAt])
+  @@index([familyId])
   @@map("refresh_tokens")
+}
+
+model SecurityRateLimit {
+  id          String   @id @default(cuid())
+  scope       String
+  keyHash     String   @map("key_hash")
+  windowStart DateTime @map("window_start") @db.Timestamptz(6)
+  count       Int      @default(0)
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@unique([scope, keyHash, windowStart])
+  @@index([expiresAt])
+  @@map("security_rate_limits")
 }
 
 model Station {

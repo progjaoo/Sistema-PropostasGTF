@@ -2,16 +2,17 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { prisma } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
+import { optionalImageDataUrlSchema } from "../lib/validation";
 
 const router = Router();
 
 const profileBody = z.object({
-  name: z.string().trim().min(2).optional(),
-  jobTitle: z.string().trim().optional().nullable(),
-  contactPhone: z.string().trim().optional().nullable(),
-  contactEmail: z.union([z.string().trim().email(), z.literal(""), z.null()]).optional(),
-  avatarBase64: z.string().optional().nullable(),
-});
+  name: z.string().trim().min(2).max(120).optional(),
+  jobTitle: z.string().trim().max(120).optional().nullable(),
+  contactPhone: z.string().trim().max(50).optional().nullable(),
+  contactEmail: z.union([z.string().trim().email().max(254), z.literal(""), z.null()]).optional(),
+  avatarBase64: optionalImageDataUrlSchema.optional().nullable(),
+}).strict();
 
 function emptyToNull(value: string | null | undefined) {
   if (value === undefined) return undefined;

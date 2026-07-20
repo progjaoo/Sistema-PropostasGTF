@@ -13,6 +13,7 @@ import proposalsRouter from "./proposals";
 import recallRemindersRouter from "./recall-reminders";
 import dashboardRouter from "./dashboard";
 import profileRouter from "./profile";
+import internalSecurityRouter from "./internal-security";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use("/proposal-types", proposalTypesRouter);
 router.use("/proposals", proposalsRouter);
 router.use("/recall-reminders", recallRemindersRouter);
 router.use("/dashboard", dashboardRouter);
+router.use("/internal/security", internalSecurityRouter);
 
 export default router;

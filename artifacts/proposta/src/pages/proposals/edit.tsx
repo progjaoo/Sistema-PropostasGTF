@@ -14,6 +14,7 @@ import {
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedback } from '@/lib/feedback';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { AlertTriangle, ArrowLeft, Eye, Plus, Printer, Save, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 
 import { ResponsiveProposalPreview } from '@/components/proposal/ResponsiveProposalPreview';
@@ -440,7 +441,7 @@ export default function ProposalEdit({ params }: { params: { id: string } }) {
         body: JSON.stringify({ name }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Erro ao criar tipo');
+      if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Erro ao criar tipo'));
       setProposalTypes((prev) => [...prev, payload].sort((a, b) => a.name.localeCompare(b.name)));
       handleChange('proposalTypeId', payload.id);
       handleChange('propType', payload.name);

@@ -139,3 +139,20 @@ Na ficha do anunciante:
 - COMERCIAL dono da proposta ve tudo e pode editar.
 - COMERCIAL nao dono ve apenas programa, status e responsavel.
 - Campos sensiveis como valor e titulo sao redigidos no backend quando o viewer nao pode editar.
+
+## Sessao Segura
+
+- O access token web fica apenas na memoria do Zustand.
+- O refresh token web e opaco e fica em cookie `HttpOnly`,
+  `SameSite=Strict` e `Secure` em producao.
+- O backend armazena somente o hash SHA-256 do refresh token.
+- Cada renovacao rotaciona o token; replay revoga toda a familia da sessao.
+- O aplicativo mobile recebe token opaco e o grava no armazenamento seguro.
+- A API consulta `active` e `role` no banco em cada requisicao privada.
+- Desativacao, troca de papel e redefinicao de senha produzem efeito imediato.
+- O frontend executa refresh em single-flight e limpa os caches ao trocar ou
+  encerrar a sessao.
+
+Rotacionar os secrets JWT encerra todas as sessoes. Essa operacao deve ser
+planejada e executada junto ao rollout descrito em
+[seguranca-back-front.md](./seguranca-back-front.md).

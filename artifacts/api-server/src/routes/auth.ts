@@ -1,42 +1,52 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import { prisma } from "@workspace/db";
 import { z } from "zod/v4";
-import { signAccessToken, signRefreshToken, verifyRefreshToken, getRefreshExpiresAt } from "../lib/jwt";
 import { requireAuth } from "../middlewares/auth";
 import { LoginBody } from "@workspace/api-zod";
 import { sendPasswordResetEmail } from "../services/password-reset-email";
+import { securityConfig } from "../config/security";
+import {
+  createSession,
+  revokeSession,
+  rotateSession,
+} from "../services/security/session-service";
+import { consumeSecurityLimit } from "../services/security/rate-limit-service";
 
 const router = Router();
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_RESET_PUBLIC_MESSAGE = "Se o e-mail estiver cadastrado, enviaremos as instrucoes de recuperacao.";
 const PASSWORD_RESET_INVALID_MESSAGE = "Link de recuperacao invalido, expirado ou ja utilizado.";
-const forgotPasswordRateWindowMs = 60 * 60 * 1000;
-const forgotPasswordRateMax = 5;
-const resetPasswordRateWindowMs = 15 * 60 * 1000;
-const resetPasswordRateMax = 10;
-const forgotPasswordAttempts = new Map<string, { count: number; resetAt: number }>();
-const resetPasswordAttempts = new Map<string, { count: number; resetAt: number }>();
+const dummyPasswordHashPromise = bcrypt.hash("invalid-account", 12);
+const refreshCookieName = securityConfig.isProduction
+  ? "__Host-gtf_refresh"
+  : "gtf_refresh";
+const legacyRefreshCookieName = "refreshToken";
+const loginBody = LoginBody.strict();
 
 const registerCommercialBody = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(PASSWORD_MIN_LENGTH).max(128),
-});
+}).strict();
 
 const forgotPasswordBody = z.object({
   email: z.string().email(),
-});
+}).strict();
 
 const resetPasswordBody = z.object({
   token: z.string().min(20).max(256),
   newPassword: z.string().min(PASSWORD_MIN_LENGTH).max(128),
   confirmPassword: z.string().min(PASSWORD_MIN_LENGTH).max(128),
-}).refine((value) => value.newPassword === value.confirmPassword, {
+}).strict().refine((value) => value.newPassword === value.confirmPassword, {
   message: "As senhas nao conferem",
   path: ["confirmPassword"],
 });
+
+const mobileRefreshBody = z.object({
+  refreshToken: z.string().min(20).max(256),
+}).strict();
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -44,22 +54,6 @@ function normalizeEmail(email: string) {
 
 function sha256(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
-}
-
-function makeRateLimitKey(prefix: string, value: string) {
-  return `${prefix}:${sha256(value).slice(0, 32)}`;
-}
-
-function consumeRateLimit(store: Map<string, { count: number; resetAt: number }>, key: string, max: number, windowMs: number) {
-  const now = Date.now();
-  const current = store.get(key);
-  if (!current || current.resetAt <= now) {
-    store.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-  if (current.count >= max) return false;
-  current.count += 1;
-  return true;
 }
 
 function getPasswordResetTtlMinutes() {
@@ -104,24 +98,59 @@ function formatAuthUser(user: {
   };
 }
 
-async function createSession(user: {
-  id: string;
-  role: string;
-}) {
-  const accessToken = signAccessToken({ userId: user.id, role: user.role });
-  const refreshToken = signRefreshToken({ userId: user.id, role: user.role });
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      token: refreshToken,
-      expiresAt: getRefreshExpiresAt(),
-    },
+function refreshCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: securityConfig.isProduction,
+    sameSite: "strict" as const,
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  };
+}
+
+function setRefreshCookie(res: Response, token: string) {
+  res.cookie(refreshCookieName, token, refreshCookieOptions());
+}
+
+function clearRefreshCookies(res: Response) {
+  const options = refreshCookieOptions();
+  res.clearCookie(refreshCookieName, options);
+  res.clearCookie(legacyRefreshCookieName, {
+    httpOnly: true,
+    secure: securityConfig.isProduction,
+    sameSite: "lax",
+    path: "/",
   });
-  return { accessToken, refreshToken };
+}
+
+function readWebRefreshToken(req: Request): string | undefined {
+  return req.cookies?.[refreshCookieName] ?? req.cookies?.[legacyRefreshCookieName];
+}
+
+function requestIp(req: Request): string {
+  return req.ip || req.socket.remoteAddress || "unknown";
+}
+
+async function respondWhenLimited(
+  res: Response,
+  scope: string,
+  key: string,
+  max: number,
+  windowMs: number,
+): Promise<boolean> {
+  const result = await consumeSecurityLimit(scope, key, { max, windowMs });
+  if (result.allowed) return false;
+  const retryAfterSeconds = Math.max(
+    1,
+    Math.ceil((result.resetAt.getTime() - Date.now()) / 1000),
+  );
+  res.setHeader("Retry-After", String(retryAfterSeconds));
+  res.status(429).json({ error: "Muitas solicitacoes. Tente novamente mais tarde." });
+  return true;
 }
 
 router.post("/login", async (req, res): Promise<void> => {
-  const parsed = LoginBody.safeParse(req.body);
+  const parsed = loginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
@@ -129,22 +158,22 @@ router.post("/login", async (req, res): Promise<void> => {
   const { password } = parsed.data;
   const email = normalizeEmail(parsed.data.email);
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.active) {
-    res.status(401).json({ error: "Credenciais invalidas ou conta inativa" });
-    return;
-  }
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
+  const comparisonHash = user?.passwordHash ?? await dummyPasswordHashPromise;
+  const valid = await bcrypt.compare(password, comparisonHash);
+  if (!user || !user.active || !valid) {
+    const limited = await respondWhenLimited(
+      res,
+      "login-failure",
+      `${requestIp(req)}:${email}`,
+      5,
+      15 * 60 * 1000,
+    );
+    if (limited) return;
     res.status(401).json({ error: "Credenciais invalidas" });
     return;
   }
   const { accessToken, refreshToken } = await createSession(user);
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: process.env["NODE_ENV"] === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  setRefreshCookie(res, refreshToken);
   res.json({
     accessToken,
     user: formatAuthUser(user),
@@ -152,6 +181,18 @@ router.post("/login", async (req, res): Promise<void> => {
 });
 
 router.post("/register-commercial", async (req, res): Promise<void> => {
+  if (!securityConfig.publicCommercialRegistrationEnabled) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (await respondWhenLimited(
+    res,
+    "public-commercial-registration",
+    requestIp(req),
+    3,
+    60 * 60 * 1000,
+  )) return;
+
   const parsed = registerCommercialBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -187,15 +228,13 @@ router.post("/forgot-password", async (req, res): Promise<void> => {
   }
 
   const email = normalizeEmail(parsed.data.email);
-  const ip = req.ip || req.socket.remoteAddress || "unknown";
-  const emailKey = makeRateLimitKey("forgot-email", email);
-  const ipKey = makeRateLimitKey("forgot-ip", ip);
-  const allowedByEmail = consumeRateLimit(forgotPasswordAttempts, emailKey, forgotPasswordRateMax, forgotPasswordRateWindowMs);
-  const allowedByIp = consumeRateLimit(forgotPasswordAttempts, ipKey, forgotPasswordRateMax * 5, forgotPasswordRateWindowMs);
-  if (!allowedByEmail || !allowedByIp) {
-    res.status(429).json({ error: "Muitas solicitacoes. Tente novamente mais tarde." });
-    return;
-  }
+  if (await respondWhenLimited(
+    res,
+    "forgot-password",
+    `${requestIp(req)}:${email}`,
+    5,
+    60 * 60 * 1000,
+  )) return;
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (user?.active) {
@@ -234,18 +273,18 @@ router.post("/forgot-password", async (req, res): Promise<void> => {
 });
 
 router.post("/reset-password", async (req, res): Promise<void> => {
-  const ip = req.ip || req.socket.remoteAddress || "unknown";
-  const ipKey = makeRateLimitKey("reset-ip", ip);
-  if (!consumeRateLimit(resetPasswordAttempts, ipKey, resetPasswordRateMax, resetPasswordRateWindowMs)) {
-    res.status(429).json({ error: "Muitas tentativas. Tente novamente mais tarde." });
-    return;
-  }
-
   const parsed = resetPasswordBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  if (await respondWhenLimited(
+    res,
+    "reset-password",
+    `${requestIp(req)}:${sha256(parsed.data.token)}`,
+    10,
+    15 * 60 * 1000,
+  )) return;
 
   const tokenHash = sha256(parsed.data.token);
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
@@ -267,7 +306,10 @@ router.post("/reset-password", async (req, res): Promise<void> => {
       where: { id: resetToken.id },
       data: { usedAt: now },
     });
-    await tx.refreshToken.deleteMany({ where: { userId: resetToken.userId } });
+    await tx.refreshToken.updateMany({
+      where: { userId: resetToken.userId, revokedAt: null },
+      data: { revokedAt: now },
+    });
     return { ok: true as const };
   });
 
@@ -280,55 +322,34 @@ router.post("/reset-password", async (req, res): Promise<void> => {
 });
 
 router.post("/refresh", async (req, res): Promise<void> => {
-  const token = req.cookies?.["refreshToken"];
+  const token = readWebRefreshToken(req);
   if (!token) {
     res.status(401).json({ error: "No refresh token" });
     return;
   }
   try {
-    const payload = verifyRefreshToken(token);
-    const stored = await prisma.refreshToken.findFirst({
-      where: {
-        token,
-        expiresAt: { gt: new Date() },
-      },
-    });
-    if (!stored) {
-      res.status(401).json({ error: "Invalid refresh token" });
-      return;
-    }
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user || !user.active) {
-      res.status(401).json({ error: "User not found or inactive" });
-      return;
-    }
-    await prisma.refreshToken.delete({ where: { token } });
-    const newAccessToken = signAccessToken({ userId: user.id, role: user.role });
-    const newRefreshToken = signRefreshToken({ userId: user.id, role: user.role });
-    await prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        token: newRefreshToken,
-        expiresAt: getRefreshExpiresAt(),
-      },
-    });
-    res.cookie("refreshToken", newRefreshToken, {
-      httpOnly: true,
-      secure: process.env["NODE_ENV"] === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    const rotated = await rotateSession(token);
+    setRefreshCookie(res, rotated.refreshToken);
     res.json({
-      accessToken: newAccessToken,
-      user: formatAuthUser(user),
+      accessToken: rotated.accessToken,
+      user: formatAuthUser(rotated.user),
     });
   } catch {
+    await respondWhenLimited(
+      res,
+      "invalid-web-refresh",
+      `${requestIp(req)}:${sha256(token)}`,
+      20,
+      15 * 60 * 1000,
+    );
+    if (res.headersSent) return;
+    clearRefreshCookies(res);
     res.status(401).json({ error: "Invalid refresh token" });
   }
 });
 
 router.post("/mobile/login", async (req, res): Promise<void> => {
-  const parsed = LoginBody.safeParse(req.body);
+  const parsed = loginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
@@ -336,12 +357,17 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
   const { password } = parsed.data;
   const email = normalizeEmail(parsed.data.email);
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.active) {
-    res.status(401).json({ error: "Credenciais invalidas ou conta inativa" });
-    return;
-  }
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
+  const comparisonHash = user?.passwordHash ?? await dummyPasswordHashPromise;
+  const valid = await bcrypt.compare(password, comparisonHash);
+  if (!user || !user.active || !valid) {
+    const limited = await respondWhenLimited(
+      res,
+      "mobile-login-failure",
+      `${requestIp(req)}:${email}`,
+      5,
+      15 * 60 * 1000,
+    );
+    if (limited) return;
     res.status(401).json({ error: "Credenciais invalidas" });
     return;
   }
@@ -355,68 +381,46 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
 });
 
 router.post("/mobile/refresh", async (req, res): Promise<void> => {
-  const refreshToken = req.body?.refreshToken;
-  if (!refreshToken || typeof refreshToken !== "string") {
-    res.status(400).json({ error: "refreshToken is required" });
+  const parsed = mobileRefreshBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
     return;
   }
 
   try {
-    const payload = verifyRefreshToken(refreshToken);
-    const stored = await prisma.refreshToken.findFirst({
-      where: {
-        token: refreshToken,
-        userId: payload.userId,
-        expiresAt: { gt: new Date() },
-      },
-      include: { user: true },
-    });
-    if (!stored) {
-      res.status(401).json({ error: "Invalid refresh token" });
-      return;
-    }
-    if (!stored.user.active) {
-      await prisma.refreshToken.deleteMany({ where: { userId: stored.userId } });
-      res.status(401).json({ error: "Conta inativa" });
-      return;
-    }
-
-    const newAccessToken = signAccessToken({ userId: stored.user.id, role: stored.user.role });
-    const newRefreshToken = signRefreshToken({ userId: stored.user.id, role: stored.user.role });
-    await prisma.$transaction([
-      prisma.refreshToken.delete({ where: { id: stored.id } }),
-      prisma.refreshToken.create({
-        data: {
-          userId: stored.user.id,
-          token: newRefreshToken,
-          expiresAt: getRefreshExpiresAt(),
-        },
-      }),
-    ]);
+    const rotated = await rotateSession(parsed.data.refreshToken);
     res.json({
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      user: formatAuthUser(stored.user),
+      accessToken: rotated.accessToken,
+      refreshToken: rotated.refreshToken,
+      user: formatAuthUser(rotated.user),
     });
   } catch {
+    await respondWhenLimited(
+      res,
+      "invalid-mobile-refresh",
+      `${requestIp(req)}:${sha256(parsed.data.refreshToken)}`,
+      20,
+      15 * 60 * 1000,
+    );
+    if (res.headersSent) return;
     res.status(401).json({ error: "Invalid refresh token" });
   }
 });
 
 router.post("/mobile/logout", async (req, res): Promise<void> => {
-  const refreshToken = req.body?.refreshToken;
-  if (refreshToken && typeof refreshToken === "string") {
-    await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+  const parsed = mobileRefreshBody.safeParse(req.body);
+  if (parsed.success) {
+    await revokeSession(parsed.data.refreshToken);
   }
   res.status(204).send();
 });
 
 router.post("/logout", async (req, res): Promise<void> => {
-  const token = req.cookies?.["refreshToken"];
+  const token = readWebRefreshToken(req);
   if (token) {
-    await prisma.refreshToken.deleteMany({ where: { token } });
+    await revokeSession(token);
   }
-  res.clearCookie("refreshToken");
+  clearRefreshCookies(res);
   res.status(204).send();
 });
 

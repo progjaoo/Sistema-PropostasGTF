@@ -26,6 +26,7 @@ Este diretorio centraliza as guidelines, padroes tecnicos e regras funcionais do
 13. [Deploy no Vercel com Neon DB](./DEPLOY-VERCEL-NEON.md)
 14. [Deploy no Railway](./DEPLOY-RAILWAY.md)
 15. [Status de producao do ecossistema](./STATUS-PRODUCAO-ECOSSISTEMA.md)
+16. [Seguranca do backend, frontend e sessoes](./seguranca-back-front.md)
 
 ## Documentos Funcionais Existentes
 
