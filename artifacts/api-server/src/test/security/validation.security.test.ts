@@ -77,6 +77,29 @@ describe("request validation and safe errors", () => {
     expect(massAssignment.status).toBe(400);
   });
 
+  it("accepts the catalog default order for programs and products", async () => {
+    const user = await createCommercial();
+    const station = await createStation();
+    await grantStationAccess({ userId: user.id, stationId: station.id });
+    const login = await request(app).post("/api/auth/login").send({
+      email: user.email,
+      password: testPassword,
+    });
+    const authorization = `Bearer ${login.body.accessToken}`;
+
+    const [programs, products] = await Promise.all([
+      request(app)
+        .get("/api/proposal-categories?active=true&sort=order_asc")
+        .set("Authorization", authorization),
+      request(app)
+        .get("/api/product-templates?active=true&sort=order_asc")
+        .set("Authorization", authorization),
+    ]);
+
+    expect(programs.status).toBe(200);
+    expect(products.status).toBe(200);
+  });
+
   it("limits proposals to one hundred products", async () => {
     const user = await createCommercial();
     const station = await createStation();

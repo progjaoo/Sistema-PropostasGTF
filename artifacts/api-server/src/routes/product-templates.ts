@@ -31,6 +31,7 @@ const productListQuery = z.object({
   search: z.string().max(200).optional(),
   active: z.enum(["true", "false", "all"]).optional(),
   sort: z.enum([
+    "order_asc",
     "name_asc",
     "name_desc",
     "newest",
