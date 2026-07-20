@@ -9,7 +9,12 @@ function normalizeApiUrl(req) {
 
   const originalUrl = req.url || "";
   const queryIndex = originalUrl.indexOf("?");
-  const search = queryIndex >= 0 ? originalUrl.slice(queryIndex) : "";
+  const searchParams = new URLSearchParams(
+    queryIndex >= 0 ? originalUrl.slice(queryIndex + 1) : "",
+  );
+  searchParams.delete("path");
+  const publicQuery = searchParams.toString();
+  const search = publicQuery ? `?${publicQuery}` : "";
 
   req.url = cleanPath ? `/api/${cleanPath}${search}` : `/api${search}`;
 }
