@@ -30,6 +30,7 @@ test("remove o parametro interno path ao normalizar a URL da Vercel", () => {
   normalizeApiUrl(req);
 
   assert.equal(req.url, "/api/proposal-types?active=true");
+  assert.deepEqual(req.query, { active: "true" });
 });
 
 test("preserva filtros repetidos sem expor o parametro interno path", () => {

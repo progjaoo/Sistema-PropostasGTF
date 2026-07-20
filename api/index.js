@@ -16,6 +16,9 @@ function normalizeApiUrl(req) {
   const publicQuery = searchParams.toString();
   const search = publicQuery ? `?${publicQuery}` : "";
 
+  if (req.query && typeof req.query === "object") {
+    Reflect.deleteProperty(req.query, "path");
+  }
   req.url = cleanPath ? `/api/${cleanPath}${search}` : `/api${search}`;
 }
 
